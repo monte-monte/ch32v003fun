@@ -388,9 +388,9 @@ keep_going:
 					fprintf( stdout, "\x1b[6n" );
 					fflush( stdout );
 					read( fileno(stdin), input_buf, 10 );
-					if (input_buf[0] == 27)
+					if (input_buf[0] != 27)
 					{
-						nice_terminal = isatty( fileno(stdout) );
+						nice_terminal = 0;
 					}
 					memset( input_buf, 0, sizeof(input_buf) );
 				}
