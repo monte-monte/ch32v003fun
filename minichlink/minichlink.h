@@ -129,10 +129,28 @@ enum RiscVChip {
 	CHIP_CH32V004 = 0x24,
 	CHIP_CH32V005 = 0x25,
 	CHIP_CH32V006 = 0x26,
+	CHIP_CH32V007 = 0x4e,
 
 	CHIP_CH645 = 0x46,
 	CHIP_CH641 = 0x49,
 	CHIP_CH32V317 = 0x86,
+};
+
+struct RiscVChip_s {
+	enum RiscVChip family_id; // ChipID[3]
+	uint16_t model_id;  // ChipID[4-5] & 0xFFF0
+	uint32_t ram_base;
+	uint32_t ram_size;
+	uint32_t sector_size;
+	uint32_t flash_offset;
+  uint32_t flash_size;
+	uint32_t bootloader_offset;
+	uint32_t bootloader_size;
+  uint32_t eeprom_offset;
+  uint32_t eeprom_size;
+	uint32_t options_offset;
+	uint32_t options_size;
+	uint8_t interface_speed;
 };
 
 enum RAMSplit {
@@ -204,7 +222,7 @@ struct InternalState
 #endif
 
 #ifndef TERMINAL_INPUT_BUFFER
-#define TERMINAL_INPUT_BUFFER 0
+#define TERMINAL_INPUT_BUFFER 1
 #endif
 
 #define TERMINAL_BUFFER_SIZE 512
@@ -261,5 +279,455 @@ int PollGDBServer( void * dev );
 int IsGDBServerInShadowHaltState( void * dev );
 void ExitGDBServer( void * dev );
 
+const struct RiscVChip_s ch32v003 = {
+	.family_id = CHIP_CH32V003,
+	.model_id = 0x0030,
+	.ram_base = 0x20000000,
+	.ram_size = 2048,
+	.sector_size = 64,
+	.flash_offset = 0x08000000,
+  .flash_size = 16*1024,
+	.bootloader_offset = 0x1FFFF000,
+	.bootloader_size = 1920,
+	.options_offset = 0x1FFFF800,
+	.options_size = 0x40,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v002 = {
+	.family_id = CHIP_CH32V002,
+	.model_id = 0x0020,
+	.ram_base = 0x20000000,
+	.ram_size = 4096,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 16*1024,
+	.bootloader_offset = 0x1FFF0000,
+	.bootloader_size = 3328,
+	.options_offset = 0x1FFFF800,
+	.options_size = 256,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v004 = {
+	.family_id = CHIP_CH32V004,
+	.model_id = 0x0040,
+	.ram_base = 0x20000000,
+	.ram_size = 6*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 32*1024,
+	.bootloader_offset = 0x1FFF0000,
+	.bootloader_size = 3328,
+	.options_offset = 0x1FFFF800,
+  .options_size = 256,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v005 = {
+	.family_id = CHIP_CH32V005,
+	.model_id = 0x0050,
+	.ram_base = 0x20000000,
+	.ram_size = 6*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 32*1024,
+	.bootloader_offset = 0x1FFF0000,
+	.bootloader_size = 3328,
+	.options_offset = 0x1FFFF800,
+  .options_size = 256,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v006 = {
+	.family_id = CHIP_CH32V006,
+	.model_id = 0x0060,
+	.ram_base = 0x20000000,
+	.ram_size = 8*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 62*1024,
+	.bootloader_offset = 0x1FFF0000,
+	.bootloader_size = 3328,
+	.options_offset = 0x1FFFF800,
+  .options_size = 256,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v007 = {
+	.family_id = CHIP_CH32V007,
+	.model_id = 0x0070,
+	.ram_base = 0x20000000,
+	.ram_size = 8*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 62*1024,
+	.bootloader_offset = 0x1FFF0000,
+	.bootloader_size = 3328,
+	.options_offset = 0x1FFFF800,
+  .options_size = 256,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32x033 = {
+	.family_id = CHIP_CH32X03x,
+	.model_id = 0x0330,
+	.ram_base = 0x20000000,
+	.ram_size = 20*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 62*1024,
+	.bootloader_offset = 0x1FFF0000,
+	.bootloader_size = 3328,
+	.options_offset = 0x1FFFF800,
+  .options_size = 256,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32x035 = {
+	.family_id = CHIP_CH32X03x,
+	.model_id = 0x0350,
+	.ram_base = 0x20000000,
+	.ram_size = 20*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 62*1024,
+	.bootloader_offset = 0x1FFF0000,
+	.bootloader_size = 3328,
+	.options_offset = 0x1FFFF800,
+  .options_size = 256,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v103 = {
+	.family_id = CHIP_CH32V10x,
+	.model_id = 0x1030,
+	.ram_base = 0x20000000,
+	.ram_size = 20*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 64*1024,
+	.bootloader_offset = 0x1FFFF000,
+	.bootloader_size = 2048,
+	.options_offset = 0x1FFFF800,
+  .options_size = 128,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32l103 = {
+	.family_id = CHIP_CH32L10x,
+	.model_id = 0x1030,
+	.ram_base = 0x20000000,
+	.ram_size = 20*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 64*1024,
+	.bootloader_offset = 0x1FFFF000,
+	.bootloader_size = 2048,
+	.options_offset = 0x1FFFF800,
+  .options_size = 256,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v203 = {
+	.family_id = CHIP_CH32V20x,
+	.model_id = 0x2030,
+	.ram_base = 0x20000000,
+	.ram_size = 64*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 224*1024,
+	.bootloader_offset = 0x1FFF8000,
+	.bootloader_size = 28*1024,
+	.options_offset = 0x1FFFF800,
+  .options_size = 128,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v208 = {
+	.family_id = CHIP_CH32V20x,
+	.model_id = 0x2080,
+	.ram_base = 0x20000000,
+	.ram_size = 64*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 480*1024,
+	.bootloader_offset = 0x1FFF8000,
+	.bootloader_size = 28*1024,
+	.options_offset = 0x1FFFF800,
+  .options_size = 128,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v303 = {
+	.family_id = CHIP_CH32V30x,
+	.model_id = 0x3030,
+	.ram_base = 0x20000000,
+	.ram_size = 128*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 480*1024,
+	.bootloader_offset = 0x1FFF8000,
+	.bootloader_size = 28*1024,
+	.options_offset = 0x1FFFF800,
+  .options_size = 128,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v305 = {
+	.family_id = CHIP_CH32V30x,
+	.model_id = 0x3050,
+	.ram_base = 0x20000000,
+	.ram_size = 128*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 480*1024,
+	.bootloader_offset = 0x1FFF8000,
+	.bootloader_size = 28*1024,
+	.options_offset = 0x1FFFF800,
+  .options_size = 128,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v307 = {
+	.family_id = CHIP_CH32V30x,
+	.model_id = 0x3070,
+	.ram_base = 0x20000000,
+	.ram_size = 128*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 480*1024,
+	.bootloader_offset = 0x1FFF8000,
+	.bootloader_size = 28*1024,
+	.options_offset = 0x1FFFF800,
+  .options_size = 128,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch32v317 = {
+	.family_id = CHIP_CH32V30x,
+	.model_id = 0x3170,
+	.ram_base = 0x20000000,
+	.ram_size = 128*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 480*1024,
+	.bootloader_offset = 0x1FFF8000,
+	.bootloader_size = 28*1024,
+	.options_offset = 0x1FFFF800,
+  .options_size = 128,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch564 = {
+	.family_id = CHIP_CH564,
+	.model_id = 0x6400,
+	.ram_base = 0x20000000,
+	.ram_size = 128*1024,
+	.sector_size = 256,
+	.flash_size = 448*1024,
+	.flash_offset = 0x00000000,
+	.bootloader_offset = 0x00078000,
+	.bootloader_size = 32*1024,
+	.options_offset = 0,
+  .options_size = 0,
+	.interface_speed = 0x02
+};
+
+const struct RiscVChip_s ch564c = {
+	.family_id = CHIP_CH564,
+	.model_id = 0x64c0, // Totally speculation
+	.ram_base = 0x20000000,
+	.ram_size = 128*1024,
+	.sector_size = 256,
+	.flash_offset = 0x00000000,
+  .flash_size = 192*1024,
+  .eeprom_offset = 0x00070000,
+  .eeprom_size = 32*1024,
+	.bootloader_offset = 0x00078000,
+	.bootloader_size = 32*1024,
+	.options_offset = 0,
+  .options_size = 0,
+	.interface_speed = 0x02
+};
+
+const struct RiscVChip_s ch571 = {
+	.family_id = CHIP_CH57x,
+	.model_id = 0x7100,
+	.ram_base = 0x20003800,
+	.ram_size = 18*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 192*1024,
+  .eeprom_offset = 0x00070000,
+  .eeprom_size = 32*1024,
+	.bootloader_offset = 0x00078000,
+	.bootloader_size = 24*1024,
+	.options_offset = 0x0007E000,
+  .options_size = 8*1024,
+	.interface_speed = 0x02
+};
+
+const struct RiscVChip_s ch573 = {
+	.family_id = CHIP_CH57x,
+	.model_id = 0x7300,
+	.ram_base = 0x20003800,
+	.ram_size = 18*1024,
+	.sector_size = 256,
+	.flash_size = 448*1024,
+	.flash_offset = 0x08000000,
+  .eeprom_offset = 0x00070000,
+  .eeprom_size = 32*1024,
+	.bootloader_offset = 0x00078000,
+	.bootloader_size = 24*1024,
+	.options_offset = 0x0007E000,
+  .options_size = 8*1024,
+	.interface_speed = 0x02
+};
+
+const struct RiscVChip_s ch581 = {
+	.family_id = CHIP_CH58x,
+	.model_id = 0x8200,
+	.ram_base = 0x20000000,
+	.ram_size = 32*1024,
+	.sector_size = 256,
+	.flash_size = 192*1024,
+	.flash_offset = 0x08000000,
+  .eeprom_offset = 0x00070000,
+  .eeprom_size = 32*1024,
+	.bootloader_offset = 0x00078000,
+	.bootloader_size = 24*1024,
+	.options_offset = 0x0007E000,
+  .options_size = 8*1024,
+	.interface_speed = 0x02
+};
+
+const struct RiscVChip_s ch582 = {
+	.family_id = CHIP_CH58x,
+	.model_id = 0x8200,
+	.ram_base = 0x20000000,
+	.ram_size = 32*1024,
+	.sector_size = 256,
+	.flash_size = 448*1024,
+	.flash_offset = 0x08000000,
+  .eeprom_offset = 0x00070000,
+  .eeprom_size = 32*1024,
+	.bootloader_offset = 0x00078000,
+	.bootloader_size = 24*1024,
+	.options_offset = 0x0007E000,
+  .options_size = 8*1024,
+	.interface_speed = 0x02
+};
+
+const struct RiscVChip_s ch583 = {
+	.family_id = CHIP_CH58x,
+	.model_id = 0x8300,
+	.ram_base = 0x20000000,
+	.ram_size = 32*1024,
+	.sector_size = 256,
+	.flash_size = 448*1024,
+	.flash_offset = 0x08000000,
+  .eeprom_offset = 0x00070000,
+  .eeprom_size = 32*1024,
+	.bootloader_offset = 0x00078000,
+	.bootloader_size = 24*1024,
+	.options_offset = 0x0007E000,
+  .options_size = 8*1024,
+	.interface_speed = 0x02
+};
+
+const struct RiscVChip_s ch591 = {
+	.family_id = CHIP_CH59x,
+	.model_id = 0x9100,
+	.ram_base = 0x20000000,
+	.ram_size = 26*1024,
+	.sector_size = 256,
+	.flash_size = 192*1024,
+	.flash_offset = 0x08000000,
+  .eeprom_offset = 0x00070000,
+  .eeprom_size = 32*1024,
+	.bootloader_offset = 0x00078000,
+	.bootloader_size = 24*1024,
+	.options_offset = 0x0007E000,
+  .options_size = 8*1024,
+	.interface_speed = 0x02
+};
+
+const struct RiscVChip_s ch592 = {
+	.family_id = CHIP_CH59x,
+	.model_id = 0x9200,
+	.ram_base = 0x20000000,
+	.ram_size = 26*1024,
+	.sector_size = 256,
+	.flash_size = 448*1024,
+	.flash_offset = 0x08000000,
+  .eeprom_offset = 0x00070000,
+  .eeprom_size = 32*1024,
+	.bootloader_offset = 0x00078000,
+	.bootloader_size = 24*1024,
+	.options_offset = 0x0007E000,
+  .options_size = 8*1024,
+	.interface_speed = 0x02
+};
+
+const struct RiscVChip_s ch641 = {
+	.family_id = CHIP_CH641,
+	.model_id = 0x6410,
+	.ram_base = 0x20000000,
+	.ram_size = 2048,
+	.sector_size = 64,
+	.flash_offset = 0x08000000,
+  .flash_size = 16*1024,
+	.bootloader_offset = 0x1FFFF000,
+	.bootloader_size = 1920,
+	.options_offset = 0x1FFFF800,
+	.options_size = 0x40,
+	.interface_speed = 0x01
+};
+
+const struct RiscVChip_s ch643 = {
+	.family_id = CHIP_CH643,
+	.model_id = 0x6430,
+	.ram_base = 0x20000000,
+	.ram_size = 20*1024,
+	.sector_size = 256,
+	.flash_offset = 0x08000000,
+  .flash_size = 62*1024,
+	.bootloader_offset = 0x1FFF0000,
+	.bootloader_size = 3328,
+	.options_offset = 0x1FFFF800,
+  .options_size = 256,
+	.interface_speed = 0x01
+};
+
+struct RiscVChip_s * chip_collection[] = {
+  &ch32v003,
+  &ch32v002,
+  &ch32v004,
+  &ch32v005,
+  &ch32v006,
+  &ch32v007,
+  &ch32x033,
+  &ch32x035,
+  &ch32v103,
+  &ch32l103,
+  &ch32v203,
+  &ch32v208,
+  &ch32v303,
+  &ch32v305,
+  &ch32v307,
+  &ch32v317,
+  &ch564,
+  &ch564c,
+  &ch571,
+  &ch573,
+  &ch581,
+  &ch582,
+  &ch583,
+  &ch591,
+  &ch592,
+  &ch641,
+  &ch643
+};
 #endif
 
