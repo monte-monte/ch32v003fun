@@ -523,14 +523,14 @@ retry_DoneOp:
 	if( chip == CHIP_CH59x || chip == CHIP_CH58x || chip == CHIP_CH57x )
 	{
 		switch(rbuff[4]) {
-			case 73:
-			case 82:
-			case 92:
+			case 0x73:
+			case 0x82:
+			case 0x92:
 				iss->flash_size = 448*1024;
 				break;
-			case 71:
-			case 81:
-			case 91:
+			case 0x71:
+			case 0x81:
+			case 0x91:
 			default:
 				iss->flash_size = 192*1024;
 				break;
@@ -544,6 +544,8 @@ retry_DoneOp:
 	//	wch_link_command( dev, "\x81\x11\x01\x09", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Chip ID + Other data (see below)
 	if( unknown_chip_fallback )
 	{
+		// This is a little cursed.  If we're in fallback mode, none of the other chip-specific operations will work
+		// the processor will be in a very cursed mode.  We can't trust it.
 		MCF.HaltMode( d, HALT_MODE_REBOOT );
 	}
 	else
@@ -555,7 +557,7 @@ retry_ID:
 		{
 			if( timeout++ < 10 ) goto retry_ID;
 			fprintf( stderr, "Failed to get chip ID\n" );
-			// return -4;
+			return -4;
 		}
 
 		if( transferred != 20 )
@@ -1108,7 +1110,7 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 
 	int padlen = ((len-1) & (~(iss->sector_size-1))) + iss->sector_size;
 
-  if( iss->target_chip_type == CHIP_CH59x)
+  if( iss->target_chip_type == CHIP_CH59x || iss->target_chip_type == CHIP_CH58x || iss->target_chip_type == CHIP_CH57x )
   {
     wch_link_command( (libusb_device_handle *)dev, "\x81\x0c\x02\x01\02", 5, 0, 0, 0 );
   }
