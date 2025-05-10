@@ -164,7 +164,7 @@
 		#endif
 	#elif defined(CH32V30x)
 		#define HSE_VALUE				  (8000000)
-	#elif defined(CH58x) || defined(CH59x)
+	#elif defined(CH57x) || defined(CH58x) || defined(CH59x)
 		#define HSE_VALUE				  (32000000)
 	#endif
 #endif
@@ -209,7 +209,7 @@
 #endif
 
 #ifndef FUNCONF_SYSTEM_CORE_CLOCK
-	#if defined(CH58x) || defined(CH59x) // no PLL multiplier, but a divider from the 480 MHz clock
+	#if defined(CH57x) || defined(CH58x) || defined(CH59x) // no PLL multiplier, but a divider from the 480 MHz clock
 		#define FUNCONF_SYSTEM_CORE_CLOCK 60000000 // default in ch32fun.c using CLK_SOURCE_PLL_60MHz
 		#if defined(CLK_SOURCE_CH5XX)
 			#error Must define FUNCONF_SYSTEM_CORE_CLOCK too if CLK_SOURCE_CH5XX is defined
@@ -362,6 +362,8 @@ typedef enum {RESET = 0, SET = !RESET} FlagStatus, ITStatus;
 	#include "ch32v20xhw.h"
 #elif defined( CH32V30x )
 	#include "ch32v30xhw.h"
+#elif defined( CH57x )
+	#include "ch57xhw.h"
 #elif defined( CH58x )
 	#include "ch58xhw.h"
 #elif defined( CH59x )
@@ -837,14 +839,20 @@ extern "C" {
 
 #define FUN_HIGH 0x1
 #define FUN_LOW 0x0
-#if defined(CH58x) || defined(CH59x)
+#if defined(CH57x) || defined(CH58x) || defined(CH59x)
+#if defined( PB ) && defined( R32_PB_PIN )
 #define OFFSET_FOR_GPIOB(pin)         (((pin & PB) >> 31) * (&R32_PB_PIN - &R32_PA_PIN)) // 0 if GPIOA, 0x20 if GPIOB
+#else
+#define PB                            0
+#define OFFSET_FOR_GPIOB(pin)         0
+#endif
 #define GPIO_ResetBits(pin)           (*(&R32_PA_CLR + OFFSET_FOR_GPIOB(pin)) |= (pin & ~PB))
 #define GPIO_SetBits(pin)             (*(&R32_PA_OUT + OFFSET_FOR_GPIOB(pin)) |= (pin & ~PB))
 #define GPIO_InverseBits(pin)         (*(&R32_PA_OUT + OFFSET_FOR_GPIOB(pin)) ^= (pin & ~PB))
 #define GPIO_ReadPortPin(pin)         (*(&R32_PA_PIN + OFFSET_FOR_GPIOB(pin)) &  (pin & ~PB))
 #define funDigitalRead(pin)           GPIO_ReadPortPin(pin)
 #define funDigitalWrite( pin, value ) { if((value)==FUN_HIGH){GPIO_SetBits(pin);} else if((value)==FUN_LOW){GPIO_ResetBits(pin);} }
+#define funGpioInitAll()              // funGpioInitAll() does not do anything on ch5xx, put here for consistency
 
 RV_STATIC_INLINE void funPinMode(u32 pin, GPIOModeTypeDef mode)
 {
@@ -959,7 +967,11 @@ static inline void Delay_Tiny( int n ) {
 #endif //defined(__riscv) || defined(__riscv__) || defined( CH32V003FUN_BASE )
 
 // Tricky: We need to make sure main and SystemInit() are preserved.
+#ifdef MINICHLINK
+int main( int argc, char ** argv) __attribute__((used));
+#else
 int main() __attribute__((used));
+#endif
 void SystemInit(void);
 
 #ifdef FUNCONF_UART_PRINTF_BAUD
