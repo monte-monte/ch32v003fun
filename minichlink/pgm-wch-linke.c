@@ -9,6 +9,9 @@
 #include <string.h>
 #include "libusb.h"
 #include "minichlink.h"
+#include "chips.h"
+
+#define FORCE_EXTERNAL_CHIP_DETECTION 1
 
 struct LinkEProgrammerStruct
 {
@@ -17,80 +20,12 @@ struct LinkEProgrammerStruct
 	int lasthaltmode; // For non-003 chips
 };
 
-static void printChipInfo(enum RiscVChip chip) {
-	switch(chip) {
-		case CHIP_UNKNOWN:
-			fprintf(stderr, "No detected chip.\n" );
-			break;
-		case CHIP_CH32V10x:
-			fprintf(stderr, "Detected: CH32V10x\n");
-			break;
-		case CHIP_CH57x:
-			fprintf(stderr, "Detected: CH57x\n");
-			break;
-		case CHIP_CH56x:
-			fprintf(stderr, "Detected: CH56x\n");
-			break;
-		case CHIP_CH32V20x:
-			fprintf(stderr, "Detected: CH32V20x\n");
-			break;
-		case CHIP_CH32V30x:
-			fprintf(stderr, "Detected: CH32V30x\n");
-			break;
-		case CHIP_CH58x:
-			fprintf(stderr, "Detected: CH58x\n");
-			break;
-		case CHIP_CH59x:
-			fprintf(stderr, "Detected: CH59x\n");
-			break;
-		case CHIP_CH643:
-			fprintf(stderr, "Detected: CH643\n");
-			break;
-		case CHIP_CH32X03x:
-			fprintf(stderr, "Detected: CH32X03x\n");
-			break;
-		case CHIP_CH32L10x:
-			fprintf(stderr, "Detected: CH32L10x\n");
-			break;
-		case CHIP_CH564:
-			fprintf(stderr, "Detected: CH564\n");
-			break;
-		case CHIP_CH32V003:
-			fprintf(stderr, "Detected: CH32V003\n");
-			break;
-		case CHIP_CH32V002:
-			fprintf(stderr, "Detected: CH32V002\n");
-			break;
-		case CHIP_CH32V004:
-			fprintf(stderr, "Detected: CH32V004\n");
-			break;
-		case CHIP_CH32V005:
-			fprintf(stderr, "Detected: CH32V005\n");
-			break;
-		case CHIP_CH32V006:
-			fprintf(stderr, "Detected: CH32V006\n");
-			break;
-		case CHIP_CH645:
-			fprintf(stderr, "Detected: CH645\n");
-			break;
-		case CHIP_CH641:
-			fprintf(stderr, "Detected: CH641\n");
-			break;
-		case CHIP_CH32V317:
-			fprintf(stderr, "Detected: CH32V317\n");
-			break;
-	}
-}
-
 static int checkChip(enum RiscVChip chip) {
 	switch(chip) {
 		case CHIP_UNKNOWN:
 		case CHIP_CH32V003:
 		case CHIP_CH32X03x:
-		case CHIP_CH32V002:
-		case CHIP_CH32V004:
-		case CHIP_CH32V006:
-		case CHIP_CH32V005:
+		case CHIP_CH32V00x:
 		case CHIP_CH641:
 		case CHIP_CH643:
 		case CHIP_CH32L10x:
@@ -387,15 +322,9 @@ static int LESetupInterface( void * d )
 			break;
 	}
 
-	// TODO: What in the world is this?  It doesn't appear to be needed.
-	// wch_link_command( dev, "\x81\x0c\x02\x09\x01", 5, 0, 0, 0 ); //Reply is: 820c0101
-
-	// Note from further debugging:
-	// My capture differs in this case: \x05 instead of \x09 -> But does not seem to be needed
-	// wch_link_command( dev, "\x81\x0c\x02\x05\x01", 5, 0, 0, 0 ); //Reply is: 820c0101
 	wch_link_command( dev, "\x81\x0c\x02\x01\x02", 5, 0, 0, 0 );	// By default set interface speed to "normal" (4Mhz) and change that after we detect the chip
 
-	int unknown_chip_fallback = 0;
+	// int unknown_chip_fallback = 0;
 
 	// This puts the processor on hold to allow the debugger to run.
 	int already_tried_reset = 0;
@@ -417,7 +346,7 @@ static int LESetupInterface( void * d )
 				printf( "Already Connected\n" );
 				// Still need to read in the data so we can select the correct chip.
 				wch_link_command( dev, "\x81\x0d\x01\x02", 4, (int*)&transferred, rbuff, 1024 ); // ?? this seems to work?
-				unknown_chip_fallback = 1;
+				// unknown_chip_fallback = 1;
 				break;
 			}
 			is_already_connected = 1;
@@ -434,7 +363,7 @@ static int LESetupInterface( void * d )
 			// Give up if too long
 			if( already_tried_reset > 5 )
 			{
-				unknown_chip_fallback = 1;
+				// unknown_chip_fallback = 1;
 				break;
 			}
 
@@ -461,42 +390,43 @@ static int LESetupInterface( void * d )
 		}
 	} while( 1 );
 
-	printf( "Full Chip Type Reply: [%d] %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", transferred, rbuff[0], rbuff[1], rbuff[2], rbuff[3], rbuff[4], rbuff[5], rbuff[6], rbuff[7], rbuff[8] );
+#if !FORCE_EXTERNAL_CHIP_DETECTION
+  printf( "Full Chip Type Reply: [%d] %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", transferred, rbuff[0], rbuff[1], rbuff[2], rbuff[3], rbuff[4], rbuff[5], rbuff[6], rbuff[7], rbuff[8] );
 
-	enum RiscVChip chip = (enum RiscVChip)rbuff[3];
-	if( chip == 0x4e )
+  const struct RiscVChip_s* chip = FindChip( rbuff[3] << 16 | rbuff[4] << 8 | rbuff[5] );
+  
+	if( !chip )
 	{
-		// It's one of the 00x's.  AND we're on a new programmer, so no need to unknown' it.
-		chip = CHIP_CH32V006;
-	}
-	else if( ( chip == 0x04 || chip == 0x08 || chip == 0x0a || chip > 0x0f )
-		&& chip != CHIP_CH645  && chip != CHIP_CH641 && chip != CHIP_CH32V317 ) {
-		fprintf( stderr, "Chip Type unknown [%02x]. Aborting...\n", chip );
+		fprintf( stderr, "Chip Type unknown [%02x - %04x]. Aborting...\n", rbuff[3], rbuff[4] << 8 | rbuff[5] );
 		return -1;
 	}
+	
+	fprintf( stderr, "Detected: %s\n", chip->name_str );
 
-	if( unknown_chip_fallback )
-	{
-		printf( "Unknown chip fallback\n" );
-		chip = CHIP_UNKNOWN;
-	}
-
-	printChipInfo(chip);
-
-	iss->target_chip_type = chip;
+  iss->target_chip = chip;
+	iss->target_chip_type = chip->family_id;
 	iss->target_chip_id = (rbuff[4] << 24) | (rbuff[5] << 16) | (rbuff[6] << 8) | rbuff[7];
+  iss->flash_size = chip->flash_size;
+  iss->ram_base = chip->ram_base;
+  iss->ram_size = chip->ram_size;
+  iss->sector_size = chip->sector_size;
 
-	int interface_speed = 0x01;	// Set interface clock to 6Mhz
-	if( chip == CHIP_CH59x || chip == CHIP_CH58x || chip == CHIP_CH57x )
-	{
-		interface_speed = 0x02; // Set interface clock to 4Mhz
-	}
-	char cmd_buf[5] = { 0x81, 0x0c, 0x02, chip, interface_speed};
-	wch_link_command( dev, cmd_buf, 5, 0, 0, 0 ); // Set interface clock to 6Mhz
+	// fprintf( stderr, "sector_size = %d : %d\n", iss->sector_size, iss->target_chip->sector_size );
+#else
+
+  MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
+  MCF.DetermineChipType( d );
+
+#endif
+
+  char cmd_buf[5] = { 0x81, 0x0c, 0x02, iss->target_chip_type, iss->target_chip->interface_speed};
+	wch_link_command( dev, cmd_buf, 5, 0, 0, 0 ); // Set interface clock to suitable speed
+
+#if !FORCE_EXTERNAL_CHIP_DETECTION
 	// For some reason, if we don't do this sometimes the programmer starts in a hosey mode.
 	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Make the debug module work properly.
 	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Initiate a halt request.
-	MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
+  MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
 	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Un-super-halt processor.
 
 	int r = 0;
@@ -520,38 +450,17 @@ retry_DoneOp:
 		fprintf( stderr, "Setup success\n" );
 	}
 
-	if( chip == CHIP_CH59x || chip == CHIP_CH58x || chip == CHIP_CH57x )
+	// Skipping extended Chip ID for chips that doesn't have it
+	if( iss->target_chip_type == CHIP_CH59x || iss->target_chip_type == CHIP_CH58x || iss->target_chip_type == CHIP_CH57x )
 	{
-		switch(rbuff[4]) {
-			case 0x73:
-			case 0x82:
-			case 0x92:
-				iss->flash_size = 448*1024;
-				break;
-			case 0x71:
-			case 0x81:
-			case 0x91:
-			default:
-				iss->flash_size = 192*1024;
-				break;
-		}
-		iss->sector_size = 256;
 		MCF.WriteBinaryBlob = LEWriteBinaryBlob;
 		return 0;
 	}
 	// This puts the processor on hold to allow the debugger to run.
 	// Recommended to switch to 05 from 09 by Alexander M
 	//	wch_link_command( dev, "\x81\x11\x01\x09", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Chip ID + Other data (see below)
-	if( unknown_chip_fallback )
-	{
-		// This is a little cursed.  If we're in fallback mode, none of the other chip-specific operations will work
-		// the processor will be in a very cursed mode.  We can't trust it.
-		MCF.HaltMode( d, HALT_MODE_REBOOT );
-	}
-	else
-	{
 retry_ID:
-		wch_link_command( dev, "\x81\x11\x01\x05", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Chip ID + Other data (see below)
+		wch_link_command( dev, "\x81\x11\x01\x09", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Chip ID + Other data (see below)
 
 		if( rbuff[0] == 0x00 )
 		{
@@ -570,34 +479,33 @@ retry_ID:
 		fprintf( stderr, "Part UUID    : %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", rbuff[4], rbuff[5], rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11] );
 		fprintf( stderr, "PFlags       : %02x-%02x-%02x-%02x\n", rbuff[12], rbuff[13], rbuff[14], rbuff[15] );
 		fprintf( stderr, "Part Type (B): %02x-%02x-%02x-%02x\n", rbuff[16], rbuff[17], rbuff[18], rbuff[19] );
+		for (int n = 0; n < transferred; n++) {
+			fprintf(stderr, "%02x ", rbuff[n]);
+		}
+		fprintf(stderr, "\n");
 
 		// Quirk, was fixed in LinkE version 2.12.
 		if( iss->target_chip_type == CHIP_CH32V10x && flash_size == 62 )
 		{
 			fprintf( stderr, "While the debugger reports this as a CH32V10x, it's probably a CH32X03x\n" );
-			chip = iss->target_chip_type = CHIP_CH32X03x;
+			iss->target_chip_type = CHIP_CH32X03x;
+			iss->target_chip = &ch32x035;
 		}
 
-		if( (iss->target_chip_type == CHIP_CH32X03x) || (iss->target_chip_type == CHIP_CH643) )
-		{
-			iss->sector_size = 256;
-		}
-
-		int result = checkChip(chip);
+		int result = checkChip(chip->family_id);
 		if( result == 1 ) // Using blob write
 		{
 			fprintf( stderr, "Using binary blob write for operation.\n" );
 			MCF.WriteBinaryBlob = LEWriteBinaryBlob;
 
-			iss->sector_size = 256;
-
+			// iss->sector_size = 256;
+      // Why do we need this exactly? For blobed chips only?
 			wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
 
 		} else if( result < 0 ) {
 			fprintf( stderr, "Chip type not supported. Aborting...\n" );
 			return -1;
 		}
-
 
 		// Check for read protection
 		wch_link_command( dev, "\x81\x06\x01\x01", 4, (int*)&transferred, rbuff, 1024 );
@@ -611,10 +519,8 @@ retry_ID:
 		} else {
 			fprintf(stderr, "Read protection: disabled\n");
 		}
-
-		iss->flash_size = flash_size*1024;
-	}
-
+    if(flash_size) iss->flash_size = flash_size*1024;
+#endif
 	return 0;
 }
 
@@ -1101,6 +1007,8 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
 	struct InternalState * iss = (struct InternalState*)(((struct LinkEProgrammerStruct*)d)->internal);
 
+	fprintf( stderr, "len = %d, sector_size = %d device = %d chip_name = %s\n", len, iss->sector_size, iss->target_chip_type,  iss->target_chip->name_str);
+
 	InternalLinkEHaltMode( d, 0 );
 
 	int i;
@@ -1110,9 +1018,12 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 
 	int padlen = ((len-1) & (~(iss->sector_size-1))) + iss->sector_size;
 
+	fprintf( stderr, "len = %d, sector_size = %d padlen = %d\n", len, iss->sector_size, padlen );
+
   if( iss->target_chip_type == CHIP_CH59x || iss->target_chip_type == CHIP_CH58x || iss->target_chip_type == CHIP_CH57x )
   {
-    wch_link_command( (libusb_device_handle *)dev, "\x81\x0c\x02\x01\02", 5, 0, 0, 0 );
+    wch_link_command( (libusb_device_handle *)dev, "\x81\x0c\x02\x01\03", 5, 0, 0, 0 );
+		fprintf( stderr, "This shit\n" );
   }
   else
   {
@@ -1171,7 +1082,7 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 			WCHCHECK( libusb_bulk_transfer( (libusb_device_handle *)dev, 0x02, ((uint8_t*)blob)+pplace, iss->sector_size, &transferred, WCHTIMEOUT ) );
 		}
 	}
-  // wch_link_command( (libusb_device_handle *)dev, "\x81\x02\x01\x08", 4, 0, rbuff, 1024 );
+  wch_link_command( (libusb_device_handle *)dev, "\x81\x02\x01\x08", 4, 0, rbuff, 1024 );
 
 	return 0;
 }
