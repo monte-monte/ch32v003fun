@@ -11,27 +11,6 @@ Copyright 2022 monte-monte
 #include <stdlib.h>
 #include <string.h>
 #include "terminalhelp.h"
-#include <time.h>
-
-uint8_t ch5xx_microblob_write_flash[] = {
-  0x23, 0x83, 0x06, 0x00, 0x15, 0x47, 0x01, 0x00, 0x23, 0x83, 0xe6, 0x00,
-  0x19, 0x47, 0x01, 0x00, 0x23, 0x82, 0xe6, 0x00, 0x03, 0x87, 0x66, 0x00,
-  0xe3, 0x4e, 0x07, 0xfe, 0x23, 0x83, 0x06, 0x00, 0x23, 0x83, 0x06, 0x00,
-  0x15, 0x47, 0x01, 0x00, 0x23, 0x83, 0xe6, 0x00, 0x09, 0x47, 0x01, 0x00,
-  0x23, 0x82, 0xe6, 0x00, 0x11, 0x46, 0x7d, 0x16, 0x09, 0xce, 0x93, 0x55,
-  0x05, 0x01, 0x93, 0xf5, 0xf5, 0x0f, 0x03, 0x87, 0x66, 0x00, 0xe3, 0x4e,
-  0x07, 0xfe, 0x23, 0x82, 0xb6, 0x00, 0x21, 0x81, 0xdd, 0xb7, 0x02, 0x90,
-  0x9c, 0xc2, 0x11, 0x47, 0x83, 0x87, 0x66, 0x00, 0xe3, 0xce, 0x07, 0xfe,
-  0x23, 0x83, 0x56, 0x00, 0x7d, 0x17, 0x6d, 0xfb, 0x02, 0x90, 0x37, 0x06,
-  0x08, 0x00, 0x03, 0x87, 0x66, 0x00, 0xe3, 0x41, 0x07, 0xfa, 0x23, 0x83,
-  0x06, 0x00, 0x23, 0x83, 0x06, 0x00, 0x15, 0x47, 0x01, 0x00, 0x23, 0x83,
-  0xe6, 0x00, 0x15, 0x47, 0x23, 0x82, 0xe6, 0x00, 0x03, 0x87, 0x66, 0x00,
-  0xe3, 0x4e, 0x07, 0xfe, 0x83, 0xc7, 0x46, 0x00, 0x03, 0x87, 0x66, 0x00,
-  0xe3, 0x4e, 0x07, 0xfe, 0x83, 0xc7, 0x46, 0x00, 0x03, 0x87, 0x66, 0x00,
-  0xe3, 0x4e, 0x07, 0xfe, 0x23, 0x83, 0x06, 0x00, 0x13, 0xf7, 0x17, 0x00,
-  0x11, 0xe3, 0x02, 0x90, 0x7d, 0x16, 0x45, 0xfa, 0x02, 0x90, 0x00, 0x00
-};
-uint8_t ch5xx_microblob_write_flash_len = 192;
 
 unsigned char ch5xx_write_block_bin[] = {
   0x80, 0x41, 0xc4, 0x41, 0xe3, 0x9e, 0x84, 0xfe, 0x65, 0xfc, 0x1a, 0x85,
@@ -56,7 +35,6 @@ unsigned char ch5xx_write_block_bin[] = {
   0x23, 0xa0, 0x06, 0x00, 0x11, 0x47, 0xbd, 0xbf
 };
 unsigned int ch5xx_write_block_bin_len = 236;
-
 
 unsigned char ch5xx_blink_bin[] = {
   0x18, 0xc2, 0xb6, 0x87, 0x23, 0x24, 0x06, 0x00, 0xfd, 0x17, 0xfd, 0xff,
@@ -482,123 +460,12 @@ int ch5xx_read_uuid(void * dev, uint8_t * buffer) {
   return 0;
 }
 
-int ch5xx_write_flash_using_microblob(void * dev, uint32_t start_addr, uint8_t* data, uint32_t len) {
-  struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
-  int r;
-  uint32_t rrv;
-  uint8_t timer = 0;
-
-  for (int i = 0; i < ch5xx_microblob_write_flash_len; i+=4) {
-    MCF.WriteWord(dev, 0x20000000+i, *((uint32_t*)(ch5xx_microblob_write_flash + i)));
-    fprintf(stderr, "i= %i, data = %08x\n", i, *((uint32_t*)(ch5xx_microblob_write_flash + i)));
-    // MCF.WriteByte(dev, 0x20000000+i, ch5xx_microblob_write_flash[i]);
-  }
-  MCF.ReadWord(dev, 0x20000000, &rrv);
-  fprintf(stderr, "0x20000000 = %08x\n", rrv);
-
-  ch5xx_flash_open(dev, 0xe0);
-
-  MCF.WriteReg32(dev, DMABSTRACTAUTO, 0x00000000); // Disable Autoexec.
-  MCF.WriteReg32(dev, DMDATA0, R32_FLASH_DATA);
-  MCF.WriteReg32(dev, DMCOMMAND, 0x00230000 | 0x100d); // Write a3 from DATA0.
-  MCF.WriteReg32(dev, DMDATA0, 21);
-  MCF.WriteReg32(dev, DMCOMMAND, 0x00230000 | 0x1005); // Write t1 from DATA0.
-  MCF.WriteReg32(dev, DMDATA0, 0x22222222);
-  MCF.WriteReg32(dev, DMCOMMAND, 0x0023100f);
-  MCF.WriteReg32(dev, DMPROGBUF0, 0x00018602); // c.jr a2; c.ebreak;
-  // MCF.WriteReg32( dev, DMPROGBUF0, 0x00100073 ); // c.ebreak
-  while(len) {
-    MCF.WriteReg32(dev, DMPROGBUF0, 0x00018602); // c.jr a2; c.ebreak;
-    MCF.WriteReg32(dev, DMDATA0, start_addr);
-    MCF.WriteReg32(dev, DMCOMMAND, 0x00230000 | 0x100a); // Write a0 from DATA0.
-    MCF.WriteReg32(dev, DMDATA0, 0x20000000); //Start of RAM
-    MCF.WriteReg32(dev, DMCOMMAND, 0x00270000 | 0x100c); // Write a2 from DATA0.
-    // MCF.WriteReg32( dev, DMDATA0, 0x20000000 ); //R32_PA_DIR
-    // MCF.WriteReg32( dev, DMCOMMAND, 0x002707b1 ); // Execute.
-    // fprintf(stderr, "New 256 bytes\n");
-    timer = 0;
-    uint32_t rr;
-    do {
-      r = MCF.ReadReg32(dev, DMABSTRACTCS, &rrv);
-      if(r) return r;
-      if (rrv & (0x700)) {
-        fprintf(stderr, "Error1: %08x\n", rrv);
-        MCF.WriteReg32( dev, DMCOMMAND, 0x002207b1); // Read xN into DATA0.
-		    MCF.ReadReg32( dev, DMDATA0, &rr);
-        fprintf(stderr, "DPC: %08x\n", rr);
-        return rrv;
-      }
-      if (timer == 200) {
-        MCF.WriteReg32(dev, DMCOMMAND, 0x002207b1); // Read xN into DATA0.
-		    MCF.ReadReg32(dev, DMDATA0, &rr);
-        fprintf(stderr, "Timeout at: %08x\n", rr);
-        return -10;
-      }
-      timer++;
-    } while((rrv & (1<<12)));
-
-    // fprintf(stderr, "Now write loop\n");
-    // MCF.WriteReg32( dev, DMDATA0, 21 );
-    // MCF.WriteReg32( dev, DMCOMMAND, 0x00230000 | 0x1005 ); // Write t0 from DATA0.
-    
-    // MCF.WriteReg32( dev, DMPROGBUF0, 0x4791c298 ); // c.sw a4,0(a3); c.li a5,0x4;
-    // MCF.WriteReg32( dev, DMPROGBUF1, 0x00668703 ); // lb a4,6(a3);
-    // MCF.WriteReg32( dev, DMPROGBUF2, 0xfe074ee3 ); // blt a4,zero,-4;
-    // MCF.WriteReg32( dev, DMPROGBUF3, 0x00568323 ); // sb t0,6(a3);
-    // MCF.WriteReg32( dev, DMPROGBUF4, 0xfbed17fd ); // c.addi a5,-1; c.bnez a5,-14;
-    // MCF.WriteReg32( dev, DMPROGBUF5, 0x00100073 ); // c.ebreak
-    uint32_t block = len>256?256:len;
-    for (uint32_t i = 0; i < block/4; i++) {
-      // fprintf(stderr, "%08x ", *(((uint32_t*)test_data)+i));
-      // MCF.WriteReg32( dev, DMDATA0, *(((uint32_t*)data)+i));
-      MCF.WriteReg32(dev, DMDATA0, 0x22222222);
-      MCF.WriteReg32(dev, DMCOMMAND, 0x0023100f); // Write a5
-      MCF.WriteReg32(dev, DMDATA0, 0x20000054); //0x58 - WRITE
-      MCF.WriteReg32(dev, DMCOMMAND, 0x00270000 | 0x100c); // Write a2 from DATA0 and jump.
-      // MCF.WriteReg32( dev, DMCOMMAND, 0x002707b1 ); // Execute.
-      // MCF.WriteReg32( dev, DMCOMMAND, 0x0027100e ); // Write a4 and execute.
-      do {
-        r = MCF.ReadReg32(dev, DMABSTRACTCS, &rrv);
-        if(r) return r;
-        if (rrv & (0x700)) {
-          fprintf(stderr, "Error2: %08x\n", rrv);
-          return rrv;
-        }
-        // MCF.WriteReg32( dev, DMABSTRACTCS, 1<<12 ); 
-      } while((rrv & (1<<12)));
-    }
-    // fprintf(stderr, "\nWaiting flash... block = %d, len = %d, start_addr = %d\n", block, len, start_addr);
-    
-    // fprintf(stderr, "Now wait.\n");
-    // r = ch5xx_flash_wait(dev);
-    // MCF.WriteReg32( dev, DMDATA0, 0x2000006a ); //0x70 - WAIT
-    // MCF.WriteReg32( dev, DMCOMMAND, 0x002707b1 ); // Execute.
-    // MCF.WriteReg32( dev, DMCOMMAND, 0x00270000 | 0x100c ); // Write a2 from DATA0 and jump.
-    do {
-      r = MCF.ReadReg32(dev, DMABSTRACTCS, &rrv);
-      if(r) return r;
-      if (rrv & (0x700)) {
-        fprintf(stderr, "Error3: %08x\n", rrv);
-        return rrv;
-      }
-    } while((rrv & (1<<12)));
-    len -= block;
-    start_addr += block;
-    fprintf(stderr, ".");
-  }
-
-  ch5xx_flash_close(dev);
-  
-  return 0;
-}
-
 int ch5xx_write_flash_using_microblob2(void * dev, uint32_t start_addr, uint8_t* data, uint32_t len) {
   struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
   int r;
-  uint32_t rrv;
   uint8_t timer = 0;
   uint32_t dmdata0;
-  uint32_t data_to_write = 0x00000001;
+  // uint32_t data_to_write = 0x00000001;
   uint32_t dmdata0_offset = 0xe0000380;
   MCF.ReadReg32(dev, DMHARTINFO, &dmdata0_offset);
   dmdata0_offset = (dmdata0_offset & 0x0000fff) + 0xe0000000;
@@ -739,7 +606,7 @@ int ch5xx_write_flash(void * dev, uint32_t start_addr, uint8_t* data, uint32_t l
   struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
   fprintf(stderr, "Writing flash slowly. addr = %d, len = %d\n", start_addr, len);
 
-  uint32_t data_to_write = 0x00000001;
+  // uint32_t data_to_write = 0x00000001;
   uint32_t position = 0;
 
   // ch5xx_write_byte_safe(dev, 0x40001008, 0x82);
@@ -816,7 +683,7 @@ int CH5xxErase(void* dev, uint32_t addr, uint32_t len, int type) {
 		// memset( iss->flash_sector_status, 1, sizeof( iss->flash_sector_status ) );
 	}
 	
-  printf( "len = %d, addr = %d, flash_cmd = %02x\n", len, addr, flash_cmd);
+  printf( "len = %d, addr = %d\n", len, addr);
 
   uint32_t left = len;
   int chunk_to_erase = addr;
@@ -961,17 +828,15 @@ void CH5xxBlink( void * dev, uint8_t port, uint8_t pin, uint32_t delay) {
 	do {
     if(IsKBHit()) break;
 		r = MCF.ReadReg32(dev, DMABSTRACTCS, &rrv);
-		if(r) return r;
+		if(r) return;
 	} while((rrv & (1<<12)));
 
   MCF.WriteReg32(dev, DMCONTROL, 0x80000003);  
-  return 0;
 }
 
 void CH5xxTestPC(void * dev) {
-  struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
+  // struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
-  int r;
   uint32_t rr;
   uint32_t port_reg = 0x400010A0;
   uint32_t pin_mask = (1 << 3);
@@ -1028,14 +893,12 @@ void CH5xxTestPC(void * dev) {
   
   // MCF.WaitForDoneOp( dev, 0);
   // uint8_t timer = 0;
-  uint32_t rrv;
   uint32_t dmdata0;
   do
 	{
     // if(ReadKBByte()) return 0;
-		r = MCF.ReadReg32( dev, DMABSTRACTCS, &rr );
+		MCF.ReadReg32( dev, DMABSTRACTCS, &rr );
     // fprintf( stderr, "DMABSTRACTCS = %08x\n", rr);
-		if( r ) return r;
     // if (timer > 100) {
     //   MCF.WriteReg32( dev, DMCOMMAND, 0x002207b1); // Read xN into DATA0.
     //   MCF.ReadReg32( dev, DMDATA0, &rrv);
