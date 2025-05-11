@@ -421,6 +421,8 @@ static int LESetupInterface( void * d )
 
   char cmd_buf[5] = { 0x81, 0x0c, 0x02, iss->target_chip_type, iss->target_chip->interface_speed};
 	wch_link_command( dev, cmd_buf, 5, 0, 0, 0 ); // Set interface clock to suitable speed
+  MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
+	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Un-super-halt processor.
 
 #if !FORCE_EXTERNAL_CHIP_DETECTION
 	// For some reason, if we don't do this sometimes the programmer starts in a hosey mode.

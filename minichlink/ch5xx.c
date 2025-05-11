@@ -347,8 +347,10 @@ int ch5xx_read_secret_uuid(void * dev, uint8_t * buffer) {
 
   uint8_t local_buffer[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-  uint32_t dmdata0;
-  MCF.ReadReg32(dev, DMHARTINFO, &dmdata0);
+  uint32_t dmdata0_offset = 0xe0000380;
+  MCF.ReadReg32(dev, DMHARTINFO, &dmdata0_offset);
+  dmdata0_offset = (dmdata0_offset & 0x0000fff) + 0xe0000000;
+  
 
   ch5xx_flash_open(dev, 0x20);
   // ch5xx_flash_open(dev, 0xe0);
@@ -356,7 +358,7 @@ int ch5xx_read_secret_uuid(void * dev, uint8_t * buffer) {
   
   MCF.WriteReg32(dev, DMDATA0, 0xffffffff);
   MCF.WriteReg32(dev, DMCOMMAND, 0x00230000 | 0x1005); // Write t0 from DATA0
-  MCF.WriteReg32(dev, DMDATA0, (dmdata0 & 0x0000fff) + 0xe0000000);
+  MCF.WriteReg32(dev, DMDATA0, dmdata0_offset);
   MCF.WriteReg32(dev, DMCOMMAND, 0x00230000 | 0x100a); // Write a0 from DATA0
   MCF.WriteReg32(dev, DMDATA0, 0xf);
   MCF.WriteReg32(dev, DMCOMMAND, 0x00230000 | 0x100b); // Write a1 from DATA0
@@ -370,18 +372,21 @@ int ch5xx_read_secret_uuid(void * dev, uint8_t * buffer) {
   MCF.WriteReg32(dev, DMPROGBUF4, 0x00078603); // lb a2,0x0(a5);
   MCF.WriteReg32(dev, DMPROGBUF5, 0x8f3115fd); // c.addi a1,-1; c.xor a4,a2;
   MCF.WriteReg32(dev, DMPROGBUF6, 0x00e78023); // sb a4,0(a5);
-  MCF.WriteReg32(dev, DMPROGBUF7, 0xfe5592e3); // bne a1,t0,-28;
-  MCF.WriteReg32(dev, DMCOMMAND, 0x00271000); // Execute program.
+  MCF.WriteReg32(dev, DMPROGBUF7, 0x00100073); // c.ebreak
+  // MCF.WriteReg32(dev, DMPROGBUF7, 0xfe5592e3); // bne a1,t0,-28;
+  // MCF.WriteReg32(dev, DMCOMMAND, 0x00271000); // Execute program.
   uint32_t rrv;
   int r;
-  do {
-    r = MCF.ReadReg32(dev, DMABSTRACTCS, &rrv);
-    if(r) return r;
-    if (rrv & (0x700)) {
-      MCF.WriteReg32(dev, DMABSTRACTCS, 0x08000700); // Clear out any dmabstractcs errors.
-    }
-  } while((rrv & (1<<12)));
-  
+  for (int i = 0xf; i > -1; i--) {
+    MCF.WriteReg32(dev, DMCOMMAND, 0x00271000); // Execute program.
+    do {
+      r = MCF.ReadReg32(dev, DMABSTRACTCS, &rrv);
+      if(r) return r;
+      if (rrv & (0x700)) {
+        MCF.WriteReg32(dev, DMABSTRACTCS, 0x08000700); // Clear out any dmabstractcs errors.
+      }
+    } while((rrv & (1<<12)));
+  }
   MCF.ReadReg32(dev, DMDATA0, (uint32_t*)local_buffer);
   MCF.ReadReg32(dev, DMDATA1, (uint32_t*)(local_buffer+4));
 

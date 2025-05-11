@@ -383,7 +383,8 @@ keep_going:
 				else if( argchar[1] == 'T' )
 				{
 					// In case we aren't running already.
-					MCF.HaltMode( dev, 1 );
+          if (iss->target_chip_type == CHIP_CH570) MCF.HaltMode( dev, 1 );
+					else MCF.HaltMode( dev, 2 );
 				}
 
 				CaptureKeyboardInput();
@@ -1505,8 +1506,8 @@ chip_identified:
     }
 		iss->statetag = STTAG( "XXXX" );
 	}
-  MCF.WriteReg32( dev, DMCONTROL, 0x80000003 ); // Reboot chip
-	MCF.WriteReg32( dev, DMCONTROL, 0x80000001 ); // Halt processor
+  // MCF.WriteReg32( dev, DMCONTROL, 0x80000003 ); // Reboot chip
+	// MCF.WriteReg32( dev, DMCONTROL, 0x80000001 ); // Halt processor
 	return 0;
 }
 
