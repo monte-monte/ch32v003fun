@@ -2166,7 +2166,7 @@ static int DefaultReadWord( void * dev, uint32_t address_to_read, uint32_t * dat
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
 	int autoincrement = 1;
-	if( address_to_read == 0x40022010 || address_to_read == 0x4002200C )  // Don't autoincrement when checking flash flag. 
+	if( iss->target_chip_type == CHIP_CH58x || address_to_read == 0x40022010 || address_to_read == 0x4002200C )  // Don't autoincrement when checking flash flag. 
 	{
 		autoincrement = 0;
 	}
