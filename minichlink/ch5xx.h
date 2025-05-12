@@ -28,6 +28,7 @@ int ch5xx_read_options(void * dev, uint32_t addr, uint8_t* buffer);
 int ch5xx_read_secret_uuid(void * dev, uint8_t * buffer);
 int ch5xx_read_uuid(void * dev, uint8_t * buffer);
 int ch5xx_write_flash(void * dev, uint32_t start_addr, uint8_t* data, uint32_t len);
+int ch5xx_print_info(void * dev);
 int CH5xxErase(void* dev, uint32_t addr, uint32_t len, int type);
 int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_size, const uint8_t * blob);
 int CH5xxReadBinaryBlob(void * dev, uint32_t address_to_read_from, uint32_t read_size, uint8_t * blob);

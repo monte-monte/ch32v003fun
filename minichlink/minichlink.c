@@ -2935,17 +2935,7 @@ int DefaultPrintChipInfo( void * dev )
   }
   else if( iss->target_chip->protocol == PROTOCOL_CH5xx )
   {
-    uint8_t info[8];
-    if( ch5xx_read_uuid( dev, info ) ) goto fail;
-    printf( "UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", info[0], info[1], info[2], info[3], info[4], info[5], info[6], info[7] );
-    printf( "BLE MAC: %02x-%02x-%02x-%02x-%02x-%02x\n", info[0], info[1], info[2], info[3], info[4], info[5] );
-    if( ch5xx_read_secret_uuid( dev, info ) ) goto fail;
-    printf( "Secret UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", info[0], info[1], info[2], info[3], info[4], info[5], info[6], info[7] );
-    uint32_t options_address = 0x7EFFC;
-    if( iss->target_chip_type == CHIP_CH570 ) options_address = 0x3EFFC;
-    // memset(info,0,8);
-    if( ch5xx_read_options( dev, options_address, info ) ) goto fail;
-    printf( "Options (WiP): %08x-%02x-%02x\n", ((uint32_t*)info)[0], info[4], info[5] );
+    if ( ch5xx_print_info( dev ) ) goto fail;
     return 0;
   }
 fail:

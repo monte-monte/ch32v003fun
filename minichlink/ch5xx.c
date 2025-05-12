@@ -933,3 +933,41 @@ void CH5xxTestPC(void * dev) {
 	MCF.ReadReg32( dev, DMDATA0, &rr );
   fprintf(stderr, "a1 = %08x\n", rr);
 }
+
+int ch5xx_print_info(void * dev) {
+  struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
+  uint8_t info[8];
+  if (ch5xx_read_uuid(dev, info)) return -1;
+  printf("UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", info[0], info[1], info[2], info[3], info[4], info[5], info[6], info[7]);
+  printf("BLE MAC: %02x-%02x-%02x-%02x-%02x-%02x\n", info[0], info[1], info[2], info[3], info[4], info[5]);
+  if (ch5xx_read_secret_uuid(dev, info)) return -1;
+  printf("Secret UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", info[0], info[1], info[2], info[3], info[4], info[5], info[6], info[7]);
+  uint32_t options_address = 0x7F010;
+  if (iss->target_chip_type == CHIP_CH570) options_address = 0x3F010;
+  if (ch5xx_read_options(dev, options_address, info)) return -1;
+  printf("Boot version: %08x-%08x:\n", ((uint32_t*)info)[0], ((uint32_t*)info)[1]);
+  options_address = 0x7EFFC;
+  if (iss->target_chip_type == CHIP_CH570) options_address = 0x3EFFC;
+  if (ch5xx_read_options(dev, options_address, info)) return -1;
+  printf("Options bytes: %08x-%02x-%02x:\n", ((uint32_t*)info)[0], info[4], info[5]);
+  uint32_t option_bytes = ((uint32_t*)info)[0];
+  if ((option_bytes >> 28) != 4) {
+    printf("Options signature is not valid: %02x\n", (option_bytes >> 28));
+    return -1;
+  }
+  if (iss->target_chip_type == CHIP_CH570) {
+    printf("Reset - %s\n", (option_bytes&0x8)?"enabled":"disabled");
+    printf("Reset pin - PA%d\n", (option_bytes&0x10)?7:8);
+    printf("IWDG - %s\n", (option_bytes&0x20)?"enabled":"disabled");
+    printf("Bootloader - %s\n", (option_bytes&0x40)?"enabled":"disabled");
+    printf("Readout protection - %s\n", ((option_bytes&0x00FF0000)==0x3a0000)?"disabled":"enabled");
+  } else {
+    printf("Reset - %s\n", (option_bytes&0x8)?"enabled":"disabled");
+    printf("Reset pin - PB%d\n", (option_bytes&0x200)?22:11);
+    printf("Debug - %s\n", (option_bytes&0x10)?"enabled":"disabled");
+    printf("Bootloader - %s\n", (option_bytes&0x40)?"enabled":"disabled");
+    printf("UART_NO_KEY(what is that?) - %s\n", (option_bytes&0x100)?"enabled":"disabled");
+    printf("Readout protection - %s\n", (option_bytes&80)?"disabled":"enabled");
+  }
+  return 0;
+}
