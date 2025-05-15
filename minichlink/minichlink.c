@@ -316,9 +316,17 @@ keep_going:
 			case 'p': 
 				if( MCF.HaltMode ) MCF.HaltMode( dev, HALT_MODE_HALT_AND_RESET );
 				if( MCF.ConfigureReadProtection )
-					MCF.ConfigureReadProtection( dev, 0 );
+        {
+          fprintf(stderr, "This will erase the flash entirely!");
+          fprintf(stderr, "Press Enter to proceed, Ctrl+C to abort.");
+          while(!IsKBHit());
+          // TODO: revert after testing
+          if( iss->target_chip_type == CHIP_CH570 ) ch570_disable_read_protection( dev );
+          else MCF.ConfigureReadProtection( dev, 0 );
+        }
 				else
 					goto unimplemented;
+        
 				break;
 			case 'P':
 				if( MCF.HaltMode ) MCF.HaltMode( dev, HALT_MODE_HALT_AND_RESET );
@@ -1707,10 +1715,11 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	int ret = 0;
 
-	int is_flash = IsAddressFlash( address_to_write );
+	// int is_flash = IsAddressFlash( address_to_write );
+	int is_flash = 0;
 
-	if( iss->statetag != STTAG( "WRSQ" ) || is_flash != iss->lastwriteflags )
-	{
+	// if( iss->statetag != STTAG( "WRSQ" ) || is_flash != iss->lastwriteflags )
+	// {
 		int did_disable_req = 0;
 		if( iss->statetag != STTAG( "WRSQ" ) )
 		{
@@ -1778,16 +1787,16 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 
 		iss->statetag = STTAG( "WRSQ" );
 		iss->currentstateval = address_to_write;
-	}
-	else
-	{
-		if( address_to_write != iss->currentstateval )
-		{
-			MCF.WriteReg32( dev, DMDATA1, address_to_write );
-		}
+	// }
+	// else
+	// {
+	// 	if( address_to_write != iss->currentstateval )
+	// 	{
+	// 		MCF.WriteReg32( dev, DMDATA1, address_to_write );
+	// 	}
 
-		MCF.WriteReg32( dev, DMDATA0, data );
-	}
+	// 	MCF.WriteReg32( dev, DMDATA0, data );
+	// }
 
 	if( is_flash )
 		ret |= MCF.WaitForDoneOp( dev, 0 );

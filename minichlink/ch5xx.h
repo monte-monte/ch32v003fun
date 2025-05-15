@@ -34,5 +34,7 @@ int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_si
 int CH5xxReadBinaryBlob(void * dev, uint32_t address_to_read_from, uint32_t read_size, uint8_t * blob);
 void CH5xxBlink(void * dev, uint8_t port, uint8_t pin, uint32_t delay);
 void CH5xxTestPC(void* dev);
+void ch570_disable_acauto(void * dev);
+void ch570_disable_read_protection(void * dev);
 
 #endif

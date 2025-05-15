@@ -381,7 +381,7 @@ const struct RiscVChip_s ch570 = {
 	.bootloader_size = 0,
 	.options_offset = 0x0003E000,
 	.options_size = 8*1024,
-	.interface_speed = 0x02,
+	.interface_speed = 0x01,
   .protocol = PROTOCOL_CH5xx,
 };
 
@@ -419,7 +419,7 @@ const struct RiscVChip_s ch572 = {
 	.bootloader_size = 0,
 	.options_offset = 0x0003E000,
 	.options_size = 8*1024,
-	.interface_speed = 0x02,
+	.interface_speed = 0x01,
   .protocol = PROTOCOL_CH5xx,
 };
 

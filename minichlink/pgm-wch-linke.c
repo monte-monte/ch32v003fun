@@ -296,6 +296,25 @@ static int LESetupInterface( void * d )
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)d)->internal);
 	uint8_t rbuff[1024];
 	uint32_t transferred = 0;
+
+  // wch_link_command( dev, "\x81\x0d\x01\x01", 4, (int*)&transferred, rbuff, 1024 );
+  // wch_link_command( dev, "\x81\x0d\x02\xee\x02", 5, (int*)&transferred, rbuff, 1024 );
+  // wch_link_command( dev, "\x81\x0c\x02\x8b\x01", 5, 0, 0, 0 );
+  // wch_link_command( dev, "\x81\x0d\x01\x02", 4, (int*)&transferred, rbuff, 1024 );
+  // wch_link_command( dev, "\x81\x0d\x02\xee\x02", 5, (int*)&transferred, rbuff, 1024 );
+  // wch_link_command( dev, "\x81\x0c\x02\x8b\x01", 5, 0, 0, 0 );
+  // wch_link_command( dev, "\x81\x0d\x01\x02", 4, (int*)&transferred, rbuff, 1024 );
+  // wch_link_command( dev, "\x81\x06\x08\x03\x50\x00\xff\x40\x00\x00\x00", 11, (int*)&transferred, rbuff, 1024 );
+
+  // iss->target_chip = &ch570;
+	// iss->target_chip_type = iss->target_chip->family_id;
+  // iss->flash_size = iss->target_chip->flash_size;
+  // iss->ram_base = iss->target_chip->ram_base;
+  // iss->ram_size = iss->target_chip->ram_size;
+  // iss->sector_size = iss->target_chip->sector_size;
+
+  // return 0;
+  
 	// This puts the processor on hold to allow the debugger to run.
 	wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
 
@@ -578,13 +597,25 @@ static int LEConfigureNRSTAsGPIO( void * d, int one_if_yes_gpio )
 static int LEConfigureReadProtection( void * d, int one_if_yes_protect )
 {
 	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
+  struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)d)->internal);
+  
+  if( iss->target_chip_type == CHIP_CH57x ||
+      iss->target_chip_type == CHIP_CH58x ||
+      iss->target_chip_type == CHIP_CH59x )
+    {
+      fprintf( stderr, "This MCU doesn't support %s read-protection via LinkE\n", one_if_yes_protect?"enabling":"disabling");
+      return -1;
+    }
 
 	if( one_if_yes_protect )
 	{
-		wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x08\x03\xf7\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
+    
+    if( iss->target_chip_type == CHIP_CH570 ) wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x07\x03\xff\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
+		else wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x08\x03\xf7\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
 	}
 	else
 	{
+    if( iss->target_chip_type == CHIP_CH570 ) wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x07\x02\xff\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
 		wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x08\x02\xf7\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
 	}
 	return 0;
