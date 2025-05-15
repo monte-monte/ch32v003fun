@@ -894,7 +894,7 @@ void CH5xxBlink( void * dev, uint8_t port, uint8_t pin, uint32_t delay) {
 
   uint32_t port_reg = 0x400010A0 + (0x20 * port);
   uint32_t pin_mask = (1 << pin);
-  if(!delay) delay = 100;
+  if(!delay) delay = 500;
   uint32_t delay_count = 2133 * delay;
 
   MCF.WriteReg32(dev, DMABSTRACTAUTO, 0x00000000); // Disable Autoexec.

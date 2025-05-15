@@ -883,6 +883,13 @@ keep_going:
 				free( image );
 				break;
 			}
+      case 'Y':
+      {
+        if( iss->target_chip_type == CHIP_CH570 ||
+            iss->target_chip_type == CHIP_CH57x ||
+            iss->target_chip_type == CHIP_CH58x ||
+            iss->target_chip_type == CHIP_CH59x) CH5xxBlink(dev, 0, 8, 0);
+      }
 			
 		}
 		if( argchar && argchar[2] != 0 ) { argchar++; goto keep_going; }
