@@ -534,7 +534,7 @@ const struct RiscVChip_s ch584 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_UNSUPPORTED,
+  .protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch585 = {
@@ -553,7 +553,7 @@ const struct RiscVChip_s ch585 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_UNSUPPORTED,
+  .protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch591 = {

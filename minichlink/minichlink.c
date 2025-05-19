@@ -672,7 +672,9 @@ keep_going:
 					goto unimplemented;
         
         // ch5xx_write_flash(dev, 0, 0, 512);
-        // ch5xx_write_flash_using_microblob2(dev, 0, 0, 10*1024);
+        // ch5xx_write_flash_using_microblob2(dev, 0, 0, 256);
+        // ch5xx_write_flash_using_microblob2(dev, 512, 0, 512);
+        // ch5xx_write_flash_using_microblob2(dev, 1024, 0, 512);
         // CH5xxBlink(dev, 0, 3, 100);
         // CH5xxTestPC(dev);
 				break;
@@ -1310,7 +1312,6 @@ int DefaultDetermineChipType( void * dev )
         // Check for CH5xx        
         if( (chip_id & 0xf0) == 0x90 )
         {
-          
           uint32_t sevenc = 0;
           MCF.ReadReg32( dev, DMCPBR, &sevenc );
           // fprintf(stderr, "sevenc = %08x\n", sevenc);
@@ -1318,9 +1319,9 @@ int DefaultDetermineChipType( void * dev )
           {
             if( chip_id == 0x91 )iss->target_chip = &ch591;
             if( chip_id == 0x92 )iss->target_chip = &ch592;
-            uint32_t some_option = 0;
-            // _ch5xx_read_options(dev, 0x7f010, &some_option, 4);
-            if (some_option == 9) {
+            uint32_t some_option[2];
+            ch5xx_read_options(dev, 0x7f010, some_option);
+            if (some_option[0] == 9) {
               iss->target_chip_id = chip_id << 24 | 9;
             }
             else
