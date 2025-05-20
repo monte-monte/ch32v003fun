@@ -351,6 +351,7 @@ int ch5xx_read_eeprom(void * dev, uint32_t addr, uint8_t* buffer, uint32_t len) 
   }
   
   for (int i = 0; i < len; i++) {
+    uint32_t local_buffer = 0;
     MCF.WriteReg32(dev, DMCOMMAND, 0x00271000); // Execute program.
     do {
       r = MCF.ReadReg32(dev, DMABSTRACTCS, &rrv);
@@ -361,7 +362,8 @@ int ch5xx_read_eeprom(void * dev, uint32_t addr, uint8_t* buffer, uint32_t len) 
       }
     } while((rrv & (1<<12)));
     MCF.WriteReg32(dev, DMCOMMAND, 0x0022100b); // Read a0 into DATA0.
-    MCF.ReadReg32(dev, DMDATA0, buffer + i);
+    MCF.ReadReg32(dev, DMDATA0, &local_buffer);
+    *(buffer + i) = local_buffer & 0xff;
   }
   
   ch5xx_flash_close(dev);
@@ -858,7 +860,7 @@ int CH5xxErase(void* dev, uint32_t addr, uint32_t len, int type) {
       sector_size = 4*1024;
       flash_cmd = 0x20;
     } else {
-      if (iss->target_chip->sector_size == 256) {
+      if (iss->target_chip->sector_size == 256 || iss->current_area == EEPROM_AREA) {
         sector_size = 256;
         flash_cmd = 0x81;
       } else {
@@ -886,6 +888,8 @@ int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_si
   struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
   int (*write_function)(void * dev, uint32_t start_addr, uint8_t* data, uint32_t len);
+
+  int ret = 0;
   
   uint32_t sector_size = iss->target_chip->sector_size;
   uint8_t* start_pad = malloc(sector_size);
@@ -900,14 +904,15 @@ int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_si
   if (!iss->current_area) DetectMemoryArea(dev, address_to_write);
   if (!CheckMemoryLocation(dev, 0, address_to_write, blob_size)) {
     fprintf(stderr, "Data doesn't fit into memory location\n");
-    return -1;
+    ret = -1;
+    goto end;
   }
 
   if (iss->target_chip_type == CHIP_CH570) {
     uint32_t options;
     MCF.ReadWord(dev, 0x40001058, &options);
     if ((options&0x800000) || (options&0x200000)) {
-      printf("Flash is write/read protected. You may need to remove protection using 'minichlink -p'%d\n"); 
+      printf("Flash is write/read protected. You may need to remove protection using 'minichlink -p'\n"); 
     }
   }
 
@@ -941,21 +946,24 @@ int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_si
     // ch5xx_verify_data(dev, address_to_write, blob, blob_size);
   } else if (iss->current_area == BOOTLOADER_AREA) {
     fprintf(stderr, "Can't write to Bootloader area on these chips (yet?)\n");
-    return -2;
+    ret = -2;
+    goto end;
   } else if (iss->current_area == OPTIONS_AREA) {
     fprintf(stderr, "Can't write to Options area on these chips yet\n");
-    return -2;
+    ret = -2;
+    goto end;
   } else if (iss->current_area == EEPROM_AREA) {
     fprintf(stderr, "Can't write to EEPROM area on these chips yet\n");
-    return -2;
+    ret = -2;
+    goto end;
   }
 
   fprintf(stderr, "Done writing\n");
-
+end:
   free(start_pad);
   free(end_pad);
 
-  return 0;
+  return ret;
 }
 
 int CH5xxReadBinaryBlob(void * dev, uint32_t address_to_read_from, uint32_t read_size, uint8_t * blob) {
@@ -1226,7 +1234,6 @@ void ch570_disable_read_protection(void * dev) {
 int ch5xx_verify_data(void* dev, uint32_t addr, uint8_t* data, uint32_t len) {
   struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
-  enum RiscVChip chip = iss->target_chip_type;
   uint32_t dmdata0;
   int r;
 

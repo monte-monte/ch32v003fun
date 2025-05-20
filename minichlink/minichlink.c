@@ -1320,7 +1320,7 @@ int DefaultDetermineChipType( void * dev )
             if( chip_id == 0x91 )iss->target_chip = &ch591;
             if( chip_id == 0x92 )iss->target_chip = &ch592;
             uint32_t some_option[2];
-            ch5xx_read_options(dev, 0x7f010, some_option);
+            ch5xx_read_options(dev, 0x7f010, (uint8_t*)some_option);
             if (some_option[0] == 9) {
               iss->target_chip_id = chip_id << 24 | 9;
             }
