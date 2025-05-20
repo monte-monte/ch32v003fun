@@ -1319,9 +1319,9 @@ int DefaultDetermineChipType( void * dev )
           {
             if( chip_id == 0x91 )iss->target_chip = &ch591;
             if( chip_id == 0x92 )iss->target_chip = &ch592;
-            uint32_t some_option[2];
-            ch5xx_read_options(dev, 0x7f010, (uint8_t*)some_option);
-            if (some_option[0] == 9) {
+            uint32_t some_option;
+            ch5xx_read_options_bulk(dev, 0x7f010, (uint8_t*)(&some_option), 4);
+            if (some_option == 9) {
               iss->target_chip_id = chip_id << 24 | 9;
             }
             else
@@ -2184,7 +2184,7 @@ static int DefaultReadWord( void * dev, uint32_t address_to_read, uint32_t * dat
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
 	int autoincrement = 1;
-	if( iss->target_chip_type == CHIP_CH58x || address_to_read == 0x40022010 || address_to_read == 0x4002200C )  // Don't autoincrement when checking flash flag. 
+	if( iss->target_chip_type == CHIP_CH57x || iss->target_chip_type == CHIP_CH58x || address_to_read == 0x40022010 || address_to_read == 0x4002200C )  // Don't autoincrement when checking flash flag. 
 	{
 		autoincrement = 0;
 	}

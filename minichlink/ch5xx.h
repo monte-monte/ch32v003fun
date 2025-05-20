@@ -25,6 +25,7 @@ void ch5xx_flash_end(void* dev);
 uint8_t ch5xx_flash_begin(void* dev, uint8_t cmd);
 void ch5xx_write_byte_safe(void* dev, uint32_t addr, uint8_t value);
 int ch5xx_read_options(void* dev, uint32_t addr, uint8_t* buffer);
+int ch5xx_read_options_bulk(void* dev, uint32_t addr, uint8_t* buffer, uint32_t len);
 int ch5xx_read_secret_uuid(void* dev, uint8_t* buffer);
 int ch5xx_read_uuid(void* dev, uint8_t* buffer);
 int ch5xx_write_flash(void* dev, uint32_t start_addr, uint8_t* data, uint32_t len);
