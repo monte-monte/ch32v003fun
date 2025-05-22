@@ -1385,7 +1385,6 @@ int DefaultDetermineChipType( void * dev )
       uint32_t chip_id_address = 0x1ffff7c4;;
       uint32_t masked_id = sevenf_id & 0xfff00000;
       uint32_t masked_id2 = sevenf_id & 0xfff00f00;
-      fprintf(stderr, "masked_id = %08x; masked_id2 = %08x\n", masked_id, masked_id2);
       if( masked_id == 0x3b00000 )
       {
         iss->target_chip = &ch32m030;
@@ -1449,13 +1448,26 @@ int DefaultDetermineChipType( void * dev )
         iss->target_chip = &ch32v003;
       }
 
-      if( (chip_id & 0x30000500) == 0x30000500 )
+      if( (sevenf_id & 0x20000500) == 0x20000500 || (sevenf_id & 0x30000500) == 0x30000500 )
       {
-        iss->target_chip = &ch32v303;
-      }
-      if( (chip_id & 0x20000500) == 0x20000500 )
-      {
-        iss->target_chip = &ch32v203;
+        switch ((sevenf_id & 0xfff00000) >> 20)
+        {
+        case 0x203:
+          iss->target_chip = &ch32v203;
+          break;
+        case 0x208:
+          iss->target_chip = &ch32v208;
+          break;
+        case 0x303:
+          iss->target_chip = &ch32v303;
+          break;
+        case 0x305:
+          iss->target_chip = &ch32v305;
+          break;
+        case 0x307:
+          iss->target_chip = &ch32v305;
+          break;
+        }
       }
       
       if( iss-> target_chip )
