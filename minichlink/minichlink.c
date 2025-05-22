@@ -1785,7 +1785,11 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 		MCF.WriteReg32( dev, DMDATA1, address_to_write );
 		MCF.WriteReg32( dev, DMDATA0, data );
 
-		if( did_disable_req )
+    if( iss->target_chip_type == CHIP_CH58x )
+    {
+      MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 ); // Execute.
+    }
+		else if( did_disable_req )
 		{
 			MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 ); // Execute.
 			MCF.WriteReg32( dev, DMABSTRACTAUTO, 1 ); // Enable Autoexec.

@@ -299,14 +299,14 @@ static int LESetupInterface( void * d )
 
   // wch_link_command( dev, "\x81\x0d\x01\x01", 4, (int*)&transferred, rbuff, 1024 );
   // wch_link_command( dev, "\x81\x0d\x02\xee\x02", 5, (int*)&transferred, rbuff, 1024 );
-  // wch_link_command( dev, "\x81\x0c\x02\x8b\x01", 5, 0, 0, 0 );
+  // wch_link_command( dev, "\x81\x0c\x02\x07\x01", 5, 0, 0, 0 );
   // wch_link_command( dev, "\x81\x0d\x01\x02", 4, (int*)&transferred, rbuff, 1024 );
   // wch_link_command( dev, "\x81\x0d\x02\xee\x02", 5, (int*)&transferred, rbuff, 1024 );
   // wch_link_command( dev, "\x81\x0c\x02\x8b\x01", 5, 0, 0, 0 );
   // wch_link_command( dev, "\x81\x0d\x01\x02", 4, (int*)&transferred, rbuff, 1024 );
   // wch_link_command( dev, "\x81\x06\x08\x03\x50\x00\xff\x40\x00\x00\x00", 11, (int*)&transferred, rbuff, 1024 );
 
-  // iss->target_chip = &ch570;
+  // iss->target_chip = &ch582;
 	// iss->target_chip_type = iss->target_chip->family_id;
   // iss->flash_size = iss->target_chip->flash_size;
   // iss->ram_base = iss->target_chip->ram_base;
@@ -316,7 +316,7 @@ static int LESetupInterface( void * d )
   // return 0;
   
 	// This puts the processor on hold to allow the debugger to run.
-	wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
+	// wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
 
 	// Place part into reset.
 	wch_link_command( dev, "\x81\x0d\x01\x01", 4, (int*)&transferred, rbuff, 1024 );	// Reply is: "\x82\x0d\x04\x02\x08\x02\x00"
@@ -365,6 +365,8 @@ static int LESetupInterface( void * d )
 				printf( "Already Connected\n" );
 				// Still need to read in the data so we can select the correct chip.
 				wch_link_command( dev, "\x81\x0d\x01\x02", 4, (int*)&transferred, rbuff, 1024 ); // ?? this seems to work?
+        // MCF.WriteReg32(dev, DMDATA0, 0); 
+        // MCF.WriteReg32( dev, DMCOMMAND, 0x00230300); // Clear mstatus
 				// unknown_chip_fallback = 1;
 				break;
 			}
@@ -624,7 +626,6 @@ static int LEConfigureReadProtection( void * d, int one_if_yes_protect )
 int LEExit( void * d )
 {
 	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
-
 	wch_link_command( (libusb_device_handle *)dev, "\x81\x0d\x01\xff", 4, 0, 0, 0);
 	return 0;
 }

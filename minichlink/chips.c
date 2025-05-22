@@ -495,7 +495,7 @@ const struct RiscVChip_s ch582 = {
 	.bootloader_size = 24*1024,
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
-	.interface_speed = 0x02,
+	.interface_speed = 0x01,
   .protocol = PROTOCOL_CH5xx,
 };
 
@@ -540,7 +540,7 @@ const struct RiscVChip_s ch584 = {
 const struct RiscVChip_s ch585 = {
   .name_str = "CH585",
 	.family_id = CHIP_CH585,
-	.model_id = 0x8500,
+	.model_id = 0x9300,
 	.ram_base = 0x20000000,
 	.ram_size = 128*1024,
 	.sector_size = 4096,

@@ -503,11 +503,10 @@ int ch5xx_read_secret_uuid(void * dev, uint8_t * buffer) {
   iss->statetag = STTAG("5SID");
 
   uint8_t local_buffer[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-
+  
   uint32_t dmdata0_offset = 0xe0000380;
   MCF.ReadReg32(dev, DMHARTINFO, &dmdata0_offset);
-  dmdata0_offset = (dmdata0_offset & 0x0000fff) + 0xe0000000;
-  
+  dmdata0_offset = 0xe0000000 | (dmdata0_offset & 0x7ff);
 
   ch5xx_flash_open(dev, 0x20);
   ch5xx_flash_addr(dev, 0x4b, 0);
@@ -628,15 +627,13 @@ int ch5xx_write_flash_using_microblob2(void * dev, uint32_t start_addr, uint8_t*
   uint32_t data_to_write = 0x00000001;
   uint32_t dmdata0_offset = 0xe0000380;
   MCF.ReadReg32(dev, DMHARTINFO, &dmdata0_offset);
-  dmdata0_offset = (dmdata0_offset & 0x0000fff) + 0xe0000000;
-  // fprintf(stderr, "dmdata0_offset = %08x\n", dmdata0_offset);
-  // return -1;
+  dmdata0_offset = 0xe0000000 | (dmdata0_offset & 0x7ff);
   
   // ch5xx_write_byte_safe(dev, 0x40001008, 0x48);
   // ch5xx_write_byte_safe(dev, 0x40001008, 0x82);
   if (iss->lastwriteflags != 100) {
     for (int i = 0; i < ch5xx_write_block_bin_len; i+=4) {
-    MCF.WriteWord(dev, 0x20000000+i, *((uint32_t*)(ch5xx_write_block_bin + i)));
+    MCF.WriteWord(dev, iss->target_chip->ram_base+i, *((uint32_t*)(ch5xx_write_block_bin + i)));
     // fprintf(stderr, "i= %i, data = %08x\n", i, *((uint32_t*)(ch5xx_write_block_bin + i)));
     }
     iss->lastwriteflags = 100; // This will indicate that we already have suitable microblob in RAM
@@ -652,19 +649,23 @@ int ch5xx_write_flash_using_microblob2(void * dev, uint32_t start_addr, uint8_t*
     MCF.WriteReg32(dev, DMDATA0, R32_FLASH_DATA);
     MCF.WriteReg32(dev, DMCOMMAND, 0x00230000 | 0x100d); // Write a3 from DATA0.
   }
-  MCF.WriteReg32(dev, DMDATA0, dmdata0_offset ); // DMDATA0 offset
+  MCF.WriteReg32(dev, DMDATA0, dmdata0_offset); // DMDATA0 offset
   MCF.WriteReg32(dev, DMCOMMAND, 0x00230000 | 0x100b); // Write a1 from DATA0.
   
   MCF.WriteReg32(dev, DMDATA0, start_addr);
   MCF.WriteReg32(dev, DMCOMMAND, 0x00230000 | 0x1006); // Write t1 from DATA0.
 
-  MCF.WriteReg32(dev, DMDATA0, 0x20000000); 
-  MCF.WriteReg32( dev, DMCOMMAND, 0x002307b1); // Write dpc from DATA0.
+  MCF.WriteReg32(dev, DMDATA0, 0x000090c3); 
+  MCF.WriteReg32(dev, DMCOMMAND, 0x002307b0);
+  MCF.WriteReg32(dev, DMDATA0, 0); 
+  MCF.WriteReg32(dev, DMCOMMAND, 0x00230300); // Clear mstatus
+  MCF.WriteReg32(dev, DMDATA0, iss->target_chip->ram_base); 
+  MCF.WriteReg32(dev, DMCOMMAND, 0x002307b1); // Write dpc from DATA0.
   
   MCF.WriteReg32(dev, DMDATA1, 1);
   MCF.WriteReg32(dev, DMCONTROL, 0x40000001);
-  MCF.WriteReg32(dev, DMCONTROL, 0x40000001);
-  
+  if (iss->target_chip_type == CHIP_CH570) MCF.WriteReg32(dev, DMCONTROL, 0x40000001);
+
   MCF.WriteReg32(dev, DMDATA0, 0);
   MCF.WriteReg32(dev, DMDATA1, 0);
   uint32_t byte = 0;
@@ -702,6 +703,7 @@ int ch5xx_write_flash_using_microblob2(void * dev, uint32_t start_addr, uint8_t*
         if ((timer++) > 100) {
           fprintf(stderr, "Error2! Flash write timed out on block end. At byte %d\n", byte);
           fprintf(stderr, "dmdata0 = %08x, byte = %d\n", dmdata0, byte);
+          
           r = -1;
           goto write_end;
         }
@@ -721,6 +723,8 @@ write_end:
   // MCF.WriteReg32( dev, DMCOMMAND, 0x002207b1); // Write dpc from DATA0.
   // MCF.ReadReg32( dev, DMDATA0, &rrv );
   // fprintf(stderr, "dpc = %08x\n", rrv);
+  // MCF.ReadWord(dev, iss->target_chip->ram_base, &rrv);
+  // fprintf(stderr, "ram base data: %08x\n", rrv);
   // MCF.WriteReg32( dev, DMCOMMAND, 0x00220000 | 0x100a ); // Write a5 from DATA0.
   // MCF.ReadReg32( dev, DMDATA0, &rrv );
   // fprintf(stderr, "a0 = %08x\n", rrv);
@@ -1015,30 +1019,38 @@ void CH5xxBlink( void * dev, uint8_t port, uint8_t pin, uint32_t delay) {
 
 void CH5xxTestPC(void * dev) {
   // struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
-
+  int r;
+  uint32_t target_ram = 0x20001000;
   uint32_t rr;
   uint32_t port_reg = 0x400010A0;
-  uint32_t pin_mask = (1 << 3);
-  // if(!delay) delay = 0x27100;
-  // if(!delay) delay = 100;
+  uint32_t pin_mask = (1 << 8);
+  MCF.WriteReg32( dev, DMCONTROL, 0x80000001 );
+  MCF.WriteReg32( dev, DMCONTROL, 0x80000001 );
   uint32_t delay_count = 2133 * 1000;
   for (int i = 0; i < ch5xx_blink_bin_len; i+=4) {
-    MCF.WriteWord(dev, 0x20000000+i, *((uint32_t*)(ch5xx_blink_bin + i)));
+    r = MCF.WriteWord(dev, target_ram+i, *((uint32_t*)(ch5xx_blink_bin + i)));
+    if (r) {
+      fprintf(stderr, "Error writing to RAM at %d\n", i);
+      return;
+    }
     fprintf(stderr, "i= %i, data = %08x\n", i, *((uint32_t*)(ch5xx_blink_bin + i)));
-    // MCF.WriteByte(dev, 0x20000000+i, ch5xx_microblob_write_flash[i]);
   }
 
-  // MCF.WriteWord(dev, 0x20000000, 0x87b6c218);
-  // MCF.WriteWord(dev, 0x20000004, 0x00062423);
-  // MCF.WriteWord(dev, 0x20000008, 0xfffd17fd);
-  // MCF.WriteWord(dev, 0x2000000c, 0xc61887b6);
-  // MCF.WriteWord(dev, 0x20000010, 0xfffd17fd);
-  // MCF.WriteWord(dev, 0x20000014, 0x0000b7fd);
-  // MCF.WriteWord(dev, 0x20000018, 0x00100073);
+  for (int i = 0; i < 256; i+=4) {
+    r = MCF.ReadWord(dev, target_ram+i, &rr);
+    if (r) {
+      fprintf(stderr, "Error reading to RAM at %d\n", i);
+      return;
+    }
+    fprintf(stderr, "%08x-", rr);
+  }
 
-  MCF.ReadWord(dev, 0x20000000, &rr);
-  fprintf(stderr, "0x20000000 = %08x\n", rr);
-  ch5xx_write_byte_safe(dev, 0x40001008, 0x48);
+  //Set clock to 16MHz
+  ch5xx_write_byte_safe(dev, 0x40001008, 0x82);
+
+  MCF.ReadWord(dev, target_ram, &rr);
+  fprintf(stderr, "%08x = %08x\n", target_ram, rr);
+    
 
   MCF.WriteReg32( dev, DMABSTRACTAUTO, 0x00000000 ); // Disable Autoexec.
 
@@ -1052,47 +1064,62 @@ void CH5xxTestPC(void * dev) {
   MCF.WriteReg32( dev, DMCOMMAND, 0x00230000 | 0x100e ); // Write a4 from DATA0.
 
   // MCF.WriteReg32( dev, DMPROGBUF0, 0x00000797 ); // auipc a5, 0
-  MCF.WriteReg32( dev, DMPROGBUF0, 0x20000537 ); // lui a0, 0x20000
+  // MCF.WriteReg32( dev, DMPROGBUF0, 0x20000537 ); // lui a0, 0x20000
   // MCF.WriteReg32( dev, DMPROGBUF2, 0x40f505b3 ); // sub a1, a0, a5
-  MCF.WriteReg32( dev, DMPROGBUF1, 0x00018502 ); // c.jr a0; c.nop;
+  // MCF.WriteReg32( dev, DMPROGBUF1, 0x00018502 ); // c.jr a0; c.nop;
   // MCF.WriteReg32( dev, DMPROGBUF3, 0x40b787b3 ); // sub a5, a5, a1
   // MCF.WriteReg32( dev, DMPROGBUF3, 0x00058567 ); // jalr a0, 0(a5)
 
   // MCF.WriteReg32( dev, DMPROGBUF3, 0x00100073 ); // c.ebreak
 	// MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 ); // Execute.
-  // MCF.WriteReg32( dev, DMCONTROL, 0x80000001 );
+
 
   // MCF.WriteReg32( dev, DMDATA0, 0x20000000 ); //R32_PA_DIR
   // MCF.WriteReg32( dev, DMCOMMAND, 0x002707b1 ); // Execute.
-  MCF.WriteReg32( dev, DMDATA0, 0x20000000 ); 
+  
+  MCF.WriteReg32( dev, DMCOMMAND, 0x002207b0 ); // Read dcsr into DATA0.
+	MCF.ReadReg32( dev, DMDATA0, &rr );
+  fprintf(stderr, "dcsr = %08x\n", rr);
+
+  MCF.WriteReg32( dev, DMDATA0, 0x000090c3 ); 
+  MCF.WriteReg32( dev, DMCOMMAND, 0x002307b0 );
+  MCF.WriteReg32(dev, DMDATA0, target_ram+0x3000); 
+  MCF.WriteReg32( dev, DMCOMMAND, 0x00231002); // write sp
+  MCF.WriteReg32(dev, DMDATA0, 0); 
+  MCF.WriteReg32( dev, DMCOMMAND, 0x00230300); // Clear mstatus
+  MCF.WriteReg32( dev, DMDATA0, target_ram ); 
   MCF.WriteReg32( dev, DMCOMMAND, 0x002307b1 ); // Execute.
   MCF.WriteReg32( dev, DMCONTROL, 0x40000001 );
-  // MCF.WaitForDoneOp( dev, 0);
-  // uint8_t timer = 0;
-  uint32_t dmdata0;
-  do
-	{
-    // if(ReadKBByte()) return 0;
-		MCF.ReadReg32( dev, DMABSTRACTCS, &rr );
-    // fprintf( stderr, "DMABSTRACTCS = %08x\n", rr);
-    // if (timer > 100) {
-    //   MCF.WriteReg32( dev, DMCOMMAND, 0x002207b1); // Read xN into DATA0.
-    //   MCF.ReadReg32( dev, DMDATA0, &rrv);
-    //   fprintf(stderr, "Timeout at: %08x\n", rrv);
-    //   return -10;
-    // }
-    // timer++;
-    // fprintf(stderr, ".");
-    // MCF.WriteReg32( dev, DMDATA1, 0x22222222);
-    // do {
-      // MCF.ReadReg32(dev, DMDATA1, &dmdata0);
-      // fprintf(stderr, "%08x ", dmdata1);
-    // } while(dmdata0 == 0x22222222);
-    MCF.WriteReg32( dev, DMCOMMAND, 0x20100c); // Read xN into DATA0.
-    MCF.ReadReg32( dev, DMDATA0, &dmdata0);
-    fprintf(stderr, "%08x\n", dmdata0);
-	}
-	while( (rr & (1<<12)) );
+  // MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 ); // Execute.
+  // MCF.DelayUS(dev, 2000000);
+  // MCF.WriteReg32( dev, DMCONTROL, 0x80000001 );
+  // MCF.WriteReg32( dev, DMCONTROL, 0x80000003 );
+  // MCF.WriteReg32(dev, DMDATA0, 0); 
+  // MCF.WriteReg32( dev, DMCOMMAND, 0x00230300); // Clear mstatus
+  // uint32_t dmdata0;
+  // do
+	// {
+  //   // if(ReadKBByte()) return 0;
+	// 	MCF.ReadReg32( dev, DMABSTRACTCS, &rr );
+  //   // fprintf( stderr, "DMABSTRACTCS = %08x\n", rr);
+  //   // if (timer > 100) {
+  //   //   MCF.WriteReg32( dev, DMCOMMAND, 0x002207b1); // Read xN into DATA0.
+  //   //   MCF.ReadReg32( dev, DMDATA0, &rrv);
+  //   //   fprintf(stderr, "Timeout at: %08x\n", rrv);
+  //   //   return -10;
+  //   // }
+  //   // timer++;
+  //   // fprintf(stderr, ".");
+  //   // MCF.WriteReg32( dev, DMDATA1, 0x22222222);
+  //   // do {
+  //     // MCF.ReadReg32(dev, DMDATA1, &dmdata0);
+  //     // fprintf(stderr, "%08x ", dmdata1);
+  //   // } while(dmdata0 == 0x22222222);
+  //   MCF.WriteReg32( dev, DMCOMMAND, 0x20100c); // Read xN into DATA0.
+  //   MCF.ReadReg32( dev, DMDATA0, &dmdata0);
+  //   fprintf(stderr, "%08x\n", dmdata0);
+	// }
+	// while( (rr & (1<<12)) );
 
 	MCF.WriteReg32( dev, DMCOMMAND, 0x0022100f ); // Read a5 into DATA0.
 	MCF.ReadReg32( dev, DMDATA0, &rr );
