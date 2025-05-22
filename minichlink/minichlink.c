@@ -1385,6 +1385,7 @@ int DefaultDetermineChipType( void * dev )
       uint32_t chip_id_address = 0x1ffff7c4;;
       uint32_t masked_id = sevenf_id & 0xfff00000;
       uint32_t masked_id2 = sevenf_id & 0xfff00f00;
+      fprintf(stderr, "masked_id = %08x; masked_id2 = %08x\n", masked_id, masked_id2);
       if( masked_id == 0x3b00000 )
       {
         iss->target_chip = &ch32m030;

@@ -315,10 +315,11 @@ static int LESetupInterface( void * d )
 
   // return 0;
   
+  // This unlocks flash on CH32
 	// This puts the processor on hold to allow the debugger to run.
 	// wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
 
-	// Place part into reset.
+	// Clears programmer state and returns firmware version
 	wch_link_command( dev, "\x81\x0d\x01\x01", 4, (int*)&transferred, rbuff, 1024 );	// Reply is: "\x82\x0d\x04\x02\x08\x02\x00"
 	switch(rbuff[5]) {
 		case 1:
@@ -436,7 +437,9 @@ static int LESetupInterface( void * d )
 #else
 
   MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
-  MCF.DetermineChipType( d );
+  int r;
+  r = MCF.DetermineChipType( d );
+  if( r ) return r;
 
 #endif
 
@@ -962,6 +965,7 @@ static int InternalLinkEHaltMode( void * d, int mode )
 	{
 		printf( "Holding in reset\n" );
 		// Part one "immediately" places the part into reset.  Part 2 says when we're done, leave part in reset.
+    // Second command is not needed?
 		wch_link_multicommands( (libusb_device_handle *)dev, 2, 4, "\x81\x0d\x01\x02", 4, "\x81\x0d\x01\x01" );
 	}
 	else if( mode == 1 )
