@@ -318,7 +318,8 @@ static int LESetupInterface( void * d )
   // This unlocks flash on CH32
 	// This puts the processor on hold to allow the debugger to run.
 	// wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
-
+  //Stop programmer to avoid anything being unresponsive
+  wch_link_command( dev, "\x81\x0d\x01\xff", 4, 0, 0, 0);
 	// Clears programmer state and returns firmware version
 	wch_link_command( dev, "\x81\x0d\x01\x01", 4, (int*)&transferred, rbuff, 1024 );	// Reply is: "\x82\x0d\x04\x02\x08\x02\x00"
 	switch(rbuff[5]) {
@@ -366,8 +367,6 @@ static int LESetupInterface( void * d )
 				printf( "Already Connected\n" );
 				// Still need to read in the data so we can select the correct chip.
 				wch_link_command( dev, "\x81\x0d\x01\x02", 4, (int*)&transferred, rbuff, 1024 ); // ?? this seems to work?
-        // MCF.WriteReg32(dev, DMDATA0, 0); 
-        // MCF.WriteReg32( dev, DMCOMMAND, 0x00230300); // Clear mstatus
 				// unknown_chip_fallback = 1;
 				break;
 			}
@@ -445,16 +444,13 @@ static int LESetupInterface( void * d )
 
   char cmd_buf[5] = { 0x81, 0x0c, 0x02, iss->target_chip_type, iss->target_chip->interface_speed};
 	wch_link_command( dev, cmd_buf, 5, 0, 0, 0 ); // Set interface clock to suitable speed
-  MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
-	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Un-super-halt processor.
-
-#if !FORCE_EXTERNAL_CHIP_DETECTION
 	// For some reason, if we don't do this sometimes the programmer starts in a hosey mode.
 	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Make the debug module work properly.
 	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Initiate a halt request.
   MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
 	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Un-super-halt processor.
 
+#if !FORCE_EXTERNAL_CHIP_DETECTION
 	int r = 0;
 
 	int timeout = 0;

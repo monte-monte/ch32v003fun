@@ -899,6 +899,7 @@ int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_si
   
   uint32_t sector_size = iss->target_chip->sector_size;
   if (iss->current_area == EEPROM_AREA) sector_size = 256;
+  else if (iss->current_area == RAM_AREA) sector_size = 4;
   uint8_t* start_pad = malloc(sector_size);
   uint8_t* end_pad = malloc(sector_size);
   
@@ -956,11 +957,86 @@ int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_si
     ret = -2;
     goto end;
   } else if (iss->current_area == OPTIONS_AREA) {
-    fprintf(stderr, "Can't write to Options area on these chips yet\n");
-    ret = -2;
-    goto end;
+    write_function = &ch5xx_write_flash;
+
+    if (spad) {
+      ch5xx_read_option_bulk(dev, ((address_to_write + spad) - sector_size), start_pad, (sector_size - spad));
+      memcpy(start_pad + (sector_size - spad), blob, spad);
+      new_blob_size -= spad;
+    }
+    if (epad) {
+      memcpy(end_pad, blob + (blob_size - epad), epad);
+      ch5xx_read_options_bulk(dev, (address_to_write + blob_size), end_pad + epad, sector_size - epad);
+      new_blob_size -= epad;
+    }
+
+    if (spad) {
+      CH5xxErase(dev, ((address_to_write + spad) - sector_size), new_blob_size + spad + epad, 0);
+      write_function(dev, address_to_write - spad, start_pad, sector_size);
+      write_function(dev, address_to_write + (sector_size - spad), (uint8_t*)(blob + (sector_size - spad)), new_blob_size);
+    } else {
+      CH5xxErase(dev, address_to_write, new_blob_size + epad, 0);
+      write_function(dev, address_to_write, (uint8_t*)(blob), new_blob_size);
+    }
+    if (epad) write_function(dev, (address_to_write + blob_size) - epad, end_pad, sector_size);
+    // fprintf(stderr, "Can't write to Options area on these chips yet\n");
+    // ret = -2;
+    // goto end;
   } else if (iss->current_area == EEPROM_AREA) {
-    fprintf(stderr, "Can't write to EEPROM area on these chips yet\n");
+    write_function = &ch5xx_write_flash;
+
+    if (spad) {
+      ch5xx_read_eeprom(dev, ((address_to_write + spad) - sector_size), start_pad, (sector_size - spad));
+      memcpy(start_pad + (sector_size - spad), blob, spad);
+      new_blob_size -= spad;
+    }
+    if (epad) {
+      memcpy(end_pad, blob + (blob_size - epad), epad);
+      ch5xx_read_eeprom(dev, (address_to_write + blob_size), end_pad + epad, sector_size - epad);
+      new_blob_size -= epad;
+    }
+
+    if (spad) {
+      CH5xxErase(dev, ((address_to_write + spad) - sector_size), new_blob_size + spad + epad, 0);
+      write_function(dev, address_to_write - spad, start_pad, sector_size);
+      write_function(dev, address_to_write + (sector_size - spad), (uint8_t*)(blob + (sector_size - spad)), new_blob_size);
+    } else {
+      CH5xxErase(dev, address_to_write, new_blob_size + epad, 0);
+      write_function(dev, address_to_write, (uint8_t*)(blob), new_blob_size);
+    }
+    if (epad) write_function(dev, (address_to_write + blob_size) - epad, end_pad, sector_size);
+    // fprintf(stderr, "Can't write to EEPROM area on these chips yet\n");
+    // ret = -2;
+    // goto end;
+  } else if (iss->current_area == RAM_AREA) {
+    if (spad) {
+      for (int i = 0; i < spad; i++) {
+        ret = MCF.WriteByte(dev, address_to_write+i, *((uint8_t*)(blob+i)));
+        if (ret) {
+          fprintf(stderr, "Error on WriteByte while writing to RAM.\n");
+          goto end;
+        }
+      }
+    } 
+    for (int i = 0; i < blob_size-spad-epad; i += 4) {
+      ret = MCF.WriteWord(dev, address_to_write+spad+i, *((uint32_t*)(blob+spad+i)));
+      if (ret) {
+        fprintf(stderr, "Error on WriteWord while writing to RAM.\n");
+        goto end;
+      }
+    }
+    if (epad) {
+      uint32_t epad_address = address_to_write + blob_size - epad;
+      for (int i = 0; i < spad; i++) {
+        ret = MCF.WriteByte(dev, epad_address + i, *((uint8_t*)(blob + epad_address + i)));
+        if (ret) {
+          fprintf(stderr, "Error on WriteByte while writing to RAM.\n");
+          goto end;
+        }
+      } 
+    }
+  } else {
+    fprintf(stderr, "Unknown memory region. Not writing.\n");
     ret = -2;
     goto end;
   }

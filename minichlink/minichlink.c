@@ -1468,6 +1468,7 @@ int DefaultDetermineChipType( void * dev )
           iss->target_chip = &ch32v305;
           break;
         }
+        chip_id_address = 0x1ffff704;
       }
       
       if( iss-> target_chip )
@@ -1736,11 +1737,11 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	int ret = 0;
 
-	// int is_flash = IsAddressFlash( address_to_write );
-	int is_flash = 0;
+	int is_flash = IsAddressFlash( address_to_write );
+	// int is_flash = 0;
 
-	// if( iss->statetag != STTAG( "WRSQ" ) || is_flash != iss->lastwriteflags )
-	// {
+	if( iss->statetag != STTAG( "WRSQ" ) || is_flash != iss->lastwriteflags )
+	{
 		int did_disable_req = 0;
 		if( iss->statetag != STTAG( "WRSQ" ) )
 		{
@@ -1800,7 +1801,7 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 
     if( iss->target_chip_type == CHIP_CH58x )
     {
-      MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 ); // Execute.
+      ret |= MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 ); // Execute.
     }
 		else if( did_disable_req )
 		{
@@ -1812,16 +1813,21 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 
 		iss->statetag = STTAG( "WRSQ" );
 		iss->currentstateval = address_to_write;
-	// }
-	// else
-	// {
-	// 	if( address_to_write != iss->currentstateval )
-	// 	{
-	// 		MCF.WriteReg32( dev, DMDATA1, address_to_write );
-	// 	}
+	}
+	else
+	{
+		if( address_to_write != iss->currentstateval )
+		{
+			MCF.WriteReg32( dev, DMDATA1, address_to_write );
+		}
 
-	// 	MCF.WriteReg32( dev, DMDATA0, data );
-	// }
+		MCF.WriteReg32( dev, DMDATA0, data );
+
+    if( iss->target_chip_type == CHIP_CH58x )
+    {
+      ret |= MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 ); // Execute.
+    }
+	}
 
 	if( is_flash )
 		ret |= MCF.WaitForDoneOp( dev, 0 );
@@ -3183,7 +3189,7 @@ int CheckMemoryLocation( void * dev, enum MemoryArea area, uint32_t address, uin
     return 0;
   }
 
-  fprintf(stderr, "Area = %d; current_area = %d; address = %d; length = %d\n", area, iss->current_area, address, length);
+  fprintf(stderr, "Area = %d; current_area = %d; address = %08x; length = %d\n", area, iss->current_area, address, length);
 
   switch (area)
   {
