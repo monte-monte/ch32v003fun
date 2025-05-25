@@ -1049,11 +1049,40 @@ end:
   return ret;
 }
 
-int CH5xxReadBinaryBlob(void * dev, uint32_t address_to_read_from, uint32_t read_size, uint8_t * blob) {
-  return 0;
+int CH5xxReadBinaryBlob(void* dev, uint32_t address_to_read_from, uint32_t read_size, uint8_t* blob) {
+  struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
+
+  int ret = 0;
+
+  if (!iss->current_area) DetectMemoryArea(dev, address_to_read_from);
+  if (!CheckMemoryLocation(dev, 0, address_to_read_from, read_size)) {
+    fprintf(stderr, "Requested location should be within one memory area. Aborting\n");
+    ret = -1;
+    goto end;
+  }
+
+  if (iss->current_area == OPTIONS_AREA) {
+    ch5xx_read_options_bulk(dev, address_to_read_from, blob, read_size);
+  } else if (iss->current_area == EEPROM_AREA) {
+    ch5xx_read_eeprom(dev, address_to_read_from, blob, read_size);
+  } else if (iss->current_area == BOOTLOADER_AREA) {
+    fprintf(stderr, "Havent figured out yet how to read the bootloader. Aborting\n");
+    ret = -2;
+    goto end;
+  } else if (iss->current_area == PROGRAM_AREA || iss->current_area == RAM_AREA) {
+    MCF.ReadBinaryBlob(dev, address_to_read_from, read_size, blob);
+  } else {
+    fprintf(stderr, "Unknown memory region. Not reading.\n");
+    ret = -2;
+    goto end;
+  }
+
+  fprintf(stderr, "Done reading\n");
+end:
+  return ret;
 }
 
-void CH5xxBlink( void * dev, uint8_t port, uint8_t pin, uint32_t delay) {
+void CH5xxBlink(void* dev, uint8_t port, uint8_t pin, uint32_t delay) {
   int r;
   uint32_t rrv;
 
@@ -1093,7 +1122,7 @@ void CH5xxBlink( void * dev, uint8_t port, uint8_t pin, uint32_t delay) {
   MCF.WriteReg32(dev, DMCONTROL, 0x80000003);
 }
 
-void CH5xxTestPC(void * dev) {
+void CH5xxTestPC(void* dev) {
   // struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
   int r;
   uint32_t target_ram = 0x20001000;
@@ -1208,7 +1237,7 @@ void CH5xxTestPC(void * dev) {
   fprintf(stderr, "a1 = %08x\n", rr);
 }
 
-int ch5xx_print_info(void * dev) {
+int ch5xx_print_info(void* dev) {
   struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
   uint8_t info[8];
   if (ch5xx_read_uuid(dev, info)) return -1;
