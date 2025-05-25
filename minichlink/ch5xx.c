@@ -960,7 +960,7 @@ int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_si
     write_function = &ch5xx_write_flash;
 
     if (spad) {
-      ch5xx_read_option_bulk(dev, ((address_to_write + spad) - sector_size), start_pad, (sector_size - spad));
+      ch5xx_read_options_bulk(dev, ((address_to_write + spad) - sector_size), start_pad, (sector_size - spad));
       memcpy(start_pad + (sector_size - spad), blob, spad);
       new_blob_size -= spad;
     }
