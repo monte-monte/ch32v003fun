@@ -193,6 +193,17 @@ typedef enum
 #define DMDATA1 			((vu32*)0xe0000384)
 #define DMSTATUS_SENTINEL	((vu32*)0xe0000388)// Reads as 0x00000000 if debugger is attached.
 
+/* Independent watch-dog register */
+#define R32_IWDG_KR         (*((vu32*)0x40001000)) // WO, watch-dog key register
+#define R32_IWDG_CFG        (*((vu32*)0x40001004)) // RW, watch-dog configuration
+#define  RB_RLR             0x0FFF                    // RW, watch-dog counter reload (write protect)
+#define  RB_PR              0x7000                    // PR, prescale (write protect)
+#define  RB_PVU             0x8000                    // RO, register update flag (write protect)
+#define  RB_COUNT           0xFF0000                  // RO, watch-dog down counter
+#define  RB_STOP_EN         0x20000000                // RW, watch-dog stop enable (write protect)
+#define  RB_WR_PROTECT      0x40000000                // RO, write protect
+#define  RB_IWDG_EN         0x80000000                // RO, watch-dog enable
+
 /* System: clock configuration register */
 #define R32_CLK_SYS_CFG     (*((vu32*)0x40001008)) // RWA, system clock configuration, SAM
 #define  RB_CLK_PLL_DIV     0x1F                      // RWA, output clock divider from PLL or CK32M
@@ -440,13 +451,71 @@ typedef enum
 #define  RB_OSC_CNT_EN      0x20                      // RWA, calibration counter enable
 #define  RB_OSC_CNT_END     0x40                      // RWA, select oscillator capture end mode: 0=normal, 1=append 2 cycles
 
-/* System: Flash ROM control register */
-#define R32_FLASH_DATA      (*((vu32*)0x40001800)) // RO/WO, flash ROM data
-#define R32_FLASH_CONTROL   (*((vu32*)0x40001804)) // RW, flash ROM control
-#define R8_FLASH_DATA       (*((vu8*)0x40001804))  // RO/WO, flash ROM data buffer
-#define R8_FLASH_CTRL       (*((vu8*)0x40001806))  // RW, flash ROM access control
-#define R8_FLASH_CFG        (*((vu8*)0x40001807))  // RW, flash ROM access config, SAM
+/* System: ADC and Touch-key register */
+#define R32_ADC_CTRL        (*((vu32*)0x40001058)) // RW, ADC control
+#define R8_ADC_CHANNEL      (*((vu8*)0x40001058))  // RW, ADC input channel selection
+#define  RB_ADC_CH_INX      0x0F                      // RW, ADC input channel index
+#define R8_ADC_CFG          (*((vu8*)0x40001059))  // RW, ADC configure
+#define  RB_ADC_POWER_ON    0x01                      // RW, ADC power control: 0=power down, 1=power on
+#define  RB_ADC_BUF_EN      0x02                      // RW, ADC input buffer enable 
+#define  RB_ADC_DIFF_EN     0x04                      // RW, ADC input channel mode: 0=single-end, 1=differnetial
+#define  RB_ADC_OFS_TEST    0x08                      // RW, enable ADC offset test mode: 0=normal mode, 1=short to test offset
+#define  RB_ADC_PGA_GAIN    0x30                      // RW, set ADC input PGA gain: 00=-12dB, 01=-6dB, 10=0dB, 11=6dB
+#define  RB_ADC_CLK_DIV     0xC0                      // RW, select ADC clock frequency: 00=3.2MHz, 01=8MHz, 10=5.33MHz, 11=4MHz
+#define R8_ADC_CONVERT      (*((vu8*)0x4000105A))  // RW, ADC convert control
+#define  RB_ADC_START       0x01                      // RW, ADC convert start control: 0=stop ADC convert, 1=start an ADC convert, auto clear
+#define  RB_ADC_PGA_GAIN2   0x02                      // RW, ADC gain direction, must be 0 when using TS
+#define  RB_ADC_EOC_X       0x80                      // RO, end of ADC conversion flag
+#define R8_TEM_SENSOR       (*((vu8*)0x4000105B))  // RW, temperature sensor control
+#define  RB_TEM_SEN_PWR_ON  0x80                      // RW, temperature sensor power control: 0=power down, 1=power on
+#define R32_ADC_DATA        (*((vu32*)0x4000105C)) // RO, ADC data and status
+#define R16_ADC_DATA        (*((vu16*)0x4000105C)) // RO, ADC data
+#define  RB_ADC_DATA        0x0FFF                    // RO, ADC conversion data
+#define R8_ADC_INT_FLAG     (*((vu8*)0x4000105E))  // RO, ADC interrupt flag register
+#define  RB_ADC_IF_EOC      0x80                      // RO, ADC conversion interrupt flag: 0=free or converting, 1=end of conversion, interrupt action, auto ADC or write R8_ADC_CONVERT or write R8_TKEY_CONVERT to clear flag
+#define R32_TKEY_CTRL       (*((vu8*)0x40001054))  // RW, Touchkey control
+#define R8_TKEY_COUNT       (*((vu8*)0x40001054))  // RW, Touchkey charge and discharge count
+#define  RB_TKEY_CHARG_CNT  0x1F                      // RW, Touchkey charge count
+#define  RB_TKEY_DISCH_CNT  0xE0                      // RW, Touchkey discharge count
+#define R8_TKEY_CONVERT     (*((vu8*)0x40001056))  // RW, Touchkey convert control
+#define  RB_TKEY_START      0x01                      // RW, Touchkey convert start control: 0=stop Touchkey convert, 1=start a Touchkey convert, auto clear
+#define R8_TKEY_CFG         (*((vu8*)0x40001057))  // RW, Touchkey configure
+#define  RB_TKEY_PWR_ON     0x01                      // RW, Touchkey power on: 0=power down, 1=power on
+#define  RB_TKEY_CURRENT    0x02                      // RW, Touchkey charge current selection: 0=35uA, 1=70uA
+#define  RB_TKEY_DRV_EN     0x04                      // RW, Touchkey drive shield enable
+#define  RB_TKEY_PGA_ADJ    0x08                      // RW, ADC input PGA speed selection: 0=slow, 1=fast
+#define  RB_TKEY_DMA_EN     0x10                      // RW, Touchkey DMA enable
+#define  RB_TKEY_AUTO_EN    0x20                      // RW, Touchkey auto-trigger enable
+#define  RB_TKEY_RAND_EN    0x40                      // RW, Touchkey random trigger enable
+#define R32_ADC_DMA_CTRL    (*((vu32*)0x40001060)) // RW, ADC DMA control
+#define R8_ADC_CTRL_DMA     (*((vu8*)0x40001061))  // RW, ADC DMA control
+#define  RB_ADC_DMA_ENABLE  0x01                      // RW, ADC DMA enable
+#define  RB_ADC_DMA_LOOP    0x04                      // RW, ADC DMA address loop enable
+#define  RB_ADC_IE_DMA_END  0x08                      // RW, enable interrupt for ADC DMA completion
+#define  RB_ADC_IE_EOC      0x10                      // RW, enable interrupt for end of ADC conversion
+#define  RB_ADC_CONT_EN     0x40                      // RW, enable contineous conversion ADC
+#define  RB_ADC_AUTO_EN     0x80                      // RW, enable auto continuing ADC for DMA
+#define R8_ADC_DMA_IF       (*((vu8*)0x40001062))  // RW1, ADC interrupt flag
+#define  RB_ADC_IF_DMA_END  0x08                      // RW1, interrupt flag for ADC DMA completion
+#define  RB_ADC_IF_END_ADC  0x10                      // RW1, interrupt flag for end of ADC conversion, DMA for auto ADC or write R8_ADC_CONVERT to clear flag
+#define R8_ADC_AUTO_CYCLE   (*((vu8*)0x40001063))  // RW, auto ADC cycle value, unit is 16 Fsys
+#define R32_ADC_DMA_NOW     (*((vu32*)0x40001064)) // RW, ADC DMA current address
+#define R16_ADC_DMA_NOW     (*((vu16*)0x40001064)) // RW, ADC DMA current address
+#define R32_ADC_DMA_BEG     (*((vu32*)0x40001068)) // RW, ADC DMA begin address
+#define R16_ADC_DMA_BEG     (*((vu16*)0x40001068)) // RW, ADC DMA begin address
+#define R32_ADC_DMA_END     (*((vu32*)0x4000106C)) // RW, ADC DMA end address
+#define R16_ADC_DMA_END     (*((vu16*)0x4000106C)) // RW, ADC DMA end address
 
+/* System: GPIO interrupt control register */
+#define R32_GPIO_INT_EN     (*((vu32*)0x40001090)) // RW, GPIO interrupt enable
+#define R16_PA_INT_EN       (*((vu16*)0x40001090)) // RW, GPIO PA interrupt enable
+#define R16_PB_INT_EN       (*((vu16*)0x40001092)) // RW, GPIO PB interrupt enable
+#define R32_GPIO_INT_MODE   (*((vu32*)0x40001094)) // RW, GPIO interrupt mode: 0=level action, 1=edge action
+#define R16_PA_INT_MODE     (*((vu16*)0x40001094)) // RW, GPIO PA interrupt mode: 0=level action, 1=edge action
+#define R16_PB_INT_MODE     (*((vu16*)0x40001096)) // RW, GPIO PB interrupt mode: 0=level action, 1=edge action
+#define R32_GPIO_INT_IF     (*((vu32*)0x4000109C)) // RW1, GPIO interrupt flag
+#define R16_PA_INT_IF       (*((vu16*)0x4000109C)) // RW1, GPIO PA interrupt flag
+#define R16_PB_INT_IF       (*((vu16*)0x4000109E)) // RW1, GPIO PB interrupt flag
 
 /* GPIO PA register */
 #define R32_PA_DIR          (*((vu32*)0x400010A0)) // RW, GPIO PA I/O direction: 0=in, 1=out
@@ -508,6 +577,107 @@ typedef enum
 #define PB23     (0x80800000) /*!< Pin 23 selected */
 #define P_All    (0xFFFFFFFF) /*!< All pins selected */
 
+/* GPIO alias name */
+#define  bAIN9   (1<<0)    // PA0
+#define  bSCK1   (1<<0)    // PA0
+#define  bAIN8   (1<<1)    // PA1
+#define  bSDO    (1<<1)    // PA1
+#define  bMOSI1  bSDO
+#define  bAIN7   (1<<2)    // PA2
+#define  bSDI    (1<<2)    // PA2
+#define  bMISO1  bSDI
+#define  bAIN6   (1<<3)    // PA3
+#define  bAIN0   (1<<4)    // PA4
+#define  bRXD3   (1<<4)    // PA4
+#define  bRXD3_  (1<<4)    // PA4
+#define  bAIN1   (1<<5)    // PA5
+#define  bTXD3   (1<<5)    // PA5
+#define  bTXD3_  (1<<5)    // PA5
+#define  bAIN10  (1<<6)    // PA6
+#define  bRXD2_  (1<<6)    // PA6
+#define  bPWM4_  (1<<6)    // PA6
+#define  bAIN11  (1<<7)    // PA7
+#define  bTXD2_  (1<<7)    // PA7
+#define  bPWM5_  (1<<7)    // PA7
+#define  bAIN12  (1<<8)    // PA8
+#define  bRXD1   (1<<8)    // PA8
+#define  bAIN13  (1<<9)    // PA9
+#define  bTMR0   (1<<9)    // PA9
+#define  bCAP0   bTMR0
+#define  bPWM0   bTMR0
+#define  bTXD1   (1<<9)    // PA9
+#define  bX32KI  (1<<10)   // PA10
+#define  bTMR1   (1<<10)   // PA10
+#define  bCAP1   bTMR1
+#define  bPWM1   bTMR1
+#define  bX32KO  (1<<11)   // PA11
+#define  bTMR2   (1<<11)   // PA11
+#define  bCAP2   bTMR2
+#define  bPWM2   bTMR2
+#define  bAIN2   (1<<12)   // PA12
+#define  bPWM4   (1<<12)   // PA12
+#define  bSCS    (1<<12)   // PA12
+#define  bAIN3   (1<<13)   // PA13
+#define  bSCK0   (1<<13)   // PA13
+#define  bPWM5   (1<<13)   // PA13
+#define  bAIN4   (1<<14)   // PA14
+#define  bMOSI   (1<<14)   // PA14
+#define  bTXD0_  (1<<14)   // PA14
+#define  bAIN5   (1<<15)   // PA15
+#define  bMISO   (1<<15)   // PA15
+#define  bRXD0_  (1<<15)   // PA15
+#define  bPWM6   (1<<0)    // PB0
+#define  bCTS    (1<<0)    // PB0
+#define  bDSR    (1<<1)    // PB1
+#define  bPWM7_  (1<<1)    // PB1
+#define  bRI     (1<<2)    // PB2
+#define  bPWM8_  (1<<2)    // PB2
+#define  bDCD    (1<<3)    // PB3
+#define  bPWM9_  (1<<3)    // PB3
+#define  bPWM7   (1<<4)    // PB4
+#define  bRXD0   (1<<4)    // PB4
+#define  bDTR    (1<<5)    // PB5
+#define  bRTS    (1<<6)    // PB6
+#define  bPWM8   (1<<6)    // PB6
+#define  bTXD0   (1<<7)    // PB7
+#define  bPWM9   (1<<7)    // PB7
+#define  bUDM    (1<<10)   // PB10
+#define  bTMR1_  (1<<10)   // PB10
+#define  bCAP1_  bTMR1_
+#define  bPWM1_  bTMR1_
+#define  bUDP    (1<<11)   // PB11
+#define  bTMR2_  (1<<11)   // PB11
+#define  bCAP2_  bTMR2_
+#define  bPWM2_  bTMR2_
+#define  bU2DM   (1<<12)   // PB12
+#define  bSCS_   (1<<12)   // PB12
+#define  bRXD1_  (1<<12)   // PB12
+#define  bU2DP   (1<<13)   // PB13
+#define  bSCK0_  (1<<13)   // PB13
+#define  bTXD1_  (1<<13)   // PB13
+#define  bTIO    (1<<14)   // PB14
+#define  bDSR_   (1<<14)   // PB14
+#define  bMOSI_  (1<<14)   // PB14
+#define  bSDA    (1<<14)   // PB14
+#define  bPWM10  (1<<14)   // PB14
+#define  bTCK    (1<<15)   // PB15
+#define  bMISO_  (1<<15)   // PB15
+#define  bSCL    (1<<15)   // PB15
+#define  bDTR_   (1<<15)   // PB15
+#define  bRXD2   (1<<22)   // PB22
+#define  bTMR3   (1<<22)   // PB22
+#define  bCAP3   bTMR3
+#define  bPWM3   bTMR3
+#define  bTMR3_  (1<<22)   // PB22
+#define  bCAP3_  bTMR3_
+#define  bPWM3_  bTMR3_
+#define  bRST    (1<<23)   // PB23
+#define  bTMR0_  (1<<23)   // PB23
+#define  bCAP0_  bTMR0_
+#define  bPWM0_  bTMR0_
+#define  bTXD2   (1<<23)   // PB23
+#define  bPWM11  (1<<23)   // PB23
+
 typedef enum
 {
 	GPIO_ModeIN_Floating,
@@ -528,6 +698,124 @@ typedef enum
 	GPIO_CFGLR_OUT_2Mhz_PP = GPIO_ModeOut_PP_5mA,
 	GPIO_CFGLR_OUT_50Mhz_PP = GPIO_ModeOut_PP_20mA,
 } GPIO_CFGLR_PIN_MODE_Typedef;
+
+/* System: Flash ROM control register */
+#define R32_FLASH_DATA      (*((vu32*)0x40001800)) // RO/WO, flash ROM data
+#define R32_FLASH_CONTROL   (*((vu32*)0x40001804)) // RW, flash ROM control
+#define R8_FLASH_DATA       (*((vu8*)0x40001804))  // RO/WO, flash ROM data buffer
+#define R8_FLASH_CTRL       (*((vu8*)0x40001806))  // RW, flash ROM access control
+#define R8_FLASH_CFG        (*((vu8*)0x40001807))  // RW, flash ROM access config, SAM
+/* Timer0 register */
+#define R32_TMR0_CONTROL    (*((vu32*)0x40002000)) // RW, TMR0 control
+#define R8_TMR0_CTRL_MOD    (*((vu8*)0x40002000))  // RW, TMR0 mode control
+#define R8_TMR0_INTER_EN    (*((vu8*)0x40002002))  // RW, TMR0 interrupt enable
+// #define R32_TMR0_STATUS     (*((vu32*)0x40002004)) // RW, TMR0 status
+#define R8_TMR0_INT_FLAG    (*((vu8*)0x40002006))  // RW1, TMR0 interrupt flag
+#define R8_TMR0_FIFO_COUNT  (*((vu8*)0x40002007))  // RO, TMR0 FIFO count status
+#define R32_TMR0_COUNT      (*((vu32*)0x40002008)) // RO, TMR0 current count
+#define R16_TMR0_COUNT      (*((vu16*)0x40002008)) // RO, TMR0 current count
+#define R8_TMR0_COUNT       (*((vu8*)0x40002008))  // RO, TMR0 current count
+#define R32_TMR0_CNT_END    (*((vu32*)0x4000200C)) // RW, TMR0 end count value, only low 26 bit
+#define R32_TMR0_FIFO       (*((vu32*)0x40002010)) // RO/WO, TMR0 FIFO register, only low 26 bit
+#define R16_TMR0_FIFO       (*((vu16*)0x40002010)) // RO/WO, TMR0 FIFO register
+#define R8_TMR0_FIFO        (*((vu8*)0x40002010))  // RO/WO, TMR0 FIFO register
+
+/* Timer1 register */
+#define R32_TMR1_CONTROL    (*((vu32*)0x40002400)) // RW, TMR1 control
+#define R8_TMR1_CTRL_MOD    (*((vu8*)0x40002400))  // RW, TMR1 mode control
+#define R8_TMR1_CTRL_DMA    (*((vu8*)0x40002401))  // RW, TMR1 DMA control
+#define R8_TMR1_INTER_EN    (*((vu8*)0x40002402))  // RW, TMR1 interrupt enable
+// #define R32_TMR1_STATUS     (*((vu32*)0x40002404)) // RW, TMR1 status
+#define R8_TMR1_INT_FLAG    (*((vu8*)0x40002406))  // RW1, TMR1 interrupt flag
+#define R8_TMR1_FIFO_COUNT  (*((vu8*)0x40002407))  // RO, TMR1 FIFO count status
+#define R32_TMR1_COUNT      (*((vu32*)0x40002408)) // RO, TMR1 current count
+#define R16_TMR1_COUNT      (*((vu16*)0x40002408)) // RO, TMR1 current count
+#define R8_TMR1_COUNT       (*((vu8*)0x40002408))  // RO, TMR1 current count
+#define R32_TMR1_CNT_END    (*((vu32*)0x4000240C)) // RW, TMR1 end count value, only low 26 bit
+#define R32_TMR1_FIFO       (*((vu32*)0x40002410)) // RO/WO, TMR1 FIFO register, only low 26 bit
+#define R16_TMR1_FIFO       (*((vu16*)0x40002410)) // RO/WO, TMR1 FIFO register
+#define R8_TMR1_FIFO        (*((vu8*)0x40002410))  // RO/WO, TMR1 FIFO register
+#define R32_TMR1_DMA_NOW    (*((vu32*)0x40002414)) // RW, TMR1 DMA current address
+#define R16_TMR1_DMA_NOW    (*((vu16*)0x40002414)) // RW, TMR1 DMA current address
+#define R32_TMR1_DMA_BEG    (*((vu32*)0x40002418)) // RW, TMR1 DMA begin address
+#define R16_TMR1_DMA_BEG    (*((vu16*)0x40002418)) // RW, TMR1 DMA begin address
+#define R32_TMR1_DMA_END    (*((vu32*)0x4000241C)) // RW, TMR1 DMA end address
+#define R16_TMR1_DMA_END    (*((vu16*)0x4000241C)) // RW, TMR1 DMA end address
+
+/* Timer2 register */
+#define R32_TMR2_CONTROL    (*((vu32*)0x40002800)) // RW, TMR2 control
+#define R8_TMR2_CTRL_MOD    (*((vu8*)0x40002800))  // RW, TMR2 mode control
+#define R8_TMR2_CTRL_DMA    (*((vu8*)0x40002801))  // RW, TMR2 DMA control
+#define R8_TMR2_INTER_EN    (*((vu8*)0x40002802))  // RW, TMR2 interrupt enable
+// #define R32_TMR2_STATUS     (*((vu32*)0x40002804)) // RW, TMR2 status
+#define R8_TMR2_INT_FLAG    (*((vu8*)0x40002806))  // RW1, TMR2 interrupt flag
+#define R8_TMR2_FIFO_COUNT  (*((vu8*)0x40002807))  // RO, TMR2 FIFO count status
+#define R32_TMR2_COUNT      (*((vu32*)0x40002808)) // RO, TMR2 current count
+#define R16_TMR2_COUNT      (*((vu16*)0x40002808)) // RO, TMR2 current count
+#define R8_TMR2_COUNT       (*((vu8*)0x40002808))  // RO, TMR2 current count
+#define R32_TMR2_CNT_END    (*((vu32*)0x4000280C)) // RW, TMR2 end count value, only low 26 bit
+#define R32_TMR2_FIFO       (*((vu32*)0x40002810)) // RO/WO, TMR2 FIFO register, only low 26 bit
+#define R16_TMR2_FIFO       (*((vu16*)0x40002810)) // RO/WO, TMR2 FIFO register
+#define R8_TMR2_FIFO        (*((vu8*)0x40002810))  // RO/WO, TMR2 FIFO register
+#define R32_TMR2_DMA_NOW    (*((vu32*)0x40002814)) // RW, TMR2 DMA current address
+#define R16_TMR2_DMA_NOW    (*((vu16*)0x40002814)) // RW, TMR2 DMA current address
+#define R32_TMR2_DMA_BEG    (*((vu32*)0x40002818)) // RW, TMR2 DMA begin address
+#define R16_TMR2_DMA_BEG    (*((vu16*)0x40002818)) // RW, TMR2 DMA begin address
+#define R32_TMR2_DMA_END    (*((vu32*)0x4000281C)) // RW, TMR2 DMA end address
+#define R16_TMR2_DMA_END    (*((vu16*)0x4000281C)) // RW, TMR2 DMA end address
+
+/* Timer3 register */
+#define R32_TMR3_CONTROL    (*((vu32*)0x40002C00)) // RW, TMR3 control
+#define R8_TMR3_CTRL_MOD    (*((vu8*)0x40002C00))  // RW, TMR3 mode control
+#define R8_TMR3_INTER_EN    (*((vu8*)0x40002C02))  // RW, TMR3 interrupt enable
+// #define R32_TMR3_STATUS     (*((vu32*)0x40002C04)) // RW, TMR3 status
+#define R8_TMR3_INT_FLAG    (*((vu8*)0x40002C06))  // RW1, TMR3 interrupt flag
+#define R8_TMR3_FIFO_COUNT  (*((vu8*)0x40002C07))  // RO, TMR3 FIFO count status
+#define R32_TMR3_COUNT      (*((vu32*)0x40002C08)) // RO, TMR3 current count
+#define R16_TMR3_COUNT      (*((vu16*)0x40002C08)) // RO, TMR3 current count
+#define R8_TMR3_COUNT       (*((vu8*)0x40002C08))  // RO, TMR3 current count
+#define R32_TMR3_CNT_END    (*((vu32*)0x40002C0C)) // RW, TMR3 end count value, only low 26 bit
+#define R32_TMR3_FIFO       (*((vu32*)0x40002C10)) // RO/WO, TMR3 FIFO register, only low 26 bit
+#define R16_TMR3_FIFO       (*((vu16*)0x40002C10)) // RO/WO, TMR3 FIFO register
+#define R8_TMR3_FIFO        (*((vu8*)0x40002C10))  // RO/WO, TMR3 FIFO register
+
+/* Timer register address offset and bit define */
+#define TMR_FIFO_SIZE       8                         // timer FIFO size (depth)
+#define BA_TMR0             ((vu8*)0x40002000)     // point TMR0 base address
+#define BA_TMR1             ((vu8*)0x40002400)     // point TMR1 base address
+#define BA_TMR2             ((vu8*)0x40002800)     // point TMR2 base address
+#define BA_TMR3             ((vu8*)0x40002C00)     // point TMR3 base address
+#define TMR_CTRL_MOD        0
+#define  RB_TMR_MODE_IN     0x01                      // RW, timer in mode: 0=timer/PWM, 1=capture/count
+#define  RB_TMR_ALL_CLEAR   0x02                      // RW, force clear timer FIFO and count
+#define  RB_TMR_COUNT_EN    0x04                      // RW, timer count enable
+#define  RB_TMR_OUT_EN      0x08                      // RW, timer output enable
+#define  RB_TMR_OUT_POLAR   0x10                      // RW, timer PWM output polarity: 0=default low and high action, 1=default high and low action
+#define  RB_TMR_CAP_COUNT   0x10                      // RW, count sub-mode if RB_TMR_MODE_IN=1: 0=capture, 1=count
+#define  RB_TMR_PWM_REPEAT  0xC0                      // RW, timer PWM repeat mode: 00=1, 01=4, 10=8, 11-16
+#define  RB_TMR_CAP_EDGE    0xC0                      // RW, timer capture edge mode: 00=disable, 01=edge change, 10=fall to fall, 11-rise to rise
+#define TMR_CTRL_DMA        1
+#define  RB_TMR_DMA_ENABLE  0x01                      // RW, timer1/2 DMA enable
+#define  RB_TMR_DMA_LOOP    0x04                      // RW, timer1/2 DMA address loop enable
+#define TMR_INTER_EN        2
+#define  RB_TMR_IE_CYC_END  0x01                      // RW, enable interrupt for timer capture count timeout or PWM cycle end
+#define  RB_TMR_IE_DATA_ACT 0x02                      // RW, enable interrupt for timer capture input action or PWM trigger
+#define  RB_TMR_IE_FIFO_HF  0x04                      // RW, enable interrupt for timer FIFO half (capture fifo >=4 or PWM fifo <=3)
+#define  RB_TMR_IE_DMA_END  0x08                      // RW, enable interrupt for timer1/2 DMA completion
+#define  RB_TMR_IE_FIFO_OV  0x10                      // RW, enable interrupt for timer FIFO overflow
+#define TMR_INT_FLAG        6
+#define  RB_TMR_IF_CYC_END  0x01                      // RW1, interrupt flag for timer capture count timeout or PWM cycle end
+#define  RB_TMR_IF_DATA_ACT 0x02                      // RW1, interrupt flag for timer capture input action or PWM trigger
+#define  RB_TMR_IF_FIFO_HF  0x04                      // RW1, interrupt flag for timer FIFO half (capture fifo >=4 or PWM fifo <=3)
+#define  RB_TMR_IF_DMA_END  0x08                      // RW1, interrupt flag for timer1/2 DMA completion
+#define  RB_TMR_IF_FIFO_OV  0x10                      // RW1, interrupt flag for timer FIFO overflow
+#define TMR_FIFO_COUNT      7
+#define TMR_COUNT           0x08
+#define TMR_CNT_END         0x0C
+#define TMR_FIFO            0x10
+#define TMR_DMA_NOW         0x14
+#define TMR_DMA_BEG         0x18
+#define TMR_DMA_END         0x1C
 
 /* UART0 register */
 #define R32_UART0_CTRL      (*((vu32*)0x40003000)) // RW, UART0 control
@@ -690,6 +978,468 @@ typedef enum
 #define UART_II_MODEM_CHG   0x00                      // RO, UART0 interrupt by modem status change
 #define UART_II_NO_INTER    0x01                      // RO, no UART interrupt is pending
 
+/* SPI0 register */
+#define R32_SPI0_CONTROL    (*((vu32*)0x40004000)) // RW, SPI0 control
+#define R8_SPI0_CTRL_MOD    (*((vu8*)0x40004000))  // RW, SPI0 mode control
+#define R8_SPI0_CTRL_CFG    (*((vu8*)0x40004001))  // RW, SPI0 configuration control
+#define R8_SPI0_INTER_EN    (*((vu8*)0x40004002))  // RW, SPI0 interrupt enable
+#define R8_SPI0_CLOCK_DIV   (*((vu8*)0x40004003))  // RW, SPI0 master clock divisor
+#define R8_SPI0_SLAVE_PRE   (*((vu8*)0x40004003))  // RW, SPI0 slave preset value
+#define R32_SPI0_STATUS     (*((vu32*)0x40004004)) // RW, SPI0 status
+#define R8_SPI0_BUFFER      (*((vu8*)0x40004004))  // RO, SPI0 data buffer
+#define R8_SPI0_RUN_FLAG    (*((vu8*)0x40004005))  // RO, SPI0 work flag
+#define R8_SPI0_INT_FLAG    (*((vu8*)0x40004006))  // RW1, SPI0 interrupt flag
+#define R8_SPI0_FIFO_COUNT  (*((vu8*)0x40004007))  // RO, SPI0 FIFO count status
+#define R32_SPI0_TOTAL_CNT  (*((vu32*)0x4000400C)) // RW, SPI0 total byte count, only low 12 bit
+#define R16_SPI0_TOTAL_CNT  (*((vu16*)0x4000400C)) // RW, SPI0 total byte count, only low 12 bit
+#define R32_SPI0_FIFO       (*((vu32*)0x40004010)) // RW, SPI0 FIFO register
+#define R8_SPI0_FIFO        (*((vu8*)0x40004010))  // RO/WO, SPI0 FIFO register
+#define R8_SPI0_FIFO_COUNT1 (*((vu8*)0x40004013))  // RO, SPI0 FIFO count status
+#define R32_SPI0_DMA_NOW    (*((vu32*)0x40004014)) // RW, SPI0 DMA current address
+#define R16_SPI0_DMA_NOW    (*((vu16*)0x40004014)) // RW, SPI0 DMA current address
+#define R32_SPI0_DMA_BEG    (*((vu32*)0x40004018)) // RW, SPI0 DMA begin address
+#define R16_SPI0_DMA_BEG    (*((vu16*)0x40004018)) // RW, SPI0 DMA begin address
+#define R32_SPI0_DMA_END    (*((vu32*)0x4000401C)) // RW, SPI0 DMA end address
+#define R16_SPI0_DMA_END    (*((vu16*)0x4000401C)) // RW, SPI0 DMA end address
+
+/* SPI register address offset and bit define */
+#define SPI_FIFO_SIZE       8                         // SPI FIFO size (depth)
+#define BA_SPI0             ((vu8*)0x40004000)     // point SPI0 base address
+#define SPI_CTRL_MOD        0
+#define  RB_SPI_MODE_SLAVE  0x01                      // RW, SPI0 slave mode: 0=master/host, 1=slave/device
+#define  RB_SPI_ALL_CLEAR   0x02                      // RW, force clear SPI FIFO and count
+#define  RB_SPI_2WIRE_MOD   0x04                      // RW, SPI0 enable 2 wire mode for slave: 0=3wire(SCK0,MOSI,MISO), 1=2wire(SCK0,MISO=MXSX)
+#define  RB_SPI_MST_SCK_MOD 0x08                      // RW, SPI master clock mode: 0=mode 0, 1=mode 3
+#define  RB_SPI_SLV_CMD_MOD 0x08                      // RW, SPI0 slave command mode: 0=byte stream, 1=first byte command
+#define  RB_SPI_FIFO_DIR    0x10                      // RW, SPI FIFO direction: 0=out(write @master mode), 1=in(read @master mode)
+#define  RB_SPI_SCK_OE      0x20                      // RW, SPI SCK output enable
+#define  RB_SPI_MOSI_OE     0x40                      // RW, SPI MOSI output enable
+#define  RB_SPI_MISO_OE     0x80                      // RW, SPI MISO output enable
+#define SPI_CTRL_CFG        1
+#define  RB_SPI_DMA_ENABLE  0x01                      // RW, SPI0 DMA enable
+#define  RB_SPI_DMA_LOOP    0x04                      // RW, SPI0 DMA address loop enable
+#define  RB_SPI_AUTO_IF     0x10                      // RW, enable buffer/FIFO accessing to auto clear RB_SPI_IF_BYTE_END interrupt flag
+#define  RB_SPI_BIT_ORDER   0x20                      // RW, SPI bit data order: 0=MSB first, 1=LSB first
+#define  RB_SPI_MST_DLY_EN  0x40                      // RW, SPI master input delay enable
+#define SPI_INTER_EN        2
+#define  RB_SPI_IE_CNT_END  0x01                      // RW, enable interrupt for SPI total byte count end
+#define  RB_SPI_IE_BYTE_END 0x02                      // RW, enable interrupt for SPI byte exchanged
+#define  RB_SPI_IE_FIFO_HF  0x04                      // RW, enable interrupt for SPI FIFO half
+#define  RB_SPI_IE_DMA_END  0x08                      // RW, enable interrupt for SPI0 DMA completion
+#define  RB_SPI_IE_FIFO_OV  0x10                      // RW, enable interrupt for SPI0 FIFO overflow
+#define  RB_SPI_IE_FST_BYTE 0x80                      // RW, enable interrupt for SPI0 slave mode first byte received
+#define SPI_CLOCK_DIV       3
+#define SPI_SLAVE_PRESET    3
+#define SPI_BUFFER          4
+#define SPI_RUN_FLAG        5
+#define  RB_SPI_SLV_CMD_ACT 0x10                      // RO, SPI0 slave first byte / command flag
+#define  RB_SPI_FIFO_READY  0x20                      // RO, SPI FIFO ready status
+#define  RB_SPI_SLV_CS_LOAD 0x40                      // RO, SPI0 slave chip-select loading status
+#define  RB_SPI_SLV_SELECT  0x80                      // RO, SPI0 slave selection status
+#define SPI_INT_FLAG        6
+#define  RB_SPI_IF_CNT_END  0x01                      // RW1, interrupt flag for SPI total byte count end
+#define  RB_SPI_IF_BYTE_END 0x02                      // RW1, interrupt flag for SPI byte exchanged
+#define  RB_SPI_IF_FIFO_HF  0x04                      // RW1, interrupt flag for SPI FIFO half (RB_SPI_FIFO_DIR ? >=4bytes : <4bytes)
+#define  RB_SPI_IF_DMA_END  0x08                      // RW1, interrupt flag for SPI0 DMA completion
+#define  RB_SPI_IF_FIFO_OV  0x10                      // RW1, interrupt flag for SPI0 FIFO overflow
+#define  RB_SPI_FREE        0x40                      // RO, current SPI free status
+#define  RB_SPI_IF_FST_BYTE 0x80                      // RW1, interrupt flag for SPI0 slave mode first byte received
+#define SPI_FIFO_COUNT      7
+#define SPI_TOTAL_CNT       0x0C
+#define SPI_FIFO            0x10
+#define SPI_DMA_NOW         0x14
+#define SPI_DMA_BEG         0x18
+#define SPI_DMA_END         0x1C
+
+/* I2C register */
+#define R16_I2C_CTRL1       (*((vu16*)0x40004800)) // RW, I2C control 1
+#define R16_I2C_CTRL2       (*((vu16*)0x40004804)) // RW, I2C control 2
+#define R16_I2C_OADDR1      (*((vu16*)0x40004808)) // RW, I2C own address register 1
+#define R16_I2C_OADDR2      (*((vu16*)0x4000480C)) // RW, I2C own address register 2
+#define R16_I2C_DATAR       (*((vu16*)0x40004810)) // RW, I2C data register
+#define R16_I2C_STAR1       (*((vu16*)0x40004814)) // R0, I2C stauts register 1
+#define R16_I2C_STAR2       (*((vu16*)0x40004818)) // R0, I2C status register 2
+// #define R8_I2C_PEC          (*((vu8*) 0x40004819)) // R0, I2C Packet error checking register 
+#define R16_I2C_CKCFGR      (*((vu16*)0x4000481C)) // RW, I2C clock control register
+#define R16_I2C_RTR         (*((vu16*)0x40004820)) // RW, I2C trise register
+
+/* I2C register address offset and bit define */
+#define BA_I2C              ((vu8*)0x40004800)     // point I2C base address
+#define I2C_CTRL1           0
+#define  RB_I2C_PE          0x0001                    // RW, Peripheral enable
+#define  RB_I2C_SMBUS       0x0002                    // RW, SMBUS mode: 0=I2C mode, 1=SMBUS mode
+#define  RB_I2C_SMBTYPE     0x0008                    // RW, SMBus type: 0=Device, 1=Host
+#define  RB_I2C_EBARP       0x0010                    // RW, ARP enable
+#define  RB_I2C_ENPEC       0x0020                    // RW, PEC ebable
+#define  RB_I2C_ENGC        0x0040                    // RW, General call enable
+#define  RB_I2C_NOSTRETCH   0x0080                    // RW, Clock stretching disable (Slave mode)
+#define  RB_I2C_START       0x0100                    // RW, Start generation: master mode: 0=no start, 1=repeated start; slave mode: 0=no start, 1=start at bus free
+#define  RB_I2C_STOP        0x0200                    // RW, Stop generation: master mode: 0=no stop, 1=stop after the current byte transfer or after the current Start condition is sent; slave mode: 0=no stop, 1=Release the SCL and SDA lines after the current byte transfer
+#define  RB_I2C_ACK         0x0400                    // RW, Acknowledge enable
+#define  RB_I2C_POS         0x0800                    // RW, Acknowledge/PEC Position (for data reception)
+#define  RB_I2C_PEC         0x1000                    // RW, Packet error checking: 0=No PEC transfer, 1=PEC transfer (in Tx or Rx mode)
+#define  RB_I2C_ALERT       0x2000                    // RW, SMBus alert: 0=Releases SMBA pin high, 1=Drives SMBA pin low.
+#define  RB_I2C_SWRST       0x8000                    // RW, Software reset
+#define I2C_CTRL2           4
+#define  RB_I2C_FREQ        0x003F                    // RW, Peripheral clock frequency, The minimum allowed frequency is 2 MHz,the maximum frequency is 36 MHz
+#define  RB_I2C_ITERREN     0x0100                    // RW, Error interrupt enable
+#define  RB_I2C_ITEVTEN     0x0200                    // RW, Event interrupt enable
+#define  RB_I2C_ITBUFEN     0x0400                    // RW, Buffer interrupt enable
+#define I2C_OADDR1          8
+#define  RB_I2C_ADD0        0x0001                    // RW, bit0 of address in 10-bit addressing mode
+#define  RB_I2C_ADD7_1      0x00FE                    // RW, bit[7:1] of address
+#define  RB_I2C_ADD9_8      0x0300                    // RW, bit[9:8] of address in 10-bit addressing mode
+#define  RB_I2C_ADDMODE     0x8000                    // RW, Addressing mode (slave mode): 0=7-bit slave address, 1=10-bit slave address
+#define I2C_OADDR2          12
+#define  RB_I2C_ENDUAL      0x0001                    // RW, Dual addressing mode enable
+#define  RB_I2C_ADD2        0x00FE                    // RW, bit[7:1] of address2
+#define I2C_DATAR           16              
+#define I2C_STAR1           20
+#define  RB_I2C_SB          0x0001                    // RW0, Start bit flag (Master mode)
+#define  RB_I2C_ADDR        0x0002                    // RW0, Address sent (master mode)/matched (slave mode) flag
+#define  RB_I2C_BTF         0x0004                    // RO, Byte transfer finished flag
+#define  RB_I2C_ADD10       0x0008                    // RO, 10-bit header sent flag (Master mode)
+#define  RB_I2C_STOPF       0x0010                    // RO, Stop detection flag (slave mode)
+#define  RB_I2C_RxNE        0x0040                    // RO, Data register not empty flag (receivers)
+#define  RB_I2C_TxE         0x0080                    // RO, Data register empty flag (transmitters)
+#define  RB_I2C_BERR        0x0100                    // RW0, Bus error flag
+#define  RB_I2C_ARLO        0x0200                    // RW0, Arbitration lost flag (master mode)
+#define  RB_I2C_AF          0x0400                    // RW0, Acknowledge failure flag
+#define  RB_I2C_OVR         0x0800                    // RW0, Overrun/Underrun flag
+#define  RB_I2C_PECERR      0x1000                    // RW0, PEC Error flag in reception
+#define  RB_I2C_TIMEOUT     0x4000                    // RW0, Timeout or Tlow error flag
+#define  RB_I2C_SMBALERT    0x8000                    // RW0, SMBus alert flag
+#define I2C_STAR2           24
+#define  RB_I2C_MSL         0x0001                    // RO, Mode statu: 0=Slave mode, 1=Master mode
+#define  RB_I2C_BUSY        0x0002                    // RO, Bus busy flag
+#define  RB_I2C_TRA         0x0004                    // RO, Trans flag: 0=data bytes received, 1=data bytes transmitted
+#define  RB_I2C_GENCALL     0x0010                    // RO, General call address (Slave mode) received flag
+#define  RB_I2C_SMBDEFAULT  0x0020                    // RO, SMBus device default address (Slave mode) received flag
+#define  RB_I2C_SMBHOST     0x0040                    // RO, SMBus host header (Slave mode) received flag
+#define  RB_I2C_DUALF       0x0080                    // RO, Dual flag (Slave mode): 0=Received address matched with OAR1, 1=Received address matched with OAR2
+#define  RB_I2C_PECX        0xFF00                    // RO, Packet error checking register
+#define I2C_CKCFGR          28
+#define  RB_I2C_CCR         0x0FFF                    // RW, Controls the SCL clock in Fm/Sm mode (Master mode)
+#define  RB_I2C_DUTY        0x4000                    // RW, Fm mode duty cycle: 0=L/H=2, 1=L/H=16/9
+#define  RB_I2C_F_S         0x8000                    // RW, I2C master mode selection: 0=standard mode, 1=fast mode
+#define I2C_RTR             32
+#define  RB_I2C_TRISE       0x003F                    // RW, Maximum rise time in Fm/Sm mode (Master mode)
+
+/* PWM4/5/6/7/8/9/10/11 register */
+#define R32_PWM_CONTROL     (*((vu32*)0x40005000)) // RW, PWM control
+#define R8_PWM_OUT_EN       (*((vu8*)0x40005000))  // RW, PWM output enable control
+#define R8_PWM_POLAR        (*((vu8*)0x40005001))  // RW, PWM output polarity control
+#define R8_PWM_CONFIG       (*((vu8*)0x40005002))  // RW, PWM configuration
+#define R8_PWM_CLOCK_DIV    (*((vu8*)0x40005003))  // RW, PWM clock divisor
+#define R32_PWM4_7_DATA     (*((vu32*)0x40005004)) // RW, PWM4-7 data holding
+#define R8_PWM4_DATA        (*((vu8*)0x40005004))  // RW, PWM4 data holding
+#define R8_PWM5_DATA        (*((vu8*)0x40005005))  // RW, PWM5 data holding
+#define R8_PWM6_DATA        (*((vu8*)0x40005006))  // RW, PWM6 data holding
+#define R8_PWM7_DATA        (*((vu8*)0x40005007))  // RW, PWM7 data holding
+#define R32_PWM8_11_DATA    (*((vu32*)0x40005008)) // RW, PWM8-11 data holding
+#define R8_PWM8_DATA        (*((vu8*)0x40005008))  // RW, PWM8 data holding
+#define R8_PWM9_DATA        (*((vu8*)0x40005009))  // RW, PWM9 data holding
+#define R8_PWM10_DATA       (*((vu8*)0x4000500A))  // RW, PWM10 data holding
+#define R8_PWM11_DATA       (*((vu8*)0x4000500B))  // RW, PWM11 data holding
+#define R8_PWM_INT_CTRL     (*((vu32*)0x4000500C)) // RW, PWM interrupt control
+#define  RB_PWM_IE_CYC      0x01                      // RW, enable interrupt for PWM cycle end
+#define  RB_PWM_CYC_PRE     0x02                      // RW, select PWM cycle interrupt point: 0=after count 0xFE (0x7E for 7 bits mode...), 1=after count 0xF0 (0x70 for 7 bits mode...)
+#define  RB_PWM_IF_CYC      0x80                      // RW1, interrupt flag for PWM cycle end
+#define R32_PWM_REG_DATA8   (*((vu32*)0x40005010)) // RW, PWM8-9 data register
+#define R32_PWM_REG_CYCLE   (*((vu32*)0x40005014)) // RW, PWM cycle value
+
+/* PWM4/5/6/7/8/9/10/11 register address offset and bit define */
+#define BA_PWMX             ((vu8*)0x40005000)     // point PWM4/5/6/7/8/9/10/11 base address
+#define PWM_OUT_EN          0
+#define  RB_PWM4_OUT_EN     0x01                      // RW, PWM4 output enable
+#define  RB_PWM5_OUT_EN     0x02                      // RW, PWM5 output enable
+#define  RB_PWM6_OUT_EN     0x04                      // RW, PWM6 output enable
+#define  RB_PWM7_OUT_EN     0x08                      // RW, PWM7 output enable
+#define  RB_PWM8_OUT_EN     0x10                      // RW, PWM8 output enable
+#define  RB_PWM9_OUT_EN     0x20                      // RW, PWM9 output enable
+#define  RB_PWM10_OUT_EN    0x40                      // RW, PWM10 output enable
+#define  RB_PWM11_OUT_EN    0x80                      // RW, PWM11 output enable
+#define PWM_POLAR           1
+#define  RB_PWM4_POLAR      0x01                      // RW, PWM4 output polarity: 0=default low and high action, 1=default high and low action
+#define  RB_PWM5_POLAR      0x02                      // RW, PWM5 output polarity: 0=default low and high action, 1=default high and low action
+#define  RB_PWM6_POLAR      0x04                      // RW, PWM6 output polarity: 0=default low and high action, 1=default high and low action
+#define  RB_PWM7_POLAR      0x08                      // RW, PWM7 output polarity: 0=default low and high action, 1=default high and low action
+#define  RB_PWM8_POLAR      0x10                      // RW, PWM8 output polarity: 0=default low and high action, 1=default high and low action
+#define  RB_PWM9_POLAR      0x20                      // RW, PWM9 output polarity: 0=default low and high action, 1=default high and low action
+#define  RB_PWM10_POLAR     0x40                      // RW, PWM10 output polarity: 0=default low and high action, 1=default high and low action
+#define  RB_PWM11_POLAR     0x80                      // RW, PWM11 output polarity: 0=default low and high action, 1=default high and low action
+#define PWM_CONFIG          2
+#define  RB_PWM_CYCLE_SEL   0x01                      // RW, PWM cycle selection: 0=256/128/64/32 clocks, 1=255/127/63/31 clocks
+#define  RB_PWM_STAG_ST     0x02                      // RO, PWM stagger cycle status
+#define  RB_PWM_CYC_MOD     0x0C                      // RW, PWM data width mode: 00=8 bits data, 01=7 bits data, 10=6 bits data, 11=16 bits data
+#define  RB_PWM4_5_STAG_EN  0x10                      // RW, PWM4/5 stagger output enable: 0=independent output, 1=stagger output
+#define  RB_PWM6_7_STAG_EN  0x20                      // RW, PWM6/7 stagger output enable: 0=independent output, 1=stagger output
+#define  RB_PWM8_9_STAG_EN  0x40                      // RW, PWM8/9 stagger output enable: 0=independent output, 1=stagger output
+#define  RB_PWM10_11_STAG_EN 0x80                     // RW, PWM10/11 stagger output enable: 0=independent output, 1=stagger output
+#define PWM_CLOCK_DIV       3
+#define PWM4_DATA_HOLD      4
+#define PWM5_DATA_HOLD      5
+#define PWM6_DATA_HOLD      6
+#define PWM7_DATA_HOLD      7
+#define PWM8_DATA_HOLD      8
+#define PWM9_DATA_HOLD      9
+#define PWM10_DATA_HOLD     10
+#define PWM11_DATA_HOLD     11
+
+/* LCD register */
+#define R32_LCD_CMD         (*((vu32*)(0x40006000)))
+#define  RB_LCD_SYS_EN      0x01                      // RW, LCD digital system enable
+#define  RB_LCD_ON          0x02                      // RW, LCD analog system enable
+#define  RB_LCD_BIAS        0x04                      // RW, LCD bias select:  0=1/2 bias,  1=1/3 bias
+#define  RB_LCD_DUTY        0x18                      // RW, LCD duty select:  00=1/2 duty,  01=1/3 duty,  10=1/4 duty
+#define  RB_LCD_SCAN_CLK    0x60                      // RW, LCD scan clock select: 00=256Hz, 01=512Hz, 10=1KHz, 11=128Hz
+#define  RB_LCD_VLCD_SEL    0x80                      // RW, LCD drive voltage：0=VIO33*100%(3.3V),1=VIO33*76%(2.5V)
+#define  RB_LCD_SEG0_7_EN   0xFF00                    // RW, SEG0-SEG7 enable
+#define  RB_LCD_SEG8_15_EN  0xFF0000                  // RW, SEG8-SEG15 enable
+#define  RB_LCD_SEG16_19_EN 0xF000000                 // RW, SEG16-SEG19 enable
+
+#define R32_LCD_RAM0        (*((vu32*)(0x40006004))) // RW, LCD driver data0, address 0-3
+#define R32_LCD_RAM1        (*((vu32*)(0x40006008))) // RW, LCD driver data1, address 4-7
+#define R32_LCD_RAM2        (*((vu32*)(0x4000600C))) // RW, LCD driver data2, address 8-12
+#define USB_BASE_ADDR              (0x40008000)
+#define BA_USB              ((vu8*)0x40008000)     // point USB base address
+
+/*  USB  */
+#define R32_USB_CONTROL     (*((vu32*)0x40008000)) // USB control & interrupt enable & device address
+#define R8_USB_CTRL         (*((vu8*)0x40008000))  // USB base control
+#define  RB_UC_HOST_MODE    0x80      // enable USB host mode: 0=device mode, 1=host mode
+#define  RB_UC_LOW_SPEED    0x40      // enable USB low speed: 0=12Mbps, 1=1.5Mbps
+#define  RB_UC_DEV_PU_EN    0x20      // USB device enable and internal pullup resistance enable
+#define  RB_UC_SYS_CTRL1    0x20      // USB system control high bit
+#define  RB_UC_SYS_CTRL0    0x10      // USB system control low bit
+#define  MASK_UC_SYS_CTRL   0x30      // bit mask of USB system control
+// bUC_HOST_MODE & bUC_SYS_CTRL1 & bUC_SYS_CTRL0: USB system control
+//   0 00: disable USB device and disable internal pullup resistance
+//   0 01: enable USB device and disable internal pullup resistance, need RB_PIN_USB_DP_PU=1 or need external pullup resistance
+//   0 1x: enable USB device and enable internal pullup resistance
+//   1 00: enable USB host and normal status
+//   1 01: enable USB host and force UDP/UDM output SE0 state
+//   1 10: enable USB host and force UDP/UDM output J state
+//   1 11: enable USB host and force UDP/UDM output resume or K state
+#define  RB_UC_INT_BUSY     0x08      // enable automatic responding busy for device mode or automatic pause for host mode during interrupt flag UIF_TRANSFER valid
+#define  RB_UC_RESET_SIE    0x04      // force reset USB SIE, need software clear
+#define  RB_UC_CLR_ALL      0x02      // force clear FIFO and count of USB
+#define  RB_UC_DMA_EN       0x01      // DMA enable and DMA interrupt enable for USB
+
+#define R8_UDEV_CTRL        (*((vu8*)0x40008001))  // USB device physical prot control
+#define  RB_UD_PD_DIS       0x80      // disable USB UDP/UDM pulldown resistance: 0=enable pulldown, 1=disable
+#define  RB_UD_DP_PIN       0x20      // ReadOnly: indicate current UDP pin level
+#define  RB_UD_DM_PIN       0x10      // ReadOnly: indicate current UDM pin level
+#define  RB_UD_LOW_SPEED    0x04      // enable USB physical port low speed: 0=full speed, 1=low speed
+#define  RB_UD_GP_BIT       0x02      // general purpose bit
+#define  RB_UD_PORT_EN      0x01      // enable USB physical port I/O: 0=disable, 1=enable
+
+#define R8_UHOST_CTRL       R8_UDEV_CTRL              // USB host physical prot control
+#define  RB_UH_PD_DIS       0x80      // disable USB UDP/UDM pulldown resistance: 0=enable pulldown, 1=disable
+#define  RB_UH_DP_PIN       0x20      // ReadOnly: indicate current UDP pin level
+#define  RB_UH_DM_PIN       0x10      // ReadOnly: indicate current UDM pin level
+#define  RB_UH_LOW_SPEED    0x04      // enable USB port low speed: 0=full speed, 1=low speed
+#define  RB_UH_BUS_RESET    0x02      // control USB bus reset: 0=normal, 1=force bus reset
+#define  RB_UH_PORT_EN      0x01      // enable USB port: 0=disable, 1=enable port, automatic disabled if USB device detached
+
+#define R8_USB_INT_EN       (*((vu8*)0x40008002))  // USB interrupt enable
+#define  RB_UIE_DEV_SOF     0x80      // enable interrupt for SOF received for USB device mode
+#define  RB_UIE_DEV_NAK     0x40      // enable interrupt for NAK responded for USB device mode
+#define  RB_MOD_1_WIRE      0x20      // enable single wire mode
+#define  RB_UIE_FIFO_OV     0x10      // enable interrupt for FIFO overflow
+#define  RB_UIE_HST_SOF     0x08      // enable interrupt for host SOF timer action for USB host mode
+#define  RB_UIE_SUSPEND     0x04      // enable interrupt for USB suspend or resume event
+#define  RB_UIE_TRANSFER    0x02      // enable interrupt for USB transfer completion
+#define  RB_UIE_DETECT      0x01      // enable interrupt for USB device detected event for USB host mode
+#define  RB_UIE_BUS_RST     0x01      // enable interrupt for USB bus reset event for USB device mode
+
+#define R8_USB_DEV_AD       (*((vu8*)0x40008003))  // USB device address
+#define  RB_UDA_GP_BIT      0x80      // general purpose bit
+#define  MASK_USB_ADDR      0x7F      // bit mask for USB device address
+
+#define R32_USB_STATUS      (*((vu32*)0x40008004)) // USB miscellaneous status & interrupt flag & interrupt status
+#define R8_USB_MIS_ST       (*((vu8*)0x40008005))  // USB miscellaneous status
+#define  RB_UMS_SOF_PRES    0x80      // RO, indicate host SOF timer presage status
+#define  RB_UMS_SOF_ACT     0x40      // RO, indicate host SOF timer action status for USB host
+#define  RB_UMS_SIE_FREE    0x20      // RO, indicate USB SIE free status
+#define  RB_UMS_R_FIFO_RDY  0x10      // RO, indicate USB receiving FIFO ready status (not empty)
+#define  RB_UMS_BUS_RESET   0x08      // RO, indicate USB bus reset status
+#define  RB_UMS_SUSPEND     0x04      // RO, indicate USB suspend status
+#define  RB_UMS_DM_LEVEL    0x02      // RO, indicate UDM level saved at device attached to USB host
+#define  RB_UMS_DEV_ATTACH  0x01      // RO, indicate device attached status on USB host
+
+#define R8_USB_INT_FG       (*((vu8*)0x40008006))  // USB interrupt flag
+#define  RB_U_IS_NAK        0x80    // RO, indicate current USB transfer is NAK received
+#define  RB_U_TOG_OK        0x40    // RO, indicate current USB transfer toggle is OK
+#define  RB_U_SIE_FREE      0x20    // RO, indicate USB SIE free status
+#define  RB_UIF_FIFO_OV     0x10    // FIFO overflow interrupt flag for USB, direct bit address clear or write 1 to clear
+#define  RB_UIF_HST_SOF     0x08    // host SOF timer interrupt flag for USB host, direct bit address clear or write 1 to clear
+#define  RB_UIF_SUSPEND     0x04    // USB suspend or resume event interrupt flag, direct bit address clear or write 1 to clear
+#define  RB_UIF_TRANSFER    0x02    // USB transfer completion interrupt flag, direct bit address clear or write 1 to clear
+#define  RB_UIF_DETECT      0x01    // device detected event interrupt flag for USB host mode, direct bit address clear or write 1 to clear
+#define  RB_UIF_BUS_RST     0x01    // bus reset event interrupt flag for USB device mode, direct bit address clear or write 1 to clear
+
+#define R8_USB_INT_ST       (*((vu8*)0x40008007))  // USB interrupt status
+#define  RB_UIS_SETUP_ACT   0x80      // RO, indicate SETUP token & 8 bytes setup request received for USB device mode
+#define  RB_UIS_TOG_OK      0x40      // RO, indicate current USB transfer toggle is OK
+#define  RB_UIS_TOKEN1      0x20      // RO, current token PID code bit 1 received for USB device mode
+#define  RB_UIS_TOKEN0      0x10      // RO, current token PID code bit 0 received for USB device mode
+#define  MASK_UIS_TOKEN     0x30      // RO, bit mask of current token PID code received for USB device mode
+#define  UIS_TOKEN_OUT      0x00
+#define  UIS_TOKEN_SOF      0x10
+#define  UIS_TOKEN_IN       0x20
+#define  UIS_TOKEN_SETUP    0x30
+// bUIS_TOKEN1 & bUIS_TOKEN0: current token PID code received for USB device mode, keep last status during SETUP token, clear RB_UIF_TRANSFER ( RB_UIF_TRANSFER from 1 to 0 ) to set free
+//   00: OUT token PID received
+//   01: SOF token PID received
+//   10: IN token PID received
+//   11: free
+#define  MASK_UIS_ENDP      0x0F      // RO, bit mask of current transfer endpoint number for USB device mode
+#define  MASK_UIS_H_RES     0x0F      // RO, bit mask of current transfer handshake response for USB host mode: 0000=no response, time out from device, others=handshake response PID received
+
+#define R8_USB_RX_LEN       (*((vu8*)0x40008008))  // USB receiving length
+#define R32_USB_BUF_MODE    (*((vu32*)0x4000800C)) // USB endpoint buffer mode
+#define R8_UEP4_1_MOD       (*((vu8*)0x4000800C))  // endpoint 4/1 mode
+#define  RB_UEP1_RX_EN      0x80      // enable USB endpoint 1 receiving (OUT)
+#define  RB_UEP1_TX_EN      0x40      // enable USB endpoint 1 transmittal (IN)
+#define  RB_UEP1_BUF_MOD    0x10      // buffer mode of USB endpoint 1
+// bUEPn_RX_EN & bUEPn_TX_EN & bUEPn_BUF_MOD: USB endpoint 1/2/3 buffer mode, buffer start address is UEPn_DMA
+//   0 0 x:  disable endpoint and disable buffer
+//   1 0 0:  64 bytes buffer for receiving (OUT endpoint)
+//   1 0 1:  dual 64 bytes buffer by toggle bit bUEP_R_TOG selection for receiving (OUT endpoint), total=128bytes
+//   0 1 0:  64 bytes buffer for transmittal (IN endpoint)
+//   0 1 1:  dual 64 bytes buffer by toggle bit bUEP_T_TOG selection for transmittal (IN endpoint), total=128bytes
+//   1 1 0:  64 bytes buffer for receiving (OUT endpoint) + 64 bytes buffer for transmittal (IN endpoint), total=128bytes
+//   1 1 1:  dual 64 bytes buffer by bUEP_R_TOG selection for receiving (OUT endpoint) + dual 64 bytes buffer by bUEP_T_TOG selection for transmittal (IN endpoint), total=256bytes
+#define  RB_UEP4_RX_EN      0x08      // enable USB endpoint 4 receiving (OUT)
+#define  RB_UEP4_TX_EN      0x04      // enable USB endpoint 4 transmittal (IN)
+// bUEP4_RX_EN & bUEP4_TX_EN: USB endpoint 4 buffer mode, buffer start address is UEP0_DMA
+//   0 0:  single 64 bytes buffer for endpoint 0 receiving & transmittal (OUT & IN endpoint)
+//   1 0:  single 64 bytes buffer for endpoint 0 receiving & transmittal (OUT & IN endpoint) + 64 bytes buffer for endpoint 4 receiving (OUT endpoint), total=128bytes
+//   0 1:  single 64 bytes buffer for endpoint 0 receiving & transmittal (OUT & IN endpoint) + 64 bytes buffer for endpoint 4 transmittal (IN endpoint), total=128bytes
+//   1 1:  single 64 bytes buffer for endpoint 0 receiving & transmittal (OUT & IN endpoint)
+//           + 64 bytes buffer for endpoint 4 receiving (OUT endpoint) + 64 bytes buffer for endpoint 4 transmittal (IN endpoint), total=192bytes
+
+#define R8_UEP2_3_MOD       (*((vu8*)0x4000800D))   // endpoint 2/3 mode
+#define  RB_UEP3_RX_EN      0x80      // enable USB endpoint 3 receiving (OUT)
+#define  RB_UEP3_TX_EN      0x40      // enable USB endpoint 3 transmittal (IN)
+#define  RB_UEP3_BUF_MOD    0x10      // buffer mode of USB endpoint 3
+#define  RB_UEP2_RX_EN      0x08      // enable USB endpoint 2 receiving (OUT)
+#define  RB_UEP2_TX_EN      0x04      // enable USB endpoint 2 transmittal (IN)
+#define  RB_UEP2_BUF_MOD    0x01      // buffer mode of USB endpoint 2
+
+#define R8_UEP567_MOD       (*((vu8*)0x4000800E))   // endpoint 5/6/7 mode
+#define  RB_UEP7_RX_EN      0x20      // enable USB endpoint 7 receiving (OUT)
+#define  RB_UEP7_TX_EN      0x10      // enable USB endpoint 7 transmittal (IN)
+#define  RB_UEP6_RX_EN      0x08      // enable USB endpoint 6 receiving (OUT)
+#define  RB_UEP6_TX_EN      0x04      // enable USB endpoint 6 transmittal (IN)
+#define  RB_UEP5_RX_EN      0x02      // enable USB endpoint 5 receiving (OUT)
+#define  RB_UEP5_TX_EN      0x01      // enable USB endpoint 5 transmittal (IN)
+// bUEPn_RX_EN & bUEPn_TX_EN: USB endpoint 5/6/7 buffer mode, buffer start address is UEPn_DMA
+//   0 0:  disable endpoint and disable buffer
+//   1 0:  64 bytes buffer for receiving (OUT endpoint)
+//   0 1:  64 bytes buffer for transmittal (IN endpoint)
+//   1 1:  64 bytes buffer for receiving (OUT endpoint) + 64 bytes buffer for transmittal (IN endpoint), total=128bytes
+
+#define R8_UH_EP_MOD        R8_UEP2_3_MOD             //host endpoint mode
+#define  RB_UH_EP_TX_EN     0x40      // enable USB host OUT endpoint transmittal
+#define  RB_UH_EP_TBUF_MOD  0x10      // buffer mode of USB host OUT endpoint
+// bUH_EP_TX_EN & bUH_EP_TBUF_MOD: USB host OUT endpoint buffer mode, buffer start address is UH_TX_DMA
+//   0 x:  disable endpoint and disable buffer
+//   1 0:  64 bytes buffer for transmittal (OUT endpoint)
+//   1 1:  dual 64 bytes buffer by toggle bit bUH_T_TOG selection for transmittal (OUT endpoint), total=128bytes
+#define  RB_UH_EP_RX_EN     0x08      // enable USB host IN endpoint receiving
+#define  RB_UH_EP_RBUF_MOD  0x01      // buffer mode of USB host IN endpoint
+// bUH_EP_RX_EN & bUH_EP_RBUF_MOD: USB host IN endpoint buffer mode, buffer start address is UH_RX_DMA
+//   0 x:  disable endpoint and disable buffer
+//   1 0:  64 bytes buffer for receiving (IN endpoint)
+//   1 1:  dual 64 bytes buffer by toggle bit bUH_R_TOG selection for receiving (IN endpoint), total=128bytes
+
+#define R16_UEP0_DMA        (*((vu16*)0x40008010)) // endpoint 0 DMA buffer address
+#define R16_UEP1_DMA        (*((vu16*)0x40008014)) // endpoint 1 DMA buffer address
+#define R16_UEP2_DMA        (*((vu16*)0x40008018)) // endpoint 2 DMA buffer address
+#define R16_UH_RX_DMA       R16_UEP2_DMA              // host rx endpoint buffer address
+#define R16_UEP3_DMA        (*((vu16*)0x4000801C)) // endpoint 3 DMA buffer address
+#define R16_UH_TX_DMA       R16_UEP3_DMA              // host tx endpoint buffer address
+#define R16_UEP5_DMA        (*((vu16*)0x40008054)) // endpoint 5 DMA buffer address
+#define R16_UEP6_DMA        (*((vu16*)0x40008058)) // endpoint 6 DMA buffer address
+#define R16_UEP7_DMA        (*((vu16*)0x4000805C)) // endpoint 7 DMA buffer address
+#define R32_USB_EP0_CTRL    (*((vu32*)0x40008020)) // endpoint 0 control & transmittal length
+#define R8_UEP0_T_LEN       (*((vu8*)0x40008020))  // endpoint 0 transmittal length
+#define R8_UEP0_CTRL        (*((vu8*)0x40008022))  // endpoint 0 control
+#define R32_USB_EP1_CTRL    (*((vu32*)0x40008024)) // endpoint 1 control & transmittal length
+#define R8_UEP1_T_LEN       (*((vu8*)0x40008024))  // endpoint 1 transmittal length
+#define R8_UEP1_CTRL        (*((vu8*)0x40008026))  // endpoint 1 control
+#define  RB_UEP_R_TOG       0x80      // expected data toggle flag of USB endpoint X receiving (OUT): 0=DATA0, 1=DATA1
+#define  RB_UEP_T_TOG       0x40      // prepared data toggle flag of USB endpoint X transmittal (IN): 0=DATA0, 1=DATA1
+#define  RB_UEP_AUTO_TOG    0x10      // enable automatic toggle after successful transfer completion on endpoint 1/2/3: 0=manual toggle, 1=automatic toggle
+#define  RB_UEP_R_RES1      0x08      // handshake response type high bit for USB endpoint X receiving (OUT)
+#define  RB_UEP_R_RES0      0x04      // handshake response type low bit for USB endpoint X receiving (OUT)
+#define  MASK_UEP_R_RES     0x0C      // bit mask of handshake response type for USB endpoint X receiving (OUT)
+#define  UEP_R_RES_ACK      0x00
+#define  UEP_R_RES_TOUT     0x04
+#define  UEP_R_RES_NAK      0x08
+#define  UEP_R_RES_STALL    0x0C
+// RB_UEP_R_RES1 & RB_UEP_R_RES0: handshake response type for USB endpoint X receiving (OUT)
+//   00: ACK (ready)
+//   01: no response, time out to host, for non-zero endpoint isochronous transactions
+//   10: NAK (busy)
+//   11: STALL (error)
+#define  RB_UEP_T_RES1      0x02      // handshake response type high bit for USB endpoint X transmittal (IN)
+#define  RB_UEP_T_RES0      0x01      // handshake response type low bit for USB endpoint X transmittal (IN)
+#define  MASK_UEP_T_RES     0x03      // bit mask of handshake response type for USB endpoint X transmittal (IN)
+#define  UEP_T_RES_ACK      0x00
+#define  UEP_T_RES_TOUT     0x01
+#define  UEP_T_RES_NAK      0x02
+#define  UEP_T_RES_STALL    0x03
+// bUEP_T_RES1 & bUEP_T_RES0: handshake response type for USB endpoint X transmittal (IN)
+//   00: DATA0 or DATA1 then expecting ACK (ready)
+//   01: DATA0 or DATA1 then expecting no response, time out from host, for non-zero endpoint isochronous transactions
+//   10: NAK (busy)
+//   11: STALL (error)
+
+#define R8_UH_SETUP         R8_UEP1_CTRL              // host aux setup
+#define  RB_UH_PRE_PID_EN   0x80      // USB host PRE PID enable for low speed device via hub
+#define  RB_UH_SOF_EN       0x40      // USB host automatic SOF enable
+
+#define R32_USB_EP2_CTRL    (*((vu32*)0x40008028)) // endpoint 2 control & transmittal length
+#define R8_UEP2_T_LEN       (*((vu8*)0x40008028))  // endpoint 2 transmittal length
+#define R8_UEP2_CTRL        (*((vu8*)0x4000802A))  // endpoint 2 control
+
+#define R8_UH_EP_PID        R8_UEP2_T_LEN             // host endpoint and PID
+#define  MASK_UH_TOKEN      0xF0      // bit mask of token PID for USB host transfer
+#define  MASK_UH_ENDP       0x0F      // bit mask of endpoint number for USB host transfer
+
+#define R8_UH_RX_CTRL       R8_UEP2_CTRL              // host receiver endpoint control
+#define  RB_UH_R_TOG        0x80      // expected data toggle flag of host receiving (IN): 0=DATA0, 1=DATA1
+#define  RB_UH_R_AUTO_TOG   0x10      // enable automatic toggle after successful transfer completion: 0=manual toggle, 1=automatic toggle
+#define  RB_UH_R_RES        0x04      // prepared handshake response type for host receiving (IN): 0=ACK (ready), 1=no response, time out to device, for isochronous transactions
+
+#define R32_USB_EP3_CTRL    (*((vu32*)0x4000802c)) // endpoint 3 control & transmittal length
+#define R8_UEP3_T_LEN       (*((vu8*)0x4000802c))  // endpoint 3 transmittal length
+#define R8_UEP3_CTRL        (*((vu8*)0x4000802e))  // endpoint 3 control
+#define R8_UH_TX_LEN        R8_UEP3_T_LEN             // host transmittal endpoint transmittal length
+
+#define R8_UH_TX_CTRL       R8_UEP3_CTRL              // host transmittal endpoint control
+#define  RB_UH_T_TOG        0x40      // prepared data toggle flag of host transmittal (SETUP/OUT): 0=DATA0, 1=DATA1
+#define  RB_UH_T_AUTO_TOG   0x10      // enable automatic toggle after successful transfer completion: 0=manual toggle, 1=automatic toggle
+#define  RB_UH_T_RES        0x01      // expected handshake response type for host transmittal (SETUP/OUT): 0=ACK (ready), 1=no response, time out from device, for isochronous transactions
+
+#define R32_USB_EP4_CTRL    (*((vu32*)0x40008030)) // endpoint 4 control & transmittal length
+#define R8_UEP4_T_LEN       (*((vu8*)0x40008030))  // endpoint 4 transmittal length
+#define R8_UEP4_CTRL        (*((vu8*)0x40008032))  // endpoint 4 control
+
+#define R32_USB_EP5_CTRL    (*((vu32*)0x40008064)) // endpoint 5 control & transmittal length
+#define R8_UEP5_T_LEN       (*((vu8*)0x40008064))  // endpoint 5 transmittal length
+#define R8_UEP5_CTRL        (*((vu8*)0x40008066))  // endpoint 5 control
+
+#define R32_USB_EP6_CTRL    (*((vu32*)0x40008068)) // endpoint 6 control & transmittal length
+#define R8_UEP6_T_LEN       (*((vu8*)0x40008068))  // endpoint 6 transmittal length
+#define R8_UEP6_CTRL        (*((vu8*)0x4000806A))  // endpoint 6 control
+
+#define R32_USB_EP7_CTRL    (*((vu32*)0x4000806C)) // endpoint 7 control & transmittal length
+#define R8_UEP7_T_LEN       (*((vu8*)0x4000806C))  // endpoint 7 transmittal length
+#define R8_UEP7_CTRL        (*((vu8*)0x4000806E))  // endpoint 7 control
 
 RV_STATIC_INLINE void LSIEnable() {
 	SYS_SAFE_ACCESS(

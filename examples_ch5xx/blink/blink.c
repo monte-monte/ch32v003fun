@@ -2,16 +2,16 @@
 #include <stdio.h>
 
 // use defines to make more meaningful names for our GPIO pins
-#define PIN_1 PA0
-#define PIN_K PA2
-#define PIN_BOB PA4
-#define PIN_KEVIN PA7
+#define PIN_1 PA4
+#define PIN_K PA5
+#define PIN_BOB PA8
+#define PIN_KEVIN PA9
 
 int main()
 {
 	SystemInit();
 
-	funGpioInitAll(); // Enable GPIOs
+	funGpioInitAll(); // no-op on ch5xx
 
 	funPinMode( PIN_1,     GPIO_CFGLR_OUT_10Mhz_PP ); // Set PIN_1 to output
 	funPinMode( PIN_K,     GPIO_CFGLR_OUT_10Mhz_PP ); // Set PIN_K to output

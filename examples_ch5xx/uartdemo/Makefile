@@ -1,8 +1,8 @@
 all : flash
 
-TARGET:=debugprintfdemo
-TARGET_MCU:=CH582
-TARGET_MCU_PACKAGE:=CH582F
+TARGET:=uartdemo
+TARGET_MCU:=CH570
+TARGET_MCU_PACKAGE:=CH570D
 
 include ../../ch32fun/ch32fun.mk
 
