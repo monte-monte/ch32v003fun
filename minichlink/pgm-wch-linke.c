@@ -29,13 +29,15 @@ static int checkChip(enum RiscVChip chip) {
 		case CHIP_CH641:
 		case CHIP_CH643:
 		case CHIP_CH32L10x:
+    case CHIP_CH570:
+    case CHIP_CH57x:
+		case CHIP_CH58x:
+		case CHIP_CH585:
+		case CHIP_CH59x:
 			return 0; // Use direct mode
 		case CHIP_CH32V10x:
 		case CHIP_CH32V20x:
 		case CHIP_CH32V30x:
-		case CHIP_CH57x:
-		case CHIP_CH58x:
-		case CHIP_CH59x:
 			return 1; // Use binary blob mode
 		case CHIP_CH56x:
 		default:
@@ -296,32 +298,13 @@ static int LESetupInterface( void * d )
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)d)->internal);
 	uint8_t rbuff[1024];
 	uint32_t transferred = 0;
+	int r = 0;
 
-  // wch_link_command( dev, "\x81\x0d\x01\x01", 4, (int*)&transferred, rbuff, 1024 );
-  // wch_link_command( dev, "\x81\x0d\x02\xee\x02", 5, (int*)&transferred, rbuff, 1024 );
-  // wch_link_command( dev, "\x81\x0c\x02\x07\x01", 5, 0, 0, 0 );
-  // wch_link_command( dev, "\x81\x0d\x01\x02", 4, (int*)&transferred, rbuff, 1024 );
-  // wch_link_command( dev, "\x81\x0d\x02\xee\x02", 5, (int*)&transferred, rbuff, 1024 );
-  // wch_link_command( dev, "\x81\x0c\x02\x8b\x01", 5, 0, 0, 0 );
-  // wch_link_command( dev, "\x81\x0d\x01\x02", 4, (int*)&transferred, rbuff, 1024 );
-  // wch_link_command( dev, "\x81\x06\x08\x03\x50\x00\xff\x40\x00\x00\x00", 11, (int*)&transferred, rbuff, 1024 );
-
-  // iss->target_chip = &ch582;
-	// iss->target_chip_type = iss->target_chip->family_id;
-  // iss->flash_size = iss->target_chip->flash_size;
-  // iss->ram_base = iss->target_chip->ram_base;
-  // iss->ram_size = iss->target_chip->ram_size;
-  // iss->sector_size = iss->target_chip->sector_size;
-
-  // return 0;
-  
-  // This unlocks flash on CH32
-	// This puts the processor on hold to allow the debugger to run.
-	// wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
-  //Stop programmer to avoid anything being unresponsive
-  wch_link_command( dev, "\x81\x0d\x01\xff", 4, 0, 0, 0);
+	//Stop programmer to avoid anything being unresponsive
+	wch_link_command( dev, "\x81\x0d\x01\xff", 4, 0, 0, 0);
 	// Clears programmer state and returns firmware version
 	wch_link_command( dev, "\x81\x0d\x01\x01", 4, (int*)&transferred, rbuff, 1024 );	// Reply is: "\x82\x0d\x04\x02\x08\x02\x00"
+
 	switch(rbuff[5]) {
 		case 1:
 			fprintf(stderr, "WCH Programmer is CH549 version %d.%d\n",rbuff[3], rbuff[4]);
@@ -342,9 +325,8 @@ static int LESetupInterface( void * d )
 			fprintf(stderr, "Unknown WCH Programmer %02x (Ver %d.%d)\n", rbuff[5], rbuff[3], rbuff[4]);
 			break;
 	}
-
+  
 	wch_link_command( dev, "\x81\x0c\x02\x01\x02", 5, 0, 0, 0 );	// By default set interface speed to "normal" (4Mhz) and change that after we detect the chip
-
 	// int unknown_chip_fallback = 0;
 
 	// This puts the processor on hold to allow the debugger to run.
@@ -353,8 +335,7 @@ static int LESetupInterface( void * d )
 	do
 	{
 		// Read DMSTATUS - in case we are a ch32x035, or other chip that does not respond to \x81\x0d\x01\x02.
-		wch_link_command( dev, "\x81\x08\x06\x05\x11\x00\x00\x00\x00\x01", 11, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
-
+		// wch_link_command( dev, "\x81\x08\x06\x05\x11\x00\x00\x00\x00\x01", 11, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
 		// There's a couple situations where the older firmware on the official programmer freaks out.
 		// We don't want to inconvenience our users, so just try to work through it by falling back to the minichlink functions.
 		// Part connected.  But the programmer doesn't know what it is.
@@ -388,7 +369,7 @@ static int LESetupInterface( void * d )
 				break;
 			}
 
-			wch_link_multicommands( (libusb_device_handle *)dev, 1, 4, "\x81\x0d\x01\x13" ); // Try forcing reset line low.
+			// wch_link_multicommands( (libusb_device_handle *)dev, 1, 4, "\x81\x0d\x01\x13" ); // Try forcing reset line low.
 			wch_link_command( (libusb_device_handle *)dev, "\x81\x0d\x01\xff", 4, 0, 0, 0); //Exit programming
 
 			if( already_tried_reset > 3 )
@@ -401,7 +382,7 @@ static int LESetupInterface( void * d )
 				MCF.DelayUS( iss, 5000 );
 			}
 
-			wch_link_multicommands( (libusb_device_handle *)dev, 1, 4, "\x81\x0d\x01\x14" ); // Release reset line.
+			// wch_link_multicommands( (libusb_device_handle *)dev, 1, 4, "\x81\x0d\x01\x14" ); // Release reset line.
 			wch_link_multicommands( (libusb_device_handle *)dev, 3, 4, "\x81\x0b\x01\x01", 4, "\x81\x0d\x01\x02", 4, "\x81\x0d\x01\xff" );
 			already_tried_reset++;
 		}
@@ -412,10 +393,10 @@ static int LESetupInterface( void * d )
 	} while( 1 );
 
 #if !FORCE_EXTERNAL_CHIP_DETECTION
-  printf( "Full Chip Type Reply: [%d] %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", transferred, rbuff[0], rbuff[1], rbuff[2], rbuff[3], rbuff[4], rbuff[5], rbuff[6], rbuff[7], rbuff[8] );
+	printf( "Full Chip Type Reply: [%d] %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", transferred, rbuff[0], rbuff[1], rbuff[2], rbuff[3], rbuff[4], rbuff[5], rbuff[6], rbuff[7], rbuff[8] );
 
-  const struct RiscVChip_s* chip = FindChip( rbuff[3] << 16 | rbuff[4] << 8 | rbuff[5] );
-  
+	const struct RiscVChip_s* chip = FindChip( rbuff[3] << 16 | rbuff[4] << 8 | rbuff[5] );
+	
 	if( !chip )
 	{
 		fprintf( stderr, "Chip Type unknown [%02x - %04x]. Aborting...\n", rbuff[3], rbuff[4] << 8 | rbuff[5] );
@@ -423,36 +404,30 @@ static int LESetupInterface( void * d )
 	}
 	
 	fprintf( stderr, "Detected: %s\n", chip->name_str );
-
-  iss->target_chip = chip;
+	iss->target_chip = chip;
 	iss->target_chip_type = chip->family_id;
 	iss->target_chip_id = (rbuff[4] << 24) | (rbuff[5] << 16) | (rbuff[6] << 8) | rbuff[7];
-  iss->flash_size = chip->flash_size;
-  iss->ram_base = chip->ram_base;
-  iss->ram_size = chip->ram_size;
-  iss->sector_size = chip->sector_size;
+	iss->flash_size = chip->flash_size;
+	iss->ram_base = chip->ram_base;
+	iss->ram_size = chip->ram_size;
+	iss->sector_size = chip->sector_size;
 
-	// fprintf( stderr, "sector_size = %d : %d\n", iss->sector_size, iss->target_chip->sector_size );
 #else
 
-  MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
-  int r;
-  r = MCF.DetermineChipType( d );
-  if( r ) return r;
+	r = MCF.DetermineChipType( d );
+	if( r ) return r;
 
 #endif
 
-  char cmd_buf[5] = { 0x81, 0x0c, 0x02, iss->target_chip_type, iss->target_chip->interface_speed};
+	char cmd_buf[5] = { 0x81, 0x0c, 0x02, iss->target_chip_type, iss->target_chip->interface_speed};
 	wch_link_command( dev, cmd_buf, 5, 0, 0, 0 ); // Set interface clock to suitable speed
 	// For some reason, if we don't do this sometimes the programmer starts in a hosey mode.
-	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Make the debug module work properly.
-	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Initiate a halt request.
-  MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
-	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Un-super-halt processor.
+	// MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
+	// MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Un-super-halt processor.
+	// MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Un-super-halt processor.
+	// MCF.DelayUS( iss, 10000 );
 
-#if !FORCE_EXTERNAL_CHIP_DETECTION
-	int r = 0;
-
+	#if !FORCE_EXTERNAL_CHIP_DETECTION
 	int timeout = 0;
 retry_DoneOp:
 	MCF.DelayUS( iss, 4000 );
@@ -513,15 +488,14 @@ retry_ID:
 			iss->target_chip_type = CHIP_CH32X03x;
 			iss->target_chip = &ch32x035;
 		}
-
-		int result = checkChip(chip->family_id);
+		int result = checkChip(iss->target_chip_type);
 		if( result == 1 ) // Using blob write
 		{
 			fprintf( stderr, "Using binary blob write for operation.\n" );
 			MCF.WriteBinaryBlob = LEWriteBinaryBlob;
 
 			// iss->sector_size = 256;
-      // Why do we need this exactly? For blobed chips only?
+			// Why do we need this exactly? For blobed chips only?
 			wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
 
 		} else if( result < 0 ) {
@@ -541,7 +515,7 @@ retry_ID:
 		} else {
 			fprintf(stderr, "Read protection: disabled\n");
 		}
-    if(flash_size) iss->flash_size = flash_size*1024;
+		if(flash_size) iss->flash_size = flash_size*1024;
 #endif
 	return 0;
 }
@@ -598,26 +572,30 @@ static int LEConfigureNRSTAsGPIO( void * d, int one_if_yes_gpio )
 static int LEConfigureReadProtection( void * d, int one_if_yes_protect )
 {
 	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
-  struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)d)->internal);
-  
-  if( iss->target_chip_type == CHIP_CH57x ||
-      iss->target_chip_type == CHIP_CH58x ||
-      iss->target_chip_type == CHIP_CH59x )
-    {
-      fprintf( stderr, "This MCU doesn't support %s read-protection via LinkE\n", one_if_yes_protect?"enabling":"disabling");
-      return -1;
-    }
+	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)d)->internal);
+
+	
+	if(	iss->target_chip_type == CHIP_CH57x ||
+			iss->target_chip_type == CHIP_CH58x ||
+			iss->target_chip_type == CHIP_CH585 ||
+			iss->target_chip_type == CHIP_CH59x )
+		{
+			fprintf( stderr, "This MCU doesn't support %s read-protection via LinkE\n", one_if_yes_protect?"enabling":"disabling");
+			return -1;
+		}
+
+	wch_link_command( dev, "\x81\x11\x01\x09", 4, 0, 0, 0 );
 
 	if( one_if_yes_protect )
 	{
-    
-    if( iss->target_chip_type == CHIP_CH570 ) wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x07\x03\xff\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
+		if( iss->target_chip_type == CHIP_CH570 ) wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x07\x03\xff\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
 		else wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x08\x03\xf7\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
 	}
 	else
 	{
-    if( iss->target_chip_type == CHIP_CH570 ) wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x07\x02\xff\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
-		wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x08\x02\xf7\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
+		fprintf( stderr, "Disabling read protection\n" );
+		if( iss->target_chip_type == CHIP_CH570 ) wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x07\x02\xff\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
+		else wch_link_multicommands( (libusb_device_handle *)dev, 2, 11, "\x81\x06\x08\x02\xf7\xff\xff\xff\xff\xff\xff", 4, "\x81\x0b\x01\x01" );
 	}
 	return 0;
 }
@@ -939,9 +917,9 @@ struct BootloaderBlob * GetFlashLoader( enum RiscVChip chip )
 			fprintf( stderr, "Using bootloader v4\n" );
 			return &bootloader_v4;
 		case CHIP_CH58x:
-    case CHIP_CH59x:
-      fprintf( stderr, "Using bootloader v3\n" );
-      return &bootloader_v3;
+		case CHIP_CH59x:
+			fprintf( stderr, "Using bootloader v3\n" );
+			return &bootloader_v3;
 		case CHIP_CH32V20x:
 		case CHIP_CH32V30x:
 		default:
@@ -1054,16 +1032,16 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 
 	fprintf( stderr, "len = %d, sector_size = %d padlen = %d\n", len, iss->sector_size, padlen );
 
-  if( iss->target_chip_type == CHIP_CH59x || iss->target_chip_type == CHIP_CH58x || iss->target_chip_type == CHIP_CH57x )
-  {
-    wch_link_command( (libusb_device_handle *)dev, "\x81\x0c\x02\x01\03", 5, 0, 0, 0 );
+	if( iss->target_chip_type == CHIP_CH59x || iss->target_chip_type == CHIP_CH58x || iss->target_chip_type == CHIP_CH57x )
+	{
+		wch_link_command( (libusb_device_handle *)dev, "\x81\x0c\x02\x01\03", 5, 0, 0, 0 );
 		fprintf( stderr, "This shit\n" );
-  }
-  else
-  {
-    wch_link_command( (libusb_device_handle *)dev, "\x81\x06\x01\x01", 4, 0, 0, 0 );
-    wch_link_command( (libusb_device_handle *)dev, "\x81\x06\x01\x01", 4, 0, 0, 0 ); // Not sure why but it seems to work better when we request twice.
-  }
+	}
+	else
+	{
+		wch_link_command( (libusb_device_handle *)dev, "\x81\x06\x01\x01", 4, 0, 0, 0 );
+		wch_link_command( (libusb_device_handle *)dev, "\x81\x06\x01\x01", 4, 0, 0, 0 ); // Not sure why but it seems to work better when we request twice.
+	}
 	
 	// This contains the write data quantity, in bytes.  (The last 2 octets)
 	// Then it just rollllls on in.

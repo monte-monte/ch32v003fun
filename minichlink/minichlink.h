@@ -90,7 +90,7 @@ struct MiniChlinkFunctions
 */
 
 // inline static int IsAddressFlash( uint32_t addy ) { return ( addy & 0xff000000 ) == 0x08000000 || ( addy & 0x1FFF0000 ) == 0x1FFF0000; }
-inline static int IsAddressFlash( uint32_t addy ) { return ( addy & 0xe0000000 ); }
+inline static int IsAddressFlash( uint32_t addy ) { return !( addy & 0xe0000000 ); }
 
 #define HALT_MODE_HALT_AND_RESET    0
 #define HALT_MODE_REBOOT            1
@@ -190,6 +190,7 @@ struct InternalState
 	uint8_t flash_sector_status[MAX_FLASH_SECTORS];  // 0 means unerased/unknown. 1 means erased.
 	int nr_registers_for_debug; // Updated by PostSetupConfigureInterface
 	enum MemoryArea current_area;
+  uint32_t clock_set;
 };
 
 
@@ -229,7 +230,7 @@ struct InternalState
 #endif
 
 #ifndef TERMINAL_INPUT_BUFFER
-#define TERMINAL_INPUT_BUFFER 1
+#define TERMINAL_INPUT_BUFFER 0
 #endif
 
 #define TERMINAL_BUFFER_SIZE 512

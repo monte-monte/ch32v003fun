@@ -14,6 +14,7 @@
 #define R8_FLASH_CTRL       0x40001806
 #define R8_FLASH_CFG        0x40001807
 
+void ch5xx_set_clock(void * dev, uint32_t clock);
 uint8_t ch5xx_flash_wait(void* dev);
 void ch5xx_flash_close(void* dev);
 uint8_t ch5xx_flash_open(void* dev, uint8_t op);
