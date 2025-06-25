@@ -1,8 +1,7 @@
 all : flash
 
-TARGET:=RTC_irq
-TARGET_MCU:=CH570
-TARGET_MCU_PACKAGE:=CH570D
+TARGET:=usbpd_sink
+TARGET_MCU:=CH32X035
 
 include ../../ch32fun/ch32fun.mk
 

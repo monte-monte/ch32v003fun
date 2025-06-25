@@ -50,47 +50,53 @@ typedef enum IRQn
 #define KEYSCAN_IRQn UART2_IRQn
 #define ENCODER_IRQn UART3_IRQn
 
-#define BASE_VECTOR "\n\
-	.balign  2\n\
-	.option   push;\n\
-	.option   norvc;\n\
-	j handle_reset\n\
-	.word   0\n\
-	.word   NMI_Handler                /* NMI Handler */\n\
-	.word   HardFault_Handler          /* Hard Fault Handler */\n\
-	.word   0xF3F9BDA9\n\
-	.word   Ecall_M_Mode_Handler       /* 5 */\n\
-	.word   0\n\
-	.word   0\n\
-	.word   Ecall_U_Mode_Handler       /* 8 */\n\
-	.word   Break_Point_Handler        /* 9 */\n\
-	.word   0\n\
-	.word   0\n\
-	.word   SysTick_Handler            /* SysTick Handler */\n\
-	.word   0\n\
-	.word   SW_Handler                 /* SW Handler */\n\
-	.word   0\n\
-	/* External Interrupts */\n\
-	.word   TMR0_IRQHandler            /* 16: TMR0 */\n\
-	.word   GPIOA_IRQHandler           /* GPIOA */\n\
-	.word   GPIOB_IRQHandler           /* GPIOB */\n\
-	.word   SPI0_IRQHandler            /* SPI0 */\n\
-	.word   BB_IRQHandler              /* BLEB */\n\
-	.word   LLE_IRQHandler             /* BLEL */\n\
-	.word   USB_IRQHandler             /* USB */\n\
-	.word   0 \n\
-	.word   TMR1_IRQHandler            /* TMR1 */\n\
-	.word   TMR2_IRQHandler            /* TMR2 */\n\
-	.word   UART0_IRQHandler           /* UART0 */\n\
-	.word   UART1_IRQHandler           /* UART1 */\n\
-	.word   RTC_IRQHandler             /* RTC */\n\
-	.word   ADC_IRQHandler             /* ADC */\n\
-	.word   I2C_IRQHandler             /* I2C */\n\
-	.word   PWMX_IRQHandler            /* PWMX */\n\
-	.word   TMR3_IRQHandler            /* TMR3 */\n\
-	.word   UART2_IRQHandler           /* UART2 / KEYSCAN */\n\
-	.word   UART3_IRQHandler           /* UART3 / ENCODER */\n\
-	.word   WDOG_BAT_IRQHandler        /* WDOG_BAT */\n"
+#if MCU_PACKAGE == 1 || MCU_PACKAGE == 3 // CH571/3
+#define WORD_OR_JUMP "j"
+#else
+#define WORD_OR_JUMP ".word"
+#endif
+
+#define BASE_VECTOR "\n"\
+	".balign  2\n"\
+	".option   push;\n"\
+	".option   norvc;\n"\
+	"j handle_reset\n"\
+	".word   0\n"\
+	WORD_OR_JUMP " NMI_Handler                /* NMI Handler */\n"\
+	WORD_OR_JUMP " HardFault_Handler          /* Hard Fault Handler */\n"\
+	".word         0xF3F9BDA9\n"\
+	WORD_OR_JUMP " Ecall_M_Mode_Handler       /* 5 */\n"\
+	".word         0\n"\
+	".word         0\n"\
+	WORD_OR_JUMP " Ecall_U_Mode_Handler       /* 8 */\n"\
+	WORD_OR_JUMP " Break_Point_Handler        /* 9 */\n"\
+	".word         0\n"\
+	".word         0\n"\
+	WORD_OR_JUMP " SysTick_Handler            /* SysTick Handler */\n"\
+	".word         0\n"\
+	WORD_OR_JUMP " SW_Handler                 /* SW Handler */\n"\
+	".word         0\n"\
+	"/* External Interrupts */\n"\
+	WORD_OR_JUMP " TMR0_IRQHandler            /* 16: TMR0 */\n"\
+	WORD_OR_JUMP " GPIOA_IRQHandler           /* GPIOA */\n"\
+	WORD_OR_JUMP " GPIOB_IRQHandler           /* GPIOB */\n"\
+	WORD_OR_JUMP " SPI0_IRQHandler            /* SPI0 */\n"\
+	WORD_OR_JUMP " BB_IRQHandler              /* BLEB */\n"\
+	WORD_OR_JUMP " LLE_IRQHandler             /* BLEL */\n"\
+	WORD_OR_JUMP " USB_IRQHandler             /* USB */\n"\
+	".word         0 \n"\
+	WORD_OR_JUMP " TMR1_IRQHandler            /* TMR1 */\n"\
+	WORD_OR_JUMP " TMR2_IRQHandler            /* TMR2 */\n"\
+	WORD_OR_JUMP " UART0_IRQHandler           /* UART0 */\n"\
+	WORD_OR_JUMP " UART1_IRQHandler           /* UART1 */\n"\
+	WORD_OR_JUMP " RTC_IRQHandler             /* RTC */\n"\
+	WORD_OR_JUMP " ADC_IRQHandler             /* ADC */\n"\
+	WORD_OR_JUMP " I2C_IRQHandler             /* I2C */\n"\
+	WORD_OR_JUMP " PWMX_IRQHandler            /* PWMX */\n"\
+	WORD_OR_JUMP " TMR3_IRQHandler            /* TMR3 */\n"\
+	WORD_OR_JUMP " UART2_IRQHandler           /* UART2 / KEYSCAN */\n"\
+	WORD_OR_JUMP " UART3_IRQHandler           /* UART3 / ENCODER */\n"\
+	WORD_OR_JUMP " WDOG_BAT_IRQHandler        /* WDOG_BAT */\n"
 
 // ch570/2 has slightly different interrupts
 #define TMR_IRQHandler TMR1_IRQHandler
@@ -100,6 +106,11 @@ typedef enum IRQn
 #define KEYSCAN_IRQHandler UART2_IRQHandler
 #define ENCODER_IRQHandler UART3_IRQHandler
 #define DEFAULT_INTERRUPT_VECTOR_CONTENTS BASE_VECTOR "\n.option pop;\n"
+
+#define __HIGH_CODE __attribute__((section(".highcode"), used))
+#define __INTERRUPT __attribute__((interrupt))
+
+
 
 /* memory mapped structure for SysTick */
 typedef struct __attribute__((packed))
@@ -132,7 +143,7 @@ typedef struct
 	__I uint32_t  ISR[8];           // 0
 	__I uint32_t  IPR[8];           // 20H
 	__IO uint32_t ITHRESDR;         // 40H
-	uint8_t       RESERVED[4];      // 44H
+	__IO uint32_t FIBADDRR;         // 44H
 	__O uint32_t  CFGR;             // 48H
 	__I uint32_t  GISR;             // 4CH
 	__IO uint8_t  VTFIDR[4];        // 50H
@@ -183,25 +194,25 @@ typedef struct
 
 typedef enum
 {
-#if MCU_PACKAGE == 3 // CH573
-	 CLK_SOURCE_LSI = 0x00,
-	 CLK_SOURCE_LSE,
+#if MCU_PACKAGE == 1 || MCU_PACKAGE == 3 // CH571/3
+	CLK_SOURCE_LSI = 0x00,
+	CLK_SOURCE_LSE,
 
-	 CLK_SOURCE_HSE_8MHz = 0x24,
-	 CLK_SOURCE_HSE_6_4MHz = 0x25,
-	 CLK_SOURCE_HSE_4MHz = 0x28,
-	 CLK_SOURCE_HSE_2MHz = (0x20 | 16),
-	 CLK_SOURCE_HSE_1MHz = (0x20 | 0),
+	CLK_SOURCE_HSE_8MHz = 0x24,
+	CLK_SOURCE_HSE_6_4MHz = 0x25,
+	CLK_SOURCE_HSE_4MHz = 0x28,
+	CLK_SOURCE_HSE_2MHz = (0x20 | 16),
+	CLK_SOURCE_HSE_1MHz = (0x20 | 0),
 
-	 CLK_SOURCE_PLL_60MHz = 0x48,
-	 CLK_SOURCE_PLL_48MHz = (0x40 | 10),
-	 CLK_SOURCE_PLL_40MHz = (0x40 | 12),
-	 CLK_SOURCE_PLL_36_9MHz = (0x40 | 13),
-	 CLK_SOURCE_PLL_32MHz = (0x40 | 15),
-	 CLK_SOURCE_PLL_30MHz = (0x40 | 16),
-	 CLK_SOURCE_PLL_24MHz = (0x40 | 20),
-	 CLK_SOURCE_PLL_20MHz = (0x40 | 24),
-	 CLK_SOURCE_PLL_15MHz = (0x40 | 0),
+	CLK_SOURCE_PLL_60MHz = 0x48,
+	CLK_SOURCE_PLL_48MHz = (0x40 | 10),
+	CLK_SOURCE_PLL_40MHz = (0x40 | 12),
+	CLK_SOURCE_PLL_36_9MHz = (0x40 | 13),
+	CLK_SOURCE_PLL_32MHz = (0x40 | 15),
+	CLK_SOURCE_PLL_30MHz = (0x40 | 16),
+	CLK_SOURCE_PLL_24MHz = (0x40 | 20),
+	CLK_SOURCE_PLL_20MHz = (0x40 | 24),
+	CLK_SOURCE_PLL_15MHz = (0x40 | 0),
 #else
 	CLK_SOURCE_LSI = 0xC0,
 
@@ -1627,6 +1638,171 @@ typedef enum
 #define R32_USB_EP7_CTRL    (*((vu32*)0x4000806C)) // endpoint 7 control & transmittal length
 #define R8_UEP7_T_LEN       (*((vu8*)0x4000806C))  // endpoint 7 transmittal length
 #define R8_UEP7_CTRL        (*((vu8*)0x4000806E))  // endpoint 7 control
+
+
+#define RTC_MAX_COUNT       0xA8BFFFFF
+
+// LSI frequency is actually unknown and can't be tuned. 
+// It can be anywhere between 24 kHz to 42 kHz. If percise timing is needed,
+// the user should calibrate it with R8_OSC_CAL_CTRL and
+// R16_OSC_CAL_CNT.
+#define RTC_FREQ            32000 
+
+// The datasheet of ch570/2 refer to some registers differently.
+// They should be defined in case the user is referring to the datasheet.
+#define R16_RTC_CNT_LSI     R16_RTC_CNT_32K 
+#define R16_RTC_CNT_DIV1    R16_RTC_CNT_2S 
+#define R8_LSI_CONFIG       R8_CK32K_CONFIG
+#define RB_CLK_LSI_PON      RB_CLK_XT32K_PON
+
+// Additional power plan bits.
+#define RB_PWR_LDO5V_EN     0x0100
+#define RB_PWR_RAM12K       RB_PWR_RAM2K
+#define RB_PWR_RAM24K       RB_PWR_RAM12K
+#define RB_XT_PRE_EN        0 //no such bit for ch570/2
+
+
+#define CLK_PER_US          (1.0 / ((1.0 / RTC_FREQ) * 1000 * 1000))
+#define CLK_PER_MS          (CLK_PER_US * 1000)
+#define US_TO_RTC(us)       ((uint32_t)((us) * CLK_PER_US + 0.5))
+#define MS_TO_RTC(ms)       ((uint32_t)((ms) * CLK_PER_MS + 0.5))
+
+#define SLEEP_RTC_MIN_TIME  US_TO_RTC(1000)
+#define SLEEP_RTC_MAX_TIME  (RTC_MAX_COUNT - 1000 * 1000 * 30)
+#define WAKE_UP_RTC_MAX_TIME US_TO_RTC(1600)
+
+RV_STATIC_INLINE void LSIEnable() 
+{
+	SYS_SAFE_ACCESS(
+		R8_LSI_CONFIG |= RB_CLK_LSI_PON; //turn on LSI
+	);
+
+}
+
+// CH570/2 has no DCDC.
+#define DCDCEnable() 
+
+RV_STATIC_INLINE void SleepInit()
+{
+	SYS_SAFE_ACCESS
+	(
+		R8_RTC_MODE_CTRL |= RB_RTC_TRIG_EN;  //enable RTC trigger
+   		R8_SLP_WAKE_CTRL |= RB_SLP_RTC_WAKE; // enable wakeup control
+	);
+	//enable RTC interrupt
+	NVIC->IENR[((uint32_t)(RTC_IRQn) >> 5)] = (1 << ((uint32_t)(RTC_IRQn) & 0x1F));
+	
+}
+
+//clear RTC counters.
+//probabily not needed for most cases, waking up from
+//power off resets the RTC anyway.
+RV_STATIC_INLINE void RTCInit() 
+{
+	SYS_SAFE_ACCESS
+	(
+		R32_RTC_TRIG = 0;
+		R32_RTC_CTRL |= RB_RTC_LOAD_HI;
+		R32_RTC_CTRL |= RB_RTC_LOAD_LO;
+		R8_RTC_MODE_CTRL |= RB_RTC_TRIG_EN;  //enable RTC trigger
+	);
+
+}
+
+//Set RTC to generate an interrupt after cyc ticks.
+RV_STATIC_INLINE void RTCTrigger(uint32_t cyc) 
+{
+	//get the rtc current time
+	uint32_t alarm = (uint32_t) R16_RTC_CNT_LSI | ( (uint32_t) R16_RTC_CNT_DIV1 << 16 );
+
+	alarm += cyc;
+
+	if( alarm > RTC_MAX_COUNT )
+	{
+		alarm-=	RTC_MAX_COUNT;
+	}
+
+	SYS_SAFE_ACCESS
+	(
+		R32_RTC_TRIG = alarm;   
+	);
+
+}
+
+//some probabily works for ch571/3 too, but not tested
+//so only for ch570/2 for now.
+#if( MCU_PACKAGE == 2 || MCU_PACKAGE == 0) // CH570/2
+
+// enter idle state
+RV_STATIC_INLINE void LowPowerIdle(uint32_t cyc)
+{
+	RTCTrigger(cyc);
+
+	NVIC->SCTLR &= ~(1 << 2); // don't deep sleep
+	NVIC->SCTLR &= ~(1 << 3); // wfi
+	asm volatile ("wfi\nnop\nnop" );
+
+}
+
+// This macro defines which power pin 
+// to use. If not defined correctly, sleep current
+// will be higher than expected.
+#ifndef FUNCONF_POWERED_BY_V5PIN
+#define FUNCONF_POWERED_BY_V5PIN 0
+#endif
+
+RV_STATIC_INLINE void LowPowerSleep(uint32_t cyc, uint16_t power_plan) 
+{
+	#if (FUNCONF_POWERED_BY_V5PIN == 1)
+		power_plan |= RB_PWR_LDO5V_EN;
+	#endif
+
+	RTCTrigger(cyc);
+
+	#if ( CLK_SOURCE_CH5XX == CLK_SOURCE_PLL_75MHz ) || ( CLK_SOURCE_CH5XX == CLK_SOURCE_PLL_100MHz )
+		//if system clock is higher than 60Mhz, it need to be reduced before sleep.
+		SYS_SAFE_ACCESS(
+			R8_CLK_SYS_CFG = CLK_SOURCE_PLL_60MHz;
+		);
+	#endif
+
+	NVIC->SCTLR |= (1 << 2); //deep sleep
+	SYS_SAFE_ACCESS
+	(
+ 	   R8_SLP_POWER_CTRL |= 0x40; //longest wake up delay
+  	   R16_POWER_PLAN = RB_PWR_PLAN_EN | RB_PWR_CORE | power_plan | (1<<12);
+	);
+	
+	asm volatile ("wfi\nnop\nnop" );
+
+	#if ( CLK_SOURCE_CH5XX == CLK_SOURCE_PLL_75MHz ) || ( CLK_SOURCE_CH5XX == CLK_SOURCE_PLL_100MHz )
+
+		//machine delay for a while.
+		uint16_t i = 400;
+		do{asm volatile("nop");}while(i--);
+
+		//get system clock back to normal
+		SYS_SAFE_ACCESS(
+			R8_CLK_SYS_CFG = CLK_SOURCE_CH5XX;
+		);
+
+	#endif
+
+}
+
+RV_STATIC_INLINE void LowPower(uint32_t time, uint16_t power_plan) 
+{
+	if( time > 500){
+		LowPowerSleep( time, power_plan );
+	} else {
+		LowPowerIdle( time );
+	}
+
+}
+
+#endif
+
+
 
 typedef enum
 {

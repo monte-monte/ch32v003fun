@@ -11,6 +11,7 @@ ch32fun contains:
   * An ESP32S2 Programmer, the [esp32s2-funprog](https://github.com/cnlohr/esp32s2-cookbook/tree/master/ch32v003programmer)
   * The official WCH Link-E Programmer.
   * An Arduino-based interface, [Ardulink](https://gitlab.com/BlueSyncLine/arduino-ch32v003-swio).
+  * Support for the ch32v003-based programmer for all SWD/SWIO boards using [The rv003usb SWDIO programmer](https://github.com/cnlohr/rv003usb/tree/master/rvswdio_programmer)
   * Supports gdbserver-style-debugging for use with Visual Studio.
   * Supports printf-over-single-wire. (At about 400kBaud)
 3. An extra copy of libgcc so you can use unusual risc-v build chains, located in the `misc/libgcc.a`.
@@ -82,6 +83,10 @@ See [platform-ch32v](https://github.com/Community-PIO-CH32V/platform-ch32v) for 
 If the C/C++ language server clangd is unable to find `ch32fun.h`, the example will have to be wiped `make clean` and built once with `bear -- make build`, which will generate a `compile_commands.json`, which clangd uses to find the include paths specified in the makefiles.  
 `make clangd` does this in one step.
 `build_all_clangd.sh` does in `build scripts` does this for all examples.
+
+## Malloc/free unimplemented in ch32fun
+
+Because ch32fun services a wide variety of chips, it's hard to make decisions about what implementation of malloc/free should be used, comparing chips like the ch32v003 with 2kB of RAM, to the CH585 with 128kB of RAM, the decisions about what implementation to use will vary wildly. We've decided it's best for us not to decide for you.  You can choose to use none at all and just allocate statically, or use lists of fixed sizes, or use a heavier free/malloc.  Some malloc implementations you may want to consider are [tinyalloc](https://github.com/thi-ng/tinyalloc), [libmemory](https://github.com/embeddedartistry/libmemory), or other extremely lightweight but less common libraries like [mameMalloc](https://github.com/ar90n/mameMalloc).
 
 ## Quick Reference
  * **REQUIRED** for programming/debugging: `SWIO` is on `PD1`. Do not re-use PD1 for multiple functions.
