@@ -92,6 +92,7 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 	iss->ram_base = 0x20000000;
 	iss->ram_size = 2048;
 	iss->sector_size = 64;
+	iss->target_chip = NULL;
 	iss->target_chip_type = 0;
 
 	SetupAutomaticHighLevelFunctions( dev );
@@ -684,7 +685,7 @@ keep_going:
 					uint32_t value = 0;
 					int ret = MCF.ReadReg32( dev, datareg, &value );
 					printf( "REGISTER %02x: %08x, %d\n", datareg, value, ret );
-					ret = DefaultDetermineChipType( dev );
+					ret = MCF.DetermineChipType( dev );
 					if( ret ) return ret;
 				}
 				else
@@ -1168,7 +1169,7 @@ int DefaultGetUUID( void * dev, uint8_t * buffer)
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	int ret = 0;
-	if( !iss->target_chip )
+	if( iss->target_chip == NULL)
 	{
 		ret = MCF.DetermineChipType( dev );
 		if( ret ) return ret;
@@ -1235,7 +1236,7 @@ int DefaultGetUUID( void * dev, uint8_t * buffer)
 int DefaultDetermineChipType( void * dev )
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
-	if( !iss->target_chip )
+	if( iss->target_chip == NULL)
 	{
 		uint32_t rr;
 		if( MCF.ReadReg32( dev, DMHARTINFO, &rr ) )
@@ -1265,7 +1266,7 @@ int DefaultDetermineChipType( void * dev )
 		MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 );		// c.ebreak <<== c.lw x8, 0(x8)
 		MCF.FlushLLCommands(dev);
 
-		uint8_t family_id = 0;
+		// uint8_t family_id = 0;
 		uint32_t chip_id = 0;
 		uint32_t vendor_bytes = 0;
 		uint32_t sevenf_id = 0;
@@ -1524,7 +1525,7 @@ int DefaultDetermineChipType( void * dev )
 
 				iss->target_chip_id = chip_id;
 			}
-			if( flash_size_address )
+			if( iss-> target_chip && flash_size_address )
 			{
 				MCF.WriteReg32( dev, DMDATA0, flash_size_address );			// Special chip ID location.
 				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
@@ -1553,7 +1554,7 @@ chip_identified:
 			MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
 			MCF.WaitForDoneOp( dev, 1 );
 			MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
-			MCF.ReadReg32( dev, DMDATA0, &two );
+			MCF.ReadReg32( dev, DMDATA0, (uint32_t*)&two );
 			
 			if( (one & 2) || two != -1 ) read_protection = 1;
 		}
@@ -1564,7 +1565,7 @@ chip_identified:
 		MCF.WriteReg32( dev, DMDATA0, old_data0 );
 
 
-		if( !iss->target_chip )
+		if( iss->target_chip == NULL)
 		{
 			fprintf( stderr, "Unknown chip type.  Report as bug with picture of chip.\n" );
 			// fprintf( stderr, "Vendored: %08x\n", vendorid );
@@ -1581,7 +1582,7 @@ chip_identified:
 			}
 			
 			iss->target_chip_type = iss->target_chip->family_id;
-			if( iss->flash_size == 0 ) iss->flash_size = iss->target_chip->flash_size;
+			if( iss->flash_size == 0 ) iss->flash_size = iss->target_chip->flash_size/1024;
 			iss->ram_base = iss->target_chip->ram_base;
 			iss->ram_size = iss->target_chip->ram_size;
 			iss->sector_size = iss->target_chip->sector_size;
@@ -1627,10 +1628,10 @@ static void StaticUpdatePROGBUFRegs( void * dev )
 	}
 
 		int ret = 0;
-		if( !iss->target_chip )
+		if( iss->target_chip == NULL )
 		{
 			ret = MCF.DetermineChipType( dev );
-			if( ret ) return ret;
+			if( ret ) return;
 		}
 
 	uint32_t data0offset = 0xe0000000 | ( rr & 0x7ff );
@@ -2659,7 +2660,7 @@ int DefaultReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t r
   fprintf( stderr, "DefaultReadBinaryBlob\n" );
   struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
   int ret = 0;
-  if( !iss->target_chip )
+  if( iss->target_chip == NULL)
   {
     ret = MCF.DetermineChipType( dev );
     if( ret ) return ret;
@@ -3038,7 +3039,7 @@ int DefaultPrintChipInfo( void * dev )
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	int ret = 0;
-	if( !iss->target_chip )
+	if( iss->target_chip == NULL)
 	{
 		ret = MCF.DetermineChipType( dev );
 		if( ret ) return ret;
@@ -3215,7 +3216,7 @@ int DetectMemoryArea( void * dev, uint32_t address )
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	int ret = 0;
-	if( !iss->target_chip )
+	if( iss->target_chip == NULL)
 	{
 		ret = MCF.DetermineChipType( dev );
 		if( ret ) return ret;
@@ -3267,7 +3268,7 @@ int CheckMemoryLocation( void * dev, enum MemoryArea area, uint32_t address, uin
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	int ret = 0;
-	if( !iss->target_chip )
+	if( iss->target_chip == NULL)
 	{
 		ret = MCF.DetermineChipType( dev );
 		if( ret ) return ret;

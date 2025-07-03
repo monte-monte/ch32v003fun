@@ -2,10 +2,8 @@
 #define CHIPS_H
 #include "minichlink.h"
 
-
-
 struct RiscVChip_s {
-  char name_str[10];
+	char name_str[10];
 	enum RiscVChip family_id; // ChipID[3]
 	uint16_t model_id;  // ChipID[4-5] & 0xFFF0
 	uint32_t ram_base;
@@ -20,8 +18,8 @@ struct RiscVChip_s {
 	uint32_t options_offset;
 	uint32_t options_size;
 	uint8_t interface_speed;
-  enum ProgProtocol protocol;
-  uint8_t unsupported;
+	enum ProgProtocol protocol;
+	uint8_t unsupported;
 };
 
 const struct RiscVChip_s* FindChip(uint32_t chip_id);

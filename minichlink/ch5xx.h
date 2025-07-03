@@ -1,6 +1,8 @@
 #ifndef CH5XXH
 #define CH5XXH
 
+#define DEBUG_CH5xx_MINICHLINK 1
+
 #define R8_SAFE_ACCESS_SIG  0x40001040
 #define R8_WDOG_COUNT       0x40001043
 #define R8_RESET_STATUS     0x40001044
@@ -25,6 +27,7 @@ void ch5xx_flash_out(void* dev, uint8_t addr);
 void ch5xx_flash_end(void* dev);
 uint8_t ch5xx_flash_begin(void* dev, uint8_t cmd);
 void ch5xx_write_byte_safe(void* dev, uint32_t addr, uint8_t value);
+void ch5xx_write_word_safe(void* dev, uint32_t addr, uint16_t value);
 int ch5xx_read_options(void* dev, uint32_t addr, uint8_t* buffer);
 int ch5xx_read_options_bulk(void* dev, uint32_t addr, uint8_t* buffer, uint32_t len);
 int ch5xx_read_secret_uuid(void* dev, uint8_t* buffer);

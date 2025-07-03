@@ -236,7 +236,6 @@ int LEWriteReg32( void * dev, uint8_t reg_7_bit, uint32_t command )
 			fprintf( stderr, "\n" );
 		}
 		fprintf( stderr, "\n" );
-		return -1;
 	}
 	return 0;
 }
@@ -265,13 +264,14 @@ int LEReadReg32( void * dev, uint8_t reg_7_bit, uint32_t * commandresp )
 		else
 		{
 			fprintf( stderr, "Error setting read reg. Tell cnlohr. Maybe we should allow retries here?\n" );
-			fprintf( stderr, "RR: %d :", transferred );
+			fprintf( stderr, "Reg: %08x, RR: %d :", reg_7_bit, transferred );
 			int i;
 			for ( i = 0; i < transferred; i++ )
 			{
 				fprintf( stderr, "%02x ", rbuff[i] );
 			}
 			fprintf( stderr, "\n" );
+      return -1;
 		}
 	}
 	/*

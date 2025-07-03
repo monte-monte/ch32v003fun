@@ -132,9 +132,9 @@ enum RiscVChip {
 	// CHIP_CH32V006 = 0x26,
 	CHIP_CH32V00x = 0x4e,
 
-  CHIP_CH570 = 0x8b,
-  CHIP_CH585 = 0x4b,
-  CHIP_CH645 = 0x46,
+	CHIP_CH570 = 0x8b,
+	CHIP_CH585 = 0x4b,
+	CHIP_CH645 = 0x46,
 	CHIP_CH641 = 0x49,
 	CHIP_CH32V317 = 0x86,
 	CHIP_CH32M030 = 0x8e,
@@ -190,7 +190,7 @@ struct InternalState
 	uint8_t flash_sector_status[MAX_FLASH_SECTORS];  // 0 means unerased/unknown. 1 means erased.
 	int nr_registers_for_debug; // Updated by PostSetupConfigureInterface
 	enum MemoryArea current_area;
-  uint32_t clock_set;
+	uint32_t clock_set;
 };
 
 

@@ -1,7 +1,7 @@
 #include "chips.h"
 
 const struct RiscVChip_s ch32v003 = {
-  .name_str = "CH32V003",
+	.name_str = "CH32V003",
 	.family_id = CHIP_CH32V003,
 	.model_id = 0x0030,
 	.ram_base = 0x20000000,
@@ -14,11 +14,11 @@ const struct RiscVChip_s ch32v003 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 0x40,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v002 = {
-  .name_str = "CH32V002",
+	.name_str = "CH32V002",
 	.family_id = CHIP_CH32V00x,
 	.model_id = 0x0020,
 	.ram_base = 0x20000000,
@@ -31,11 +31,11 @@ const struct RiscVChip_s ch32v002 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v004 = {
-  .name_str = "CH32V004",
+	.name_str = "CH32V004",
 	.family_id = CHIP_CH32V00x,
 	.model_id = 0x0040,
 	.ram_base = 0x20000000,
@@ -48,11 +48,11 @@ const struct RiscVChip_s ch32v004 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v005 = {
-  .name_str = "CH32V005",
+	.name_str = "CH32V005",
 	.family_id = CHIP_CH32V00x,
 	.model_id = 0x0050,
 	.ram_base = 0x20000000,
@@ -65,11 +65,11 @@ const struct RiscVChip_s ch32v005 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v006 = {
-  .name_str = "CH32V006",
+	.name_str = "CH32V006",
 	.family_id = CHIP_CH32V00x,
 	.model_id = 0x0060,
 	.ram_base = 0x20000000,
@@ -82,11 +82,11 @@ const struct RiscVChip_s ch32v006 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v007 = {
-  .name_str = "CH32V007",
+	.name_str = "CH32V007",
 	.family_id = CHIP_CH32V00x,
 	.model_id = 0x0070,
 	.ram_base = 0x20000000,
@@ -99,11 +99,11 @@ const struct RiscVChip_s ch32v007 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32x033 = {
-  .name_str = "CH32x033",
+	.name_str = "CH32x033",
 	.family_id = CHIP_CH32X03x,
 	.model_id = 0x0330,
 	.ram_base = 0x20000000,
@@ -116,11 +116,11 @@ const struct RiscVChip_s ch32x033 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32x035 = {
-  .name_str = "CH32x035",
+	.name_str = "CH32x035",
 	.family_id = CHIP_CH32X03x,
 	.model_id = 0x0350,
 	.ram_base = 0x20000000,
@@ -133,11 +133,11 @@ const struct RiscVChip_s ch32x035 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v103 = {
-  .name_str = "CH32V103",
+	.name_str = "CH32V103",
 	.family_id = CHIP_CH32V10x,
 	.model_id = 0x1030,
 	.ram_base = 0x20000000,
@@ -150,11 +150,11 @@ const struct RiscVChip_s ch32v103 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 128,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32l103 = {
-  .name_str = "CH32L103",
+	.name_str = "CH32L103",
 	.family_id = CHIP_CH32L10x,
 	.model_id = 0x1030,
 	.ram_base = 0x20000000,
@@ -167,11 +167,11 @@ const struct RiscVChip_s ch32l103 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v203 = {
-  .name_str = "CH32V203",
+	.name_str = "CH32V203",
 	.family_id = CHIP_CH32V20x,
 	.model_id = 0x2030,
 	.ram_base = 0x20000000,
@@ -184,11 +184,11 @@ const struct RiscVChip_s ch32v203 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 128,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v208 = {
-  .name_str = "CH32V208",
+	.name_str = "CH32V208",
 	.family_id = CHIP_CH32V20x,
 	.model_id = 0x2080,
 	.ram_base = 0x20000000,
@@ -201,11 +201,11 @@ const struct RiscVChip_s ch32v208 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 128,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v303 = {
-  .name_str = "CH32V303",
+	.name_str = "CH32V303",
 	.family_id = CHIP_CH32V30x,
 	.model_id = 0x3030,
 	.ram_base = 0x20000000,
@@ -218,11 +218,11 @@ const struct RiscVChip_s ch32v303 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 128,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v305 = {
-  .name_str = "CH32V305",
+	.name_str = "CH32V305",
 	.family_id = CHIP_CH32V30x,
 	.model_id = 0x3050,
 	.ram_base = 0x20000000,
@@ -235,11 +235,11 @@ const struct RiscVChip_s ch32v305 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 128,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v307 = {
-  .name_str = "CH32V307",
+	.name_str = "CH32V307",
 	.family_id = CHIP_CH32V30x,
 	.model_id = 0x3070,
 	.ram_base = 0x20000000,
@@ -252,11 +252,11 @@ const struct RiscVChip_s ch32v307 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 128,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32v317 = {
-  .name_str = "CH32V317",
+	.name_str = "CH32V317",
 	.family_id = CHIP_CH32V30x,
 	.model_id = 0x3170,
 	.ram_base = 0x20000000,
@@ -269,11 +269,11 @@ const struct RiscVChip_s ch32v317 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 128,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_UNSUPPORTED,
+	.protocol = PROTOCOL_UNSUPPORTED,
 };
 
 const struct RiscVChip_s ch32m030 = {
-  .name_str = "CH32M030",
+	.name_str = "CH32M030",
 	.family_id = CHIP_CH32M030,
 	.model_id = 0x0300,
 	.ram_base = 0x20000000,
@@ -286,11 +286,11 @@ const struct RiscVChip_s ch32m030 = {
 	.options_offset = 0x1FFFF300,
 	.options_size = 128,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_UNSUPPORTED,
+	.protocol = PROTOCOL_UNSUPPORTED,
 };
 
 const struct RiscVChip_s ch564 = {
-  .name_str = "CH564",
+	.name_str = "CH564",
 	.family_id = CHIP_CH564,
 	.model_id = 0x6400,
 	.ram_base = 0x20000000,
@@ -303,11 +303,11 @@ const struct RiscVChip_s ch564 = {
 	.options_offset = 0,
 	.options_size = 0,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_UNSUPPORTED,
+	.protocol = PROTOCOL_UNSUPPORTED,
 };
 
 const struct RiscVChip_s ch564c = {
-  .name_str = "CH564C",
+	.name_str = "CH564C",
 	.family_id = CHIP_CH564,
 	.model_id = 0x64c0, // Totally speculation
 	.ram_base = 0x20000000,
@@ -322,12 +322,12 @@ const struct RiscVChip_s ch564c = {
 	.options_offset = 0,
 	.options_size = 0,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_UNSUPPORTED,
-  .unsupported = 1,
+	.protocol = PROTOCOL_UNSUPPORTED,
+	.unsupported = 1,
 };
 
 const struct RiscVChip_s ch565 = {
-  .name_str = "CH565",
+	.name_str = "CH565",
 	.family_id = CHIP_CH56x,
 	.model_id = 0x6500,
 	.ram_base = 0x20000000,
@@ -342,12 +342,12 @@ const struct RiscVChip_s ch565 = {
 	.options_offset = 0,
 	.options_size = 0,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH56x,
-  .unsupported = 1,
+	.protocol = PROTOCOL_CH56x,
+	.unsupported = 1,
 };
 
 const struct RiscVChip_s ch569 = {
-  .name_str = "CH569",
+	.name_str = "CH569",
 	.family_id = CHIP_CH56x,
 	.model_id = 0x6900,
 	.ram_base = 0x20000000,
@@ -362,12 +362,12 @@ const struct RiscVChip_s ch569 = {
 	.options_offset = 0,
 	.options_size = 0,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH56x,
-  .unsupported = 1,
+	.protocol = PROTOCOL_CH56x,
+	.unsupported = 1,
 };
 
 const struct RiscVChip_s ch570 = {
-  .name_str = "CH570",
+	.name_str = "CH570",
 	.family_id = CHIP_CH570,
 	.model_id = 0x7000,
 	.ram_base = 0x20000000,
@@ -382,11 +382,11 @@ const struct RiscVChip_s ch570 = {
 	.options_offset = 0x0003E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch571 = {
-  .name_str = "CH571",
+	.name_str = "CH571",
 	.family_id = CHIP_CH57x,
 	.model_id = 0x7100,
 	.ram_base = 0x20003800,
@@ -401,11 +401,11 @@ const struct RiscVChip_s ch571 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch572 = {
-  .name_str = "CH572",
+	.name_str = "CH572",
 	.family_id = CHIP_CH570,
 	.model_id = 0x7200,
 	.ram_base = 0x20000000,
@@ -420,11 +420,11 @@ const struct RiscVChip_s ch572 = {
 	.options_offset = 0x0003E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch573 = {
-  .name_str = "CH573",
+	.name_str = "CH573",
 	.family_id = CHIP_CH57x,
 	.model_id = 0x7300,
 	.ram_base = 0x20003800,
@@ -439,11 +439,11 @@ const struct RiscVChip_s ch573 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch573q = {
-  .name_str = "CH573Q",
+	.name_str = "CH573Q",
 	.family_id = CHIP_CH57x,
 	.model_id = 0x7300,
 	.ram_base = 0x20003800,
@@ -458,11 +458,11 @@ const struct RiscVChip_s ch573q = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch581 = {
-  .name_str = "CH581",
+	.name_str = "CH581",
 	.family_id = CHIP_CH58x,
 	.model_id = 0x8100,
 	.ram_base = 0x20000000,
@@ -477,11 +477,11 @@ const struct RiscVChip_s ch581 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch582 = {
-  .name_str = "CH582",
+	.name_str = "CH582",
 	.family_id = CHIP_CH58x,
 	.model_id = 0x8200,
 	.ram_base = 0x20000000,
@@ -496,11 +496,11 @@ const struct RiscVChip_s ch582 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch583 = {
-  .name_str = "CH583",
+	.name_str = "CH583",
 	.family_id = CHIP_CH58x,
 	.model_id = 0x8300,
 	.ram_base = 0x20000000,
@@ -515,11 +515,11 @@ const struct RiscVChip_s ch583 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch584 = {
-  .name_str = "CH584",
+	.name_str = "CH584",
 	.family_id = CHIP_CH585,
 	.model_id = 0x8400,
 	.ram_base = 0x20000000,
@@ -534,11 +534,11 @@ const struct RiscVChip_s ch584 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch585 = {
-  .name_str = "CH585",
+	.name_str = "CH585",
 	.family_id = CHIP_CH585,
 	.model_id = 0x9300,
 	.ram_base = 0x20000000,
@@ -553,11 +553,11 @@ const struct RiscVChip_s ch585 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch591 = {
-  .name_str = "CH591",
+	.name_str = "CH591",
 	.family_id = CHIP_CH59x,
 	.model_id = 0x9100,
 	.ram_base = 0x20000000,
@@ -572,11 +572,11 @@ const struct RiscVChip_s ch591 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch592 = {
-  .name_str = "CH592",
+	.name_str = "CH592",
 	.family_id = CHIP_CH59x,
 	.model_id = 0x9200,
 	.ram_base = 0x20000000,
@@ -591,11 +591,11 @@ const struct RiscVChip_s ch592 = {
 	.options_offset = 0x0007E000,
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
-  .protocol = PROTOCOL_CH5xx,
+	.protocol = PROTOCOL_CH5xx,
 };
 
 const struct RiscVChip_s ch641 = {
-  .name_str = "CH641",
+	.name_str = "CH641",
 	.family_id = CHIP_CH641,
 	.model_id = 0x6410,
 	.ram_base = 0x20000000,
@@ -608,11 +608,11 @@ const struct RiscVChip_s ch641 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 0x40,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch643 = {
-  .name_str = "CH643",
+	.name_str = "CH643",
 	.family_id = CHIP_CH643,
 	.model_id = 0x6430,
 	.ram_base = 0x20000000,
@@ -625,11 +625,11 @@ const struct RiscVChip_s ch643 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-  .protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch645 = {
-  .name_str = "CH645",
+	.name_str = "CH645",
 	.family_id = CHIP_CH645,
 	.model_id = 0x6450,
 	.ram_base = 0x20000000,
@@ -642,8 +642,8 @@ const struct RiscVChip_s ch645 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-  .unsupported = 1,
-  .protocol = PROTOCOL_DEFAULT,
+	.unsupported = 1,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s * chip_collection[] = {
