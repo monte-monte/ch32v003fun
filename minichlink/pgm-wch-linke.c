@@ -29,8 +29,8 @@ static int checkChip(enum RiscVChip chip) {
 		case CHIP_CH641:
 		case CHIP_CH643:
 		case CHIP_CH32L10x:
-    case CHIP_CH570:
-    case CHIP_CH57x:
+		case CHIP_CH570:
+		case CHIP_CH57x:
 		case CHIP_CH58x:
 		case CHIP_CH585:
 		case CHIP_CH59x:
@@ -206,11 +206,11 @@ int LEWriteReg32( void * dev, uint8_t reg_7_bit, uint32_t command )
 	const uint8_t iOP = 2; // op 2 = write
 	uint8_t req[] = {
 		0x81, 0x08, 0x06, reg_7_bit,
-			(command >> 24) & 0xff,
-			(command >> 16) & 0xff,
-			(command >> 8) & 0xff,
-			(command >> 0) & 0xff,
-			iOP };
+        (command >> 24) & 0xff,
+        (command >> 16) & 0xff,
+        (command >> 8) & 0xff,
+        (command >> 0) & 0xff,
+        iOP };
 
 	uint8_t resp[128];
 	int resplen;
@@ -247,9 +247,9 @@ int LEReadReg32( void * dev, uint8_t reg_7_bit, uint32_t * commandresp )
 	uint32_t transferred;
 	uint8_t rbuff[128] = { 0 };
 	uint8_t req[] = {
-		0x81, 0x08, 0x06, reg_7_bit,
-			0, 0, 0, 0,
-			iOP };
+		  0x81, 0x08, 0x06, reg_7_bit,
+      0, 0, 0, 0,
+      iOP };
 	wch_link_command( devh, req, sizeof( req ), (int*)&transferred, rbuff, sizeof( rbuff ) );
 	*commandresp = ( rbuff[4]<<24 ) | (rbuff[5]<<16) | (rbuff[6]<<8) | (rbuff[7]<<0);
 	if( transferred != 9 || rbuff[8] == 0x02 || rbuff[8] == 0x03 ) //|| rbuff[3] != reg_7_bit )
@@ -330,15 +330,12 @@ static int LESetupInterface( void * d )
 	}
   
 	wch_link_command( dev, "\x81\x0c\x02\x01\x02", 5, 0, 0, 0 );	// By default set interface speed to "normal" (4Mhz) and change that after we detect the chip
-	// int unknown_chip_fallback = 0;
 
 	// This puts the processor on hold to allow the debugger to run.
 	int already_tried_reset = 0;
 	int is_already_connected = 0;
 	do
 	{
-		// Read DMSTATUS - in case we are a ch32x035, or other chip that does not respond to \x81\x0d\x01\x02.
-		// wch_link_command( dev, "\x81\x08\x06\x05\x11\x00\x00\x00\x00\x01", 11, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
 		// There's a couple situations where the older firmware on the official programmer freaks out.
 		// We don't want to inconvenience our users, so just try to work through it by falling back to the minichlink functions.
 		// Part connected.  But the programmer doesn't know what it is.
@@ -351,7 +348,6 @@ static int LESetupInterface( void * d )
 				printf( "Already Connected\n" );
 				// Still need to read in the data so we can select the correct chip.
 				wch_link_command( dev, "\x81\x0d\x01\x02", 4, (int*)&transferred, rbuff, 1024 ); // ?? this seems to work?
-				// unknown_chip_fallback = 1;
 				break;
 			}
 			is_already_connected = 1;
@@ -368,11 +364,10 @@ static int LESetupInterface( void * d )
 			// Give up if too long
 			if( already_tried_reset > 5 )
 			{
-				// unknown_chip_fallback = 1;
 				break;
 			}
 
-			// wch_link_multicommands( (libusb_device_handle *)dev, 1, 4, "\x81\x0d\x01\x13" ); // Try forcing reset line low.
+			wch_link_multicommands( (libusb_device_handle *)dev, 1, 4, "\x81\x0d\x01\x13" ); // Try forcing reset line low.
 			wch_link_command( (libusb_device_handle *)dev, "\x81\x0d\x01\xff", 4, 0, 0, 0); //Exit programming
 
 			if( already_tried_reset > 3 )
@@ -385,7 +380,6 @@ static int LESetupInterface( void * d )
 				MCF.DelayUS( iss, 5000 );
 			}
 
-			// wch_link_multicommands( (libusb_device_handle *)dev, 1, 4, "\x81\x0d\x01\x14" ); // Release reset line.
 			wch_link_multicommands( (libusb_device_handle *)dev, 3, 4, "\x81\x0b\x01\x01", 4, "\x81\x0d\x01\x02", 4, "\x81\x0d\x01\xff" );
 			already_tried_reset++;
 		}
@@ -419,6 +413,11 @@ static int LESetupInterface( void * d )
 
 	r = MCF.DetermineChipType( d );
 	if( r ) return r;
+	if( iss->target_chip_type == CHIP_CH32V10x )
+	{
+		fprintf( stderr, "Using binary blob write for operation.\n" );
+		MCF.WriteBinaryBlob = LEWriteBinaryBlob;
+	}
 
 #endif
 
@@ -579,9 +578,9 @@ static int LEConfigureReadProtection( void * d, int one_if_yes_protect )
 
 	
 	if(	iss->target_chip_type == CHIP_CH57x ||
-			iss->target_chip_type == CHIP_CH58x ||
-			iss->target_chip_type == CHIP_CH585 ||
-			iss->target_chip_type == CHIP_CH59x )
+		  iss->target_chip_type == CHIP_CH58x ||
+		  iss->target_chip_type == CHIP_CH585 ||
+		  iss->target_chip_type == CHIP_CH59x )
 		{
 			fprintf( stderr, "This MCU doesn't support %s read-protection via LinkE\n", one_if_yes_protect?"enabling":"disabling");
 			return -1;
@@ -1049,12 +1048,12 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 	// This contains the write data quantity, in bytes.  (The last 2 octets)
 	// Then it just rollllls on in.
 	char rksbuff[11] = { 0x81, 0x01, 0x08,
-						 // Address to write
-						 (uint8_t)(address_to_write >> 24), (uint8_t)(address_to_write >> 16),
-						 (uint8_t)(address_to_write >> 8), (uint8_t)(address_to_write & 0xff),
-						 // Length to write
-						 (uint8_t)(len >> 24), (uint8_t)(len >> 16),
-						 (uint8_t)(len >> 8), (uint8_t)(len & 0xff) };
+	                    // Address to write
+	                    (uint8_t)(address_to_write >> 24), (uint8_t)(address_to_write >> 16),
+	                    (uint8_t)(address_to_write >> 8), (uint8_t)(address_to_write & 0xff),
+	                    // Length to write
+	                    (uint8_t)(len >> 24), (uint8_t)(len >> 16),
+	                    (uint8_t)(len >> 8), (uint8_t)(len & 0xff) };
 	wch_link_command( (libusb_device_handle *)dev, rksbuff, 11, 0, 0, 0 );
 	wch_link_command( (libusb_device_handle *)dev, "\x81\x02\x01\x05", 4, 0, 0, 0 );
 

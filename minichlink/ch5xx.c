@@ -546,9 +546,9 @@ int ch5xx_read_uuid(void * dev, uint8_t * buffer) {
 	ch5xx_flash_open(dev, 0x20);
 
 	if (chip == CHIP_CH57x ||
-			chip == CHIP_CH58x ||
-			chip == CHIP_CH585 ||
-			chip == CHIP_CH59x)
+		  chip == CHIP_CH58x ||
+		  chip == CHIP_CH585 ||
+		  chip == CHIP_CH59x)
 	{
 		ch5xx_flash_addr(dev, 0xb, (0x7F018 | 0x80000));
 	} else if (chip == CHIP_CH570) {

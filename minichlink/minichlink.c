@@ -736,11 +736,11 @@ keep_going:
 
 				if( !CheckMemoryLocation( dev, DEFAULT_AREA, offset, amount ) )
 				{
-					if( iss->target_chip_type != CHIP_CH570 ||
-							iss->target_chip_type != CHIP_CH57x ||
-							iss->target_chip_type != CHIP_CH58x ||
-							iss->target_chip_type != CHIP_CH585 ||
-							iss->target_chip_type != CHIP_CH59x )
+					if( iss->target_chip_type != CHIP_CH570 &&
+						  iss->target_chip_type != CHIP_CH57x &&
+						  iss->target_chip_type != CHIP_CH58x &&
+						  iss->target_chip_type != CHIP_CH585 &&
+						  iss->target_chip_type != CHIP_CH59x )
 					{
 						iss->current_area = PROGRAM_AREA;
 					}
@@ -769,7 +769,6 @@ keep_going:
 
 				if( MCF.ReadBinaryBlob )
 				{
-					// printf( "area = %d; offset = %08x; amount = %d\n", iss->current_area, offset, (int)amount );
 					if( MCF.ReadBinaryBlob( dev, offset, amount, readbuff ) < 0 )
 					{
 						fprintf( stderr, "Fault reading device\n" );
@@ -921,10 +920,10 @@ keep_going:
 			case 'Y':
 			{
 				if( iss->target_chip_type == CHIP_CH570 ||
-						iss->target_chip_type == CHIP_CH57x ||
-						iss->target_chip_type == CHIP_CH58x ||
-						iss->target_chip_type == CHIP_CH585 ||
-						iss->target_chip_type == CHIP_CH59x) CH5xxBlink(dev, 0, 8, 0);
+					  iss->target_chip_type == CHIP_CH57x ||
+					  iss->target_chip_type == CHIP_CH58x ||
+					  iss->target_chip_type == CHIP_CH585 ||
+					  iss->target_chip_type == CHIP_CH59x) CH5xxBlink(dev, 0, 8, 0);
 			}
 			
 		}
@@ -1114,7 +1113,7 @@ static int DefaultWaitForDoneOp( void * dev, int ignore )
 			{
 			case 1: errortext = "Command in execution"; break;
 			case 2: errortext = "Abstract Command Unsupported"; break;
-			case 3: errortext = "Execption executing Abstract Command"; break;
+			case 3: errortext = "Exception executing Abstract Command"; break;
 			case 4: errortext = "Processor not halted."; break;
 			case 5: errortext = "Bus Error"; break;
 			case 6: errortext = "Parity Bit"; break;
@@ -1142,7 +1141,10 @@ int DefaultSetupInterface( void * dev )
 	MCF.WriteReg32( dev, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // sometimes doing this just once isn't enough
 	MCF.WriteReg32( dev, DMCFGR, 0x5aa50000 | (1<<10) ); // And this is about as fast as checking, so why not.  
 	MCF.WriteReg32( dev, DMCONTROL, 0x80000001 ); // Make the debug module work properly.
-  MCF.WriteReg32( dev, DMCONTROL, 0x80000001 );
+	MCF.WriteReg32( dev, DMCONTROL, 0x80000001 );
+	// Why do we repeat this commands? Because in some cases they can be lost, if debug module is still starting
+	// and it's better to be send these crucial commands twice fot better chance for success.
+
 	// Read back chip status.  This is really basic.
 	uint32_t reg = 0;
 	int r = MCF.ReadReg32( dev, DMSTATUS, &reg );
@@ -1194,17 +1196,17 @@ int DefaultGetUUID( void * dev, uint8_t * buffer)
 		*(((uint32_t*)buffer)+1) = local_buffer[4]<<24|local_buffer[5]<<16|local_buffer[6]<<8|local_buffer[7];
 	}
 	else if( chip == CHIP_CH32V003 ||
-					chip == CHIP_CH32V00x ||
-					chip == CHIP_CH32L10x ||
-					chip == CHIP_CH32V10x ||
-					chip == CHIP_CH32V20x ||
-					chip == CHIP_CH32V30x ||
-					chip == CHIP_CH32V317 ||
-					chip == CHIP_CH32X03x ||
-					chip == CHIP_CH564 ||
-					chip == CHIP_CH641 ||
-					chip == CHIP_CH643 ||
-					chip == CHIP_CH645 )
+	         chip == CHIP_CH32V00x ||
+	         chip == CHIP_CH32L10x ||
+	         chip == CHIP_CH32V10x ||
+	         chip == CHIP_CH32V20x ||
+	         chip == CHIP_CH32V30x ||
+	         chip == CHIP_CH32V317 ||
+	         chip == CHIP_CH32X03x ||
+	         chip == CHIP_CH564 ||
+	         chip == CHIP_CH641 ||
+	         chip == CHIP_CH643 ||
+	         chip == CHIP_CH645 )
 	{
 		MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 );	// c.ebreak <<== c.lw x8, 0(x8)
 		MCF.WriteReg32( dev, DMDATA0, 0x1ffff7e8 );			
@@ -1221,11 +1223,11 @@ int DefaultGetUUID( void * dev, uint8_t * buffer)
 		*(((uint32_t*)buffer)+1) = local_buffer[4]<<24|local_buffer[5]<<16|local_buffer[6]<<8|local_buffer[7];
 	}
 	else if( chip == CHIP_CH56x ||
-					chip == CHIP_CH570 ||
-					chip == CHIP_CH57x ||
-					chip == CHIP_CH58x ||
-					chip == CHIP_CH585 ||
-					chip == CHIP_CH59x )
+ 	         chip == CHIP_CH570 ||
+ 	         chip == CHIP_CH57x ||
+ 	         chip == CHIP_CH58x ||
+ 	         chip == CHIP_CH585 ||
+ 	         chip == CHIP_CH59x )
 	{
 		ret = ch5xx_read_uuid( dev, local_buffer );
 		memcpy(buffer, local_buffer, 8);
@@ -1266,14 +1268,11 @@ int DefaultDetermineChipType( void * dev )
 		MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 );		// c.ebreak <<== c.lw x8, 0(x8)
 		MCF.FlushLLCommands(dev);
 
-		// uint8_t family_id = 0;
 		uint32_t chip_id = 0;
 		uint32_t vendor_bytes = 0;
 		uint32_t sevenf_id = 0;
 		int read_protection = 0;
-		int ret;
-		ret = MCF.ReadReg32( dev, 0x7f, &sevenf_id );
-		// fprintf(stderr, "sevenf_id = %08x, ret = %d\n", sevenf_id, ret);
+		MCF.ReadReg32( dev, 0x7f, &sevenf_id );
 
 		if( sevenf_id == 0 )
 		{
@@ -1286,7 +1285,6 @@ int DefaultDetermineChipType( void * dev )
 			MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
 			MCF.ReadReg32( dev, DMDATA0, &chip_id );
 			chip_id = chip_id & 0xff;
-			// fprintf(stderr, "chip_id = %08x\n", chip_id);
 
 			// Looks like a CH32V103 or a CH56x
 			if( chip_id == 0 )
@@ -1356,7 +1354,6 @@ int DefaultDetermineChipType( void * dev )
 				{
 					uint32_t sevenc = 0;
 					MCF.ReadReg32( dev, DMCPBR, &sevenc );
-					// fprintf(stderr, "sevenc = %08x\n", sevenc);
 					if((sevenc & 0x30000) == 0)
 					{
 						if( chip_id == 0x91 )iss->target_chip = &ch591;
@@ -1397,7 +1394,6 @@ int DefaultDetermineChipType( void * dev )
 					else if( chip_id == 0x73 )
 					{
 						uint32_t ch573_variant = 0;
-						// _ch5xx_read_options(0x7f00c, &ch573_variant, 4);
 						if( (int)(ch573_variant << 18) < 0 )
 						{
 							iss->target_chip = &ch573q;
@@ -1521,7 +1517,6 @@ int DefaultDetermineChipType( void * dev )
 				MCF.WaitForDoneOp( dev, 1 );
 				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
 				MCF.ReadReg32( dev, DMDATA0, &chip_id );
-				// fprintf(stderr, "chip_id = %08x\n", chip_id);
 
 				iss->target_chip_id = chip_id;
 			}
@@ -1532,7 +1527,6 @@ int DefaultDetermineChipType( void * dev )
 				MCF.WaitForDoneOp( dev, 1 );
 				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
 				MCF.ReadReg32( dev, DMDATA0, &vendor_bytes );
-				// fprintf( stderr, "flash_size = %d %08x\n", vendor_bytes & 0xFFFF, vendor_bytes);
 
 				iss->flash_size = vendor_bytes & 0xFFFF;
 			}
@@ -1568,7 +1562,6 @@ chip_identified:
 		if( iss->target_chip == NULL)
 		{
 			fprintf( stderr, "Unknown chip type.  Report as bug with picture of chip.\n" );
-			// fprintf( stderr, "Vendored: %08x\n", vendorid );
 			fprintf( stderr, "marchid : %08x\n", marchid );
 			fprintf( stderr, "HARTINFO: %08x\n", rr );
 			return -2;
@@ -1612,8 +1605,6 @@ chip_identified:
 	}
 
 	if( iss->target_chip_type == CHIP_CH585 ) ch5xx_set_clock( dev, 0 );
-	// MCF.WriteReg32( dev, DMCONTROL, 0x80000003 ); // Reboot chip
-	// MCF.WriteReg32( dev, DMCONTROL, 0x80000001 ); // Halt processor
 	return 0;
 }
 
@@ -1861,7 +1852,7 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 			// fc75 c.bnez x8, -4
 			// c.ebreak
 			MCF.WriteReg32( dev, DMPROGBUF3, 
-				(iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type >= CHIP_CH32V00x
+				(iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32V00x
 				 || iss->target_chip_type == CHIP_CH32X03x || iss->target_chip_type == CHIP_CH32L10x
 				 || iss->target_chip_type == CHIP_CH641 || iss->target_chip_type == CHIP_CH643) ?
 				0x4200c254 : 0x42000001  );
@@ -1931,8 +1922,6 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 	// We can't write into flash when mapped to 0x00000000
 	if( address_to_write < 0x01000000 )
 		address_to_write |= 0x08000000;
-
-  fprintf( stderr, "DefaultWriteBinaryBlob\n" );
 
 	int is_flash = IsAddressFlash( address_to_write );
 
@@ -2657,20 +2646,19 @@ flashoperr:
 
 int DefaultReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t read_size, uint8_t * blob )
 {
-  fprintf( stderr, "DefaultReadBinaryBlob\n" );
-  struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
-  int ret = 0;
-  if( iss->target_chip == NULL)
-  {
-    ret = MCF.DetermineChipType( dev );
-    if( ret ) return ret;
-  }
-  if( iss->current_area == 0 ) DetectMemoryArea( dev, address_to_read_from );
-  if( iss->target_chip->protocol == PROTOCOL_CH5xx &&
-    (iss->current_area != PROGRAM_AREA && iss->current_area != RAM_AREA))
-  {
-    CH5xxReadBinaryBlob( dev,  address_to_read_from, read_size, blob );
-  }
+	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
+	int ret = 0;
+	if( iss->target_chip == NULL)
+	{
+		ret = MCF.DetermineChipType( dev );
+		if( ret ) return ret;
+	}
+	if( iss->current_area == 0 ) DetectMemoryArea( dev, address_to_read_from );
+	if( iss->target_chip->protocol == PROTOCOL_CH5xx &&
+		(iss->current_area != PROGRAM_AREA && iss->current_area != RAM_AREA))
+	{
+		CH5xxReadBinaryBlob( dev,  address_to_read_from, read_size, blob );
+	}
 
 	uint32_t rpos = address_to_read_from;
 	uint32_t rend = address_to_read_from + read_size;
@@ -2752,7 +2740,6 @@ int DefaultReadAllCPURegisters( void * dev, uint32_t * regret )
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	MCF.WriteReg32( dev, DMABSTRACTAUTO, 0x00000000 ); // Disable Autoexec.
-	// MCF.DetermineChipType( dev );
 	iss->statetag = STTAG( "RER2" );
 	int i;
 	for( i = 0; i < iss->nr_registers_for_debug; i++ )
@@ -2772,7 +2759,6 @@ int DefaultWriteAllCPURegisters( void * dev, uint32_t * regret )
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	MCF.WriteReg32( dev, DMABSTRACTAUTO, 0x00000000 ); // Disable Autoexec.
-	// MCF.DetermineChipType( dev );
 	iss->statetag = STTAG( "WER2" );
 	int i;
 	for( i = 0; i < iss->nr_registers_for_debug; i++ )
@@ -2799,7 +2785,6 @@ int DefaultWriteCPURegister( void * dev, uint32_t regno, uint32_t value )
 
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	MCF.WriteReg32( dev, DMABSTRACTAUTO, 0x00000000 ); // Disable Autoexec.
-	// MCF.DetermineChipType( dev );
 	iss->statetag = STTAG( "REGW" );
 	MCF.WriteReg32( dev, DMDATA0, value );
 	return MCF.WriteReg32( dev, DMCOMMAND, 0x00230000 | regno ); // Write xN from DATA0.
@@ -2843,7 +2828,7 @@ static int DefaultHaltMode( void * dev, int mode )
 		// MCF.WriteReg32( dev, DMCONTROL, 0x00000001 ); // Clear Halt Request.  This is recommended, but not doing it seems more stable.
 		// Sometimes, even if the processor is halted but the MSB is clear, it will spuriously start?
 		MCF.FlushLLCommands( dev );
-    iss->clock_set = 0;
+		iss->clock_set = 0;
 		break;
 	case HALT_MODE_REBOOT:
 		MCF.WriteReg32( dev, DMCONTROL, 0x80000001 ); // Make the debug module work properly.
@@ -2998,7 +2983,7 @@ int DefaultUnbrick( void * dev )
 	printf( "DMStatus After Halt: /%d/%08x\n", r, ds );
 
 	r = DefaultDetermineChipType( dev );
-  if( r ) return r;
+	if( r ) return r;
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	printf( "Chip Type: %d\n", iss->target_chip_type );
 
@@ -3288,44 +3273,42 @@ int CheckMemoryLocation( void * dev, enum MemoryArea area, uint32_t address, uin
 		return 0;
 	}
 
-	fprintf(stderr, "Area = %d; current_area = %d; address = %08x; length = %d\n", area, iss->current_area, address, length);
-
 	switch (area)
 	{
 	case DEFAULT_AREA:
 		return 0;
 	case PROGRAM_AREA:
 		if( address >= chip->flash_offset &&
-				address < (chip->flash_offset + chip->flash_size) &&
-				(address + length) <= (chip->flash_offset + chip->flash_size) )
+			  address < (chip->flash_offset + chip->flash_size) &&
+			  (address + length) <= (chip->flash_offset + chip->flash_size) )
 		{
+			fprintf(stderr, "Flashing this MCU model is not yet supported in minichlink.\n");
 			return 1;
 		}
-		else
 		break;
 	case BOOTLOADER_AREA:
 		if( chip->bootloader_size > 0 &&
-				address >= chip->bootloader_offset &&
-				address < chip->bootloader_offset + chip->bootloader_size &&
-				address + length <= chip->bootloader_offset + chip->bootloader_size )
+			  address >= chip->bootloader_offset &&
+			  address < chip->bootloader_offset + chip->bootloader_size &&
+			  address + length <= chip->bootloader_offset + chip->bootloader_size )
 		{
 			return 1;
 		}
 		break;
 	case OPTIONS_AREA:
 		if( chip->options_size > 0 &&
-				address >= chip->options_offset &&
-				address < chip->options_offset + chip->options_size &&
-				address + length <= chip->options_offset + chip->options_size )
+			  address >= chip->options_offset &&
+			  address < chip->options_offset + chip->options_size &&
+			  address + length <= chip->options_offset + chip->options_size )
 		{
 			return 1;
 		}
 		break;
 	case EEPROM_AREA:
 		if( chip->eeprom_size > 0 &&
-				address >= chip->eeprom_offset &&
-				address < chip->eeprom_offset + chip->eeprom_size &&
-				address + length <= chip->eeprom_offset + chip->eeprom_size )
+			  address >= chip->eeprom_offset &&
+			  address < chip->eeprom_offset + chip->eeprom_size &&
+			  address + length <= chip->eeprom_offset + chip->eeprom_size )
 		{
 			return 1;
 		}
