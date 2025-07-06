@@ -1069,18 +1069,18 @@ static int DefaultWaitForFlash( void * dev )
 		MCF.ReadWord( dev, (intptr_t)&FLASH->STATR, &rw ); // FLASH_STATR => 0x4002200C
 		if( timeout++ > 1000 )
 		{
-			fprintf( stderr, "Warning: Flash timed out\n" );
+			fprintf( stderr, "Warning: Flash timed out. STATR = %08x\n", rw );
 			return -1;
 		}
 	} while(rw & 3);  // BSY flag for 003, or WRBSY for other processors.
 
 	// This was set at some point for non-003 processors.
 	// but, it seems not to be needed.
-	//if( rw & 0x20 )
-	//{
-	//	// On non-003-processors, clear done op.
-	//	MCF.WriteWord( dev, (intptr_t)&FLASH->STATR, 0x20 );
-	//}
+	// if( rw & 0x20 )
+	// {
+	// 	// On non-003-processors, clear done op.
+	// 	MCF.WriteWord( dev, (intptr_t)&FLASH->STATR, 0x20 );
+	// }
 
 	if( rw & FLASH_STATR_WRPRTERR )
 	{
@@ -1832,17 +1832,21 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 			// c.sw x8,0(x9)  // Write to the address.
 			// c.addi x9, 4
 			MCF.WriteReg32( dev, DMPROGBUF1, 0x0491c080 );
-			// c.sw x9,0(x11)
-			// c.nop
-			MCF.WriteReg32( dev, DMPROGBUF2, 0x0001c184 );
-			// We don't shorthand the stop here, because if we are flipping beteen flash and
-			// non-flash writes, we don't want to keep messing with these registers.
 		}
 
-		if( is_flash )
+		if( is_flash && iss->target_chip_type == CHIP_CH32V10x)
+		{
+			// Special 16 bytes buffer write sequence for CH32V103
+			MCF.WriteReg32( dev, DMPROGBUF2, 0x0001c184 ); // c.sw x9,0(x11); c.nop;
+			MCF.WriteReg32( dev, DMPROGBUF3, 0x9002e391 ); // c.bnez x15, 4; c.ebreak;
+			MCF.WriteReg32( dev, DMPROGBUF4, 0x4200c254 ); // c.sw x13,4(x12); c.lw x8,0(x12);
+			MCF.WriteReg32( dev, DMPROGBUF5, 0xfc758805 ); // c.andi x8, 1; c.bnez x8, -4;
+			MCF.WriteReg32( dev, DMPROGBUF6, 0x90024781 ); // c.li x15, 0; c.ebreak;
+		}
+		else if( is_flash )
 		{
 			// A little weird - we need to wait until the buf load is done here to continue.
-			// x12 = 0x40022010 (FLASH_STATR)
+			// x12 = 0x4002200C (FLASH_STATR)
 			//
 			// c254 c.sw x13,4(x12) // Acknowledge the page write.  (BUT ONLY ON x035 / v003)
 			// /otherwise c.nop
@@ -1851,6 +1855,7 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 			// /8805 c.andi x8, 1    // Only look at BSY if we're not on a v30x / v20x
 			// fc75 c.bnez x8, -4
 			// c.ebreak
+			MCF.WriteReg32( dev, DMPROGBUF2, 0x0001c184 );
 			MCF.WriteReg32( dev, DMPROGBUF3, 
 				(iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32V00x
 				 || iss->target_chip_type == CHIP_CH32X03x || iss->target_chip_type == CHIP_CH32L10x
@@ -1865,13 +1870,16 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 		}
 		else
 		{
-			MCF.WriteReg32( dev, DMPROGBUF3, 0x90029002 ); // c.ebreak (nothing needs to be done if not flash)
+			// c.sw x9,0(x11)
+			// c.ebreak
+			MCF.WriteReg32( dev, DMPROGBUF2, 0x9002c184 );
+			// MCF.WriteReg32( dev, DMPROGBUF3, 0x90029002 ); // c.ebreak (nothing needs to be done if not flash)
 		}
 
 		MCF.WriteReg32( dev, DMDATA1, address_to_write );
 		MCF.WriteReg32( dev, DMDATA0, data );
 
-		if( iss->target_chip_type == CHIP_CH58x || iss->target_chip_type == CHIP_CH585 )
+		if( iss->target_chip->no_autoexec )
 		{
 			ret |= MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 ); // Execute.
 		}
@@ -1895,7 +1903,7 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 
 		MCF.WriteReg32( dev, DMDATA0, data );
 
-		if( iss->target_chip_type == CHIP_CH58x )
+		if( iss->target_chip->no_autoexec )
 		{
 			ret |= MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 ); // Execute.
 		}
@@ -2034,7 +2042,8 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 	int sectorsizemask = sectorsize-1;
 
 	// Regardless of sector size, allow block write to do its thing if it can.
-	if( is_flash && MCF.BlockWrite64 && ( address_to_write & sectorsizemask ) == 0 && ( blob_size & sectorsizemask ) == 0 )
+	if( is_flash && MCF.BlockWrite64 && ( address_to_write & sectorsizemask ) == 0 &&
+	    ( blob_size & sectorsizemask ) == 0  && iss->target_chip_type != CHIP_CH32V10x )
 	{
 		int i, j;
 		for( i = 0; i < blob_size; )
@@ -2070,7 +2079,7 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 
 		if( offset_in_block == 0 && end_o_plus_one_in_block == sectorsize )
 		{
-			if( MCF.BlockWrite64 )
+			if( MCF.BlockWrite64 && iss->target_chip_type != CHIP_CH32V10x)
 			{
 				int i;
 				for( i = 0; i < sectorsize/64; i++ )
@@ -2114,8 +2123,13 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 					memcpy( &writeword, blob + rsofar, 4 );
 					// WARNING: Just so you know, this is ACTUALLY doing the write AND if writing to flash, doing the following:
 					// FLASH->CTLR = CR_PAGE_PG | FLASH_CTLR_BUF_LOAD AFTER it does the write.  THIS IS REQUIRED on the 003.
+					if( is_flash && iss->target_chip_type == CHIP_CH32V10x && !((j+1)&3) )
+					{
+						// Signal to WriteWord that we need to do a buffer load
+						MCF.WriteReg32( dev, DMDATA0, 1 );
+						MCF.WriteReg32( dev, DMCOMMAND, 0x0023100f );
+					}
 					MCF.WriteWord( dev, j*4+base, writeword );
-
 					// On the v2xx, v3xx, you also need to make sure FLASH->STATR & 2 is not set.  This is only an issue when running locally.
 
 					rsofar += 4;
@@ -2183,8 +2197,13 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 					{
 						// WARNING: Just so you know, this is ACTUALLY doing the write AND if writing to flash, doing the following:
 						// FLASH->CTLR = CR_PAGE_PG | FLASH_CTLR_BUF_LOAD AFTER it does the write.  THIS IS REQUIRED on the 003
+						if( iss->target_chip_type == CHIP_CH32V10x && !((j+1)&3) )
+						{
+							// Signal to WriteWord that we need to do a buffer load
+							MCF.WriteReg32( dev, DMDATA0, 1 );
+							MCF.WriteReg32( dev, DMCOMMAND, 0x0023100f );
+						}
 						MCF.WriteWord( dev, j*4+base, *(uint32_t*)(tempblock + j * 4) );
-
 						// On the v2xx, v3xx, you also need to make sure FLASH->STATR & 2 is not set.  This is only an issue when running locally.
 					}
 
@@ -2279,12 +2298,12 @@ static int DefaultReadWord( void * dev, uint32_t address_to_read, uint32_t * dat
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
 	int autoincrement = 1;
-	if( iss->target_chip_type == CHIP_CH57x || iss->target_chip_type == CHIP_CH58x || iss->target_chip_type == CHIP_CH585 || address_to_read == 0x40022010 || address_to_read == 0x4002200C )  // Don't autoincrement when checking flash flag. 
+	if( address_to_read == 0x40022010 || address_to_read == 0x4002200C )  // Don't autoincrement when checking flash flag. 
 	{
 		autoincrement = 0;
 	}
 
-	if( iss->statetag != STTAG( "RDSQ" ) || address_to_read != iss->currentstateval || autoincrement != iss->autoincrement)
+	if( iss->statetag != STTAG( "RDSQ" ) || address_to_read != iss->currentstateval || autoincrement != iss->autoincrement )
 	{
 		if( iss->statetag != STTAG( "RDSQ" ) )
 		{
@@ -2316,12 +2335,16 @@ static int DefaultReadWord( void * dev, uint32_t address_to_read, uint32_t * dat
 			// c.sw x8, 0(x11) // Write addy to DATA1
 			// c.ebreak
 			MCF.WriteReg32( dev, DMPROGBUF2, 0x9002c180 );
-			MCF.WriteReg32( dev, DMABSTRACTAUTO, 1 ); // Enable Autoexec (different kind of autoinc than outer autoinc)
+
+			if( !iss->target_chip->no_autoexec )
+				MCF.WriteReg32( dev, DMABSTRACTAUTO, 1 ); // Enable Autoexec (different kind of autoinc than outer autoinc)
+
 			iss->autoincrement = autoincrement;
 		}
 
 		MCF.WriteReg32( dev, DMDATA1, address_to_read );
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 ); 
+		if( !iss->target_chip->no_autoexec )
+			MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 );
 
 		iss->statetag = STTAG( "RDSQ" );
 		iss->currentstateval = address_to_read;
@@ -2337,6 +2360,9 @@ static int DefaultReadWord( void * dev, uint32_t address_to_read, uint32_t * dat
 	// If you were running locally, you might need to do this.
 	//MCF.WaitForDoneOp( dev, 1 );
 
+	if( iss->target_chip->no_autoexec ) {
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00240000 );
+	}
 	r |= MCF.ReadReg32( dev, DMDATA0, data );
 
 	if( iss->currentstateval == iss->ram_base + iss->ram_size )
@@ -3282,7 +3308,6 @@ int CheckMemoryLocation( void * dev, enum MemoryArea area, uint32_t address, uin
 			  address < (chip->flash_offset + chip->flash_size) &&
 			  (address + length) <= (chip->flash_offset + chip->flash_size) )
 		{
-			fprintf(stderr, "Flashing this MCU model is not yet supported in minichlink.\n");
 			return 1;
 		}
 		break;

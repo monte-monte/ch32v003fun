@@ -20,6 +20,7 @@ struct RiscVChip_s {
 	uint8_t interface_speed;
 	enum ProgProtocol protocol;
 	uint8_t unsupported;
+	uint8_t no_autoexec;
 };
 
 const struct RiscVChip_s* FindChip(uint32_t chip_id);

@@ -139,10 +139,10 @@ const struct RiscVChip_s ch32x035 = {
 const struct RiscVChip_s ch32v103 = {
 	.name_str = "CH32V103",
 	.family_id = CHIP_CH32V10x,
-	.model_id = 0x1030,
+	.model_id = 0x2500,
 	.ram_base = 0x20000000,
 	.ram_size = 20*1024,
-	.sector_size = 256,
+	.sector_size = 128,
 	.flash_offset = 0x08000000,
 	.flash_size = 64*1024,
 	.bootloader_offset = 0x1FFFF000,
@@ -151,6 +151,7 @@ const struct RiscVChip_s ch32v103 = {
 	.options_size = 128,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
+	.no_autoexec = 1,
 };
 
 const struct RiscVChip_s ch32l103 = {
@@ -402,6 +403,7 @@ const struct RiscVChip_s ch571 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
+	.no_autoexec = 1,
 };
 
 const struct RiscVChip_s ch572 = {
@@ -440,6 +442,7 @@ const struct RiscVChip_s ch573 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
+	.no_autoexec = 1,
 };
 
 const struct RiscVChip_s ch573q = {
@@ -459,6 +462,7 @@ const struct RiscVChip_s ch573q = {
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
+	.no_autoexec = 1,
 };
 
 const struct RiscVChip_s ch581 = {
@@ -478,6 +482,7 @@ const struct RiscVChip_s ch581 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
+	.no_autoexec = 1,
 };
 
 const struct RiscVChip_s ch582 = {
@@ -497,6 +502,7 @@ const struct RiscVChip_s ch582 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_CH5xx,
+	.no_autoexec = 1,
 };
 
 const struct RiscVChip_s ch583 = {
@@ -516,6 +522,7 @@ const struct RiscVChip_s ch583 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
+	.no_autoexec = 1,
 };
 
 const struct RiscVChip_s ch584 = {
@@ -535,6 +542,7 @@ const struct RiscVChip_s ch584 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
+	.no_autoexec = 1,
 };
 
 const struct RiscVChip_s ch585 = {
@@ -554,6 +562,7 @@ const struct RiscVChip_s ch585 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
+	.no_autoexec = 1,
 };
 
 const struct RiscVChip_s ch591 = {
@@ -687,6 +696,7 @@ const struct RiscVChip_s* FindChip(uint32_t chip_id)
 {
 	const struct RiscVChip_s* chip = chip_collection[0];
 	int cnt = 0;
+	// printf( "Looking for chip with this signature: %08x\n", chip_id );
 	while(chip)
 	{
 		if( (chip_id >> 16) == chip->family_id && (chip_id & 0xfff0) == chip->model_id) break;

@@ -413,21 +413,24 @@ static int LESetupInterface( void * d )
 
 	r = MCF.DetermineChipType( d );
 	if( r ) return r;
-	if( iss->target_chip_type == CHIP_CH32V10x )
-	{
-		fprintf( stderr, "Using binary blob write for operation.\n" );
-		MCF.WriteBinaryBlob = LEWriteBinaryBlob;
-	}
+	// if( iss->target_chip_type == CHIP_CH32V10x )
+	// {
+		// fprintf( stderr, "Using binary blob write for operation.\n" );
+		// MCF.WriteBinaryBlob = LEWriteBinaryBlob;
+		// wch_link_command( dev, "\x81\x11\x01\x05", 4, (int*)&transferred, rbuff, 1024 );
+		// wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
+	// }
 
 #endif
 
-	char cmd_buf[5] = { 0x81, 0x0c, 0x02, iss->target_chip_type, iss->target_chip->interface_speed};
-	wch_link_command( dev, cmd_buf, 5, 0, 0, 0 ); // Set interface clock to suitable speed
 	// For some reason, if we don't do this sometimes the programmer starts in a hosey mode.
-	// MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // No, really make sure, and also super halt processor.
-	// MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Un-super-halt processor.
-	// MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Un-super-halt processor.
-	// MCF.DelayUS( iss, 10000 );
+	MCF.WriteReg32( d, DMCONTROL, 0x80000003 ); // Reset target
+	MCF.WriteReg32( d, DMCONTROL, 0x80000001 ); // Un-super-halt processor.
+	MCF.WriteReg32( d, DMCONTROL, 0x80000001 );
+	MCF.DelayUS( iss, 10000 ); // Delay to let some chips fully reboot
+	char cmd_buf[5] = { 0x81, 0x0c, 0x02, iss->target_chip_type, iss->target_chip->interface_speed};
+	if( iss->target_chip_type == CHIP_CH32V10x ) cmd_buf[3] = 0x05;
+	wch_link_command( dev, cmd_buf, 5, 0, 0, 0 ); // Set interface clock to suitable speed
 
 	#if !FORCE_EXTERNAL_CHIP_DETECTION
 	int timeout = 0;
@@ -452,14 +455,14 @@ retry_DoneOp:
 	// Skipping extended Chip ID for chips that doesn't have it
 	if( iss->target_chip_type == CHIP_CH59x || iss->target_chip_type == CHIP_CH58x || iss->target_chip_type == CHIP_CH57x )
 	{
-		MCF.WriteBinaryBlob = LEWriteBinaryBlob;
+		// MCF.WriteBinaryBlob = LEWriteBinaryBlob;
 		return 0;
 	}
 	// This puts the processor on hold to allow the debugger to run.
 	// Recommended to switch to 05 from 09 by Alexander M
 	//	wch_link_command( dev, "\x81\x11\x01\x09", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Chip ID + Other data (see below)
 retry_ID:
-		wch_link_command( dev, "\x81\x11\x01\x09", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Chip ID + Other data (see below)
+		wch_link_command( dev, "\x81\x11\x01\x05", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Chip ID + Other data (see below)
 
 		if( rbuff[0] == 0x00 )
 		{
@@ -1021,8 +1024,6 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
 	struct InternalState * iss = (struct InternalState*)(((struct LinkEProgrammerStruct*)d)->internal);
 
-	fprintf( stderr, "len = %d, sector_size = %d device = %d chip_name = %s\n", len, iss->sector_size, iss->target_chip_type,  iss->target_chip->name_str);
-
 	InternalLinkEHaltMode( d, 0 );
 
 	int i;
@@ -1032,12 +1033,11 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 
 	int padlen = ((len-1) & (~(iss->sector_size-1))) + iss->sector_size;
 
-	fprintf( stderr, "len = %d, sector_size = %d padlen = %d\n", len, iss->sector_size, padlen );
+	fprintf( stderr, "len = %d, sector_size = %d padlen = %d chip_name = %s\n", len, iss->sector_size, padlen, iss->target_chip->name_str );
 
 	if( iss->target_chip_type == CHIP_CH59x || iss->target_chip_type == CHIP_CH58x || iss->target_chip_type == CHIP_CH57x )
 	{
 		wch_link_command( (libusb_device_handle *)dev, "\x81\x0c\x02\x01\03", 5, 0, 0, 0 );
-		fprintf( stderr, "This shit\n" );
 	}
 	else
 	{
@@ -1096,7 +1096,7 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 			WCHCHECK( libusb_bulk_transfer( (libusb_device_handle *)dev, 0x02, ((uint8_t*)blob)+pplace, iss->sector_size, &transferred, WCHTIMEOUT ) );
 		}
 	}
-  wch_link_command( (libusb_device_handle *)dev, "\x81\x02\x01\x08", 4, 0, rbuff, 1024 );
+  // wch_link_command( (libusb_device_handle *)dev, "\x81\x02\x01\x08", 4, 0, rbuff, 1024 );
 
 	return 0;
 }
