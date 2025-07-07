@@ -13,7 +13,7 @@ Normally, you would use a PHY to connect the CAN controller to the bus, but you 
                     | | 470Ω
                     '-'    
               3.3V   |                            3.3V   
-                |    +----+--- CAN_H ---+----+     |     
+                |    +----+--- CAN_L ---+----+     |
                .-.   |    |             |    |    .-.    
           470Ω | |  _|_   |             |   _|_   | | 470Ω
                '-'  / \  \ /           \ /  / \   '-'    
@@ -31,4 +31,4 @@ Flash the code with `TRANSMIT 1` on one device and `TRANSMIT 0` on the other dev
 If you add more nodes, change the `ID` so that you know which node is which.
 You can mix extended and standard IDs.
 
-All nodes must have the same `BAUD'.
+All nodes must have the same `BAUD`.

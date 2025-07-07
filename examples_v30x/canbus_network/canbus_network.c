@@ -2,6 +2,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
+// These values are calculated based on the system clock clock being 144MHz
+// and the AHB1 clock being divided by 2. The print function bellow will print
+// the actual baud rate if the clocks are different.
 //                     TS1           TS2            BRP
 #define BAUD_25kbps ( ( 5 << 16 ) | ( 4 << 20 ) | ( 239 ) )
 #define BAUD_50kbps ( ( 5 << 16 ) | ( 4 << 20 ) | ( 119 ) )
@@ -29,9 +32,12 @@
 #endif
 
 static inline uint32_t GetAPB1Div( void );
-static size_t Receive( uint8_t *dst, uint32_t *id, uint8_t fifo );
+#if TRANSMIT
 static int Transmit( const uint8_t *src, size_t size );
 static int MessageSent( int mailbox );
+#else
+static size_t Receive( uint8_t *dst, uint32_t *id, uint8_t fifo );
+#endif
 
 int main()
 {
@@ -163,32 +169,7 @@ static inline uint32_t GetAPB1Div( void )
 	else
 		return 1; // No division
 }
-
-static size_t Receive( uint8_t *dst, uint32_t *id, uint8_t fifo )
-{
-	// Get ID
-	if ( CAN_RXMI0R_IDE & CAN1->sFIFOMailBox[fifo].RXMIR )
-		*id = ( CAN_RXMI0R_EXID & (uint32_t)CAN1->sFIFOMailBox[fifo].RXMIR ) >> 3;
-	else
-		*id = ( CAN_RXMI0R_STID & (uint32_t)CAN1->sFIFOMailBox[fifo].RXMIR ) >> 21;
-
-	size_t size = CAN_RXMDT0R_DLC & CAN1->sFIFOMailBox[fifo].RXMDTR;
-
-	for ( size_t i = 0; i < size; i++ )
-		if ( i < 4 )
-			dst[i] = CAN1->sFIFOMailBox[fifo].RXMDLR >> ( i * 8 );
-		else
-			dst[i] = CAN1->sFIFOMailBox[fifo].RXMDHR >> ( ( i - 4 ) * 8 );
-
-	// Release the FIFO
-	if ( fifo == 0 )
-		CAN1->RFIFO0 |= CAN_RFIFO0_RFOM0;
-	else
-		CAN1->RFIFO1 |= CAN_RFIFO1_RFOM1;
-
-	return size;
-}
-
+#if TRANSMIT
 static int Transmit( const uint8_t *src, size_t size )
 {
 	int mailbox = -1;
@@ -231,4 +212,30 @@ static int MessageSent( int mailbox )
 
 	return sent && mailbox_empty;
 }
+#else
+static size_t Receive( uint8_t *dst, uint32_t *id, uint8_t fifo )
+{
+	// Get ID
+	if ( CAN_RXMI0R_IDE & CAN1->sFIFOMailBox[fifo].RXMIR )
+		*id = ( CAN_RXMI0R_EXID & (uint32_t)CAN1->sFIFOMailBox[fifo].RXMIR ) >> 3;
+	else
+		*id = ( CAN_RXMI0R_STID & (uint32_t)CAN1->sFIFOMailBox[fifo].RXMIR ) >> 21;
+
+	size_t size = CAN_RXMDT0R_DLC & CAN1->sFIFOMailBox[fifo].RXMDTR;
+
+	for ( size_t i = 0; i < size; i++ )
+		if ( i < 4 )
+			dst[i] = CAN1->sFIFOMailBox[fifo].RXMDLR >> ( i * 8 );
+		else
+			dst[i] = CAN1->sFIFOMailBox[fifo].RXMDHR >> ( ( i - 4 ) * 8 );
+
+	// Release the FIFO
+	if ( fifo == 0 )
+		CAN1->RFIFO0 |= CAN_RFIFO0_RFOM0;
+	else
+		CAN1->RFIFO1 |= CAN_RFIFO1_RFOM1;
+
+	return size;
+}
+#endif
 
