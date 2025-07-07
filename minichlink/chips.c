@@ -324,7 +324,6 @@ const struct RiscVChip_s ch564c = {
 	.options_size = 0,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_UNSUPPORTED,
-	.unsupported = 1,
 };
 
 const struct RiscVChip_s ch565 = {
@@ -343,8 +342,7 @@ const struct RiscVChip_s ch565 = {
 	.options_offset = 0,
 	.options_size = 0,
 	.interface_speed = 0x02,
-	.protocol = PROTOCOL_CH56x,
-	.unsupported = 1,
+	.protocol = PROTOCOL_UNSUPPORTED,
 };
 
 const struct RiscVChip_s ch569 = {
@@ -363,8 +361,7 @@ const struct RiscVChip_s ch569 = {
 	.options_offset = 0,
 	.options_size = 0,
 	.interface_speed = 0x02,
-	.protocol = PROTOCOL_CH56x,
-	.unsupported = 1,
+	.protocol = PROTOCOL_UNSUPPORTED,
 };
 
 const struct RiscVChip_s ch570 = {
@@ -651,8 +648,7 @@ const struct RiscVChip_s ch645 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,
-	.unsupported = 1,
-	.protocol = PROTOCOL_DEFAULT,
+	.protocol = PROTOCOL_UNSUPPORTED,
 };
 
 const struct RiscVChip_s * chip_collection[] = {

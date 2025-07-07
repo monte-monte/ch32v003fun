@@ -1568,7 +1568,7 @@ chip_identified:
 		}
 		else
 		{
-			if( iss->target_chip->unsupported > 0 )
+			if( iss->target_chip->protocol == PROTOCOL_UNSUPPORTED )
 			{
 				fprintf( stderr, "Detected %s chip, but it's not supported yet. Aborting\n", iss->target_chip->name_str );
 				return -3;
@@ -2951,12 +2951,14 @@ int DefaultPollTerminal( void * dev, uint8_t * buffer, int maxlen, uint32_t leav
 int DefaultUnbrick( void * dev )
 {
 	printf( "Entering Unbrick Mode\n" );
+	MCF.Control5v( dev, 0 );
 	MCF.Control3v3( dev, 0 );
 
 	MCF.DelayUS( dev, 60000 );
 	MCF.DelayUS( dev, 60000 );
 	MCF.DelayUS( dev, 60000 );
 	MCF.DelayUS( dev, 60000 );
+	MCF.Control5v( dev, 1 );
 	MCF.Control3v3( dev, 1 );
 	printf( "Connection starting\n" );
 	MCF.FlushLLCommands( dev );
@@ -3011,26 +3013,33 @@ int DefaultUnbrick( void * dev )
 	r = DefaultDetermineChipType( dev );
 	if( r ) return r;
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
-	printf( "Chip Type: %d\n", iss->target_chip_type );
+	printf( "Chip Type: %s\n", iss->target_chip->name_str );
 
-	// Override all option bytes and reset to factory settings, unlocking all flash sections.
-	static const uint8_t option_data_003_x03x[] = { 0xa5, 0x5a, 0x97, 0x68, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00 };
-	static const uint8_t option_data_20x_30x[]  = { 0xa5, 0x5a, 0x3f, 0xc0, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00 };
+	if( iss->target_chip->protocol == PROTOCOL_DEFAULT )
+	{
+		// Override all option bytes and reset to factory settings, unlocking all flash sections.
+		static const uint8_t option_data_003_x03x[] = { 0xa5, 0x5a, 0x97, 0x68, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00 };
+		static const uint8_t option_data_20x_30x[]  = { 0xa5, 0x5a, 0x3f, 0xc0, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00 };
 
-	InternalUnlockFlash(dev, iss);
+		InternalUnlockFlash(dev, iss);
 
-	const uint8_t * option_data = 
-		(iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32V00x
-		 || iss->target_chip_type == CHIP_CH32X03x || iss->target_chip_type == CHIP_CH32L10x
-		 || iss->target_chip_type == CHIP_CH641 || iss->target_chip_type == CHIP_CH643) ?
-		option_data_003_x03x : option_data_20x_30x;
+		const uint8_t * option_data = 
+			(iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32V00x
+			|| iss->target_chip_type == CHIP_CH32X03x || iss->target_chip_type == CHIP_CH32L10x
+			|| iss->target_chip_type == CHIP_CH641 || iss->target_chip_type == CHIP_CH643) ?
+			option_data_003_x03x : option_data_20x_30x;
 
-	DefaultWriteBinaryBlob(dev, 0x1ffff800, 16, option_data );
+		DefaultWriteBinaryBlob(dev, 0x1ffff800, 16, option_data );
 
-	MCF.DelayUS( dev, 20000 );
+		MCF.DelayUS( dev, 20000 );
 
-	MCF.Erase( dev, 0, 0, 1);
-	MCF.FlushLLCommands( dev );
+		MCF.Erase( dev, 0, 0, 1);
+		MCF.FlushLLCommands( dev );
+	}
+	else if ( iss->target_chip->protocol == PROTOCOL_CH5xx )
+	{
+		CH5xxErase( dev, 0, 0, 1 );
+	}
 	return -5;
 }
 

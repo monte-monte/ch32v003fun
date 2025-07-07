@@ -19,7 +19,6 @@ struct RiscVChip_s {
 	uint32_t options_size;
 	uint8_t interface_speed;
 	enum ProgProtocol protocol;
-	uint8_t unsupported;
 	uint8_t no_autoexec;
 };
 

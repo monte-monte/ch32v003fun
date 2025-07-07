@@ -959,66 +959,6 @@ static int InternalLinkEHaltMode( void * d, int mode )
 	return 0;
 }
 
-#if 0
-static int LEReadBinaryBlob( void * d, uint32_t offset, uint32_t amount, uint8_t * readbuff )
-{
-	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
-
-	InternalLinkEHaltMode( d, 0 );
-
-	int i;
-	int status;
-	uint8_t rbuff[1024];
-	int transferred = 0;
-	int readbuffplace = 0;
-
-	wch_link_command( (libusb_device_handle *)dev, "\x81\x06\x01\x01", 4, 0, 0, 0 );
-
-	// Flush out any pending data.
-	libusb_bulk_transfer( (libusb_device_handle *)dev, 0x82, rbuff, 1024, &transferred, 1 );
-
-	// 3/8 = Read Memory
-	// First 4 bytes are big-endian location.
-	// Next 4 bytes are big-endian amount.
-	uint8_t readop[11] = { 0x81, 0x03, 0x08, };
-	
-	readop[3] = (offset>>24)&0xff;
-	readop[4] = (offset>>16)&0xff;
-	readop[5] = (offset>>8)&0xff;
-	readop[6] = (offset>>0)&0xff;
-
-	readop[7] = (amount>>24)&0xff;
-	readop[8] = (amount>>16)&0xff;
-	readop[9] = (amount>>8)&0xff;
-	readop[10] = (amount>>0)&0xff;
-	
-	wch_link_command( (libusb_device_handle *)dev, readop, 11, 0, 0, 0 );
-
-	// Perform operation
-	wch_link_command( (libusb_device_handle *)dev, "\x81\x02\x01\x0c", 4, 0, 0, 0 );
-
-	uint32_t remain = amount;
-	while( remain )
-	{
-		transferred = 0;
-		WCHCHECK( libusb_bulk_transfer( (libusb_device_handle *)dev, 0x82, rbuff, 1024, &transferred, WCHTIMEOUT ) );
-		memcpy( ((uint8_t*)readbuff) + readbuffplace, rbuff, transferred );
-		readbuffplace += transferred;
-		remain -= transferred;
-	}
-
-	// Flip internal endian.  Must be done separately in case something was unaligned when
-	// reading.
-	for( i = 0; i < readbuffplace/4; i++ )
-	{
-		uint32_t r = ((uint32_t*)readbuff)[i];
-		((uint32_t*)readbuff)[i] = (r>>24) | ((r & 0xff0000) >> 8) | ((r & 0xff00)<<8) | (( r & 0xff )<<24); 
-	}
-
-	return 0;
-}
-#endif
-
 static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len, const uint8_t * blob )
 {
 	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
