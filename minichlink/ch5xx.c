@@ -12,6 +12,7 @@
 #include <string.h>
 #include "terminalhelp.h"
 
+// Assembly for these binary blobs can be found it the attic folder
 unsigned char ch5xx_write_block_bin[] = {
 	0x80, 0x41, 0xc4, 0x41, 0xe3, 0x9e, 0x84, 0xfe, 0x65, 0xfc, 0x1a, 0x85,
 	0x23, 0x83, 0x06, 0x00, 0x15, 0x47, 0x23, 0x83, 0xe6, 0x00, 0x19, 0x47,
@@ -42,6 +43,10 @@ unsigned char ch5xx_blink_bin[] = {
 };
 unsigned int ch5xx_blink_bin_len = 24;
 
+// By default all chips run at the lowest possible frequency. (For example CH585 runs at 5.33MHz)
+// Some of them needs to set it higher to be able to be programmed reliably.
+// WCH-LinkE sets needed frequency automatically with it's built-in functions. But it will be reset if we reset the chip.
+// Also we still need to do that every time we use other programmers.
 void ch5xx_set_clock(void * dev, uint32_t clock) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	if (clock == 0 && iss->clock_set == 0) {
@@ -63,6 +68,8 @@ void ch5xx_set_clock(void * dev, uint32_t clock) {
 	}
 }
 
+// Some critical registers of CH5xx are only writeable in "safe mode", this requires a special procedure.
+// Such registers marked "RWA" in the datasheet
 void ch5xx_write_byte_safe(void * dev, uint32_t addr, uint8_t value) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	iss->statetag = STTAG( "5WBS" );
@@ -472,6 +479,8 @@ for (int i = 0; i < len; i += 4) {
 	return 0;
 }
 
+// On some of CH5xx chips (CH592 for example) there is mysterious second UUID.
+// What's the purpose of it? It's not documented, it's only mentioned with the function that reads it.
 int ch5xx_read_secret_uuid(void * dev, uint8_t * buffer) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	if(!iss->target_chip) {
@@ -532,6 +541,7 @@ int ch5xx_read_secret_uuid(void * dev, uint8_t * buffer) {
 	return 0;
 }
 
+// All CH5xx have UUID which is also used to produce unique MAC address for BLE
 int ch5xx_read_uuid(void * dev, uint8_t * buffer) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	if(!iss->target_chip) {
@@ -598,6 +608,8 @@ int ch5xx_read_uuid(void * dev, uint8_t * buffer) {
 	return 0;
 }
 
+// Writing flash using a microblob in RAM. It's significantly faster on big ammounts compared to using PROGBUF.
+// By the way, what happened to ch5xx_write_flash_using_microblob?!
 int ch5xx_write_flash_using_microblob2(void * dev, uint32_t start_addr, uint8_t* data, uint32_t len) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	int r;
@@ -699,6 +711,7 @@ write_end:
 	return r;
 }
 
+// Writing flash using only PROGBUF. It's slower, but it doesn't touch RAM.
 int ch5xx_write_flash(void * dev, uint32_t start_addr, uint8_t* data, uint32_t len) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 #if DEBUG_CH5xx_MINICHLINK
@@ -765,6 +778,8 @@ int ch5xx_write_flash(void * dev, uint32_t start_addr, uint8_t* data, uint32_t l
 	return 0;
 }
 
+// Flash controller of CH5xx chips has different mode of erasing for better performance.
+// You can erase in 256/4096/32768/65536 bytes chunks. 32K option is only present on CH32.
 int CH5xxErase(void* dev, uint32_t addr, uint32_t len, int type) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	
@@ -777,9 +792,7 @@ int CH5xxErase(void* dev, uint32_t addr, uint32_t len, int type) {
 	if(type == 1) {
 		// Whole-chip flash
 		iss->statetag = STTAG("XXXX");
-#if DEBUG_CH5xx_MINICHLINK		
 		printf("Whole-chip erase\n");
-#endif
 		addr = iss->target_chip->flash_offset;
 		len = iss->target_chip->flash_size;
 		// memset( iss->flash_sector_status, 1, sizeof( iss->flash_sector_status ) );
@@ -830,6 +843,8 @@ int CH5xxErase(void* dev, uint32_t addr, uint32_t len, int type) {
 	return 0;
 }
 
+// General function to write data to flash. It will pad data to a single block, erase needed ammount,
+// and ther use the best suited function to write based on the size of the data.
 int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_size, const uint8_t * blob) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
@@ -990,6 +1005,9 @@ end:
 	return ret;
 }
 
+// Main flash of CH5xx chips can be read using normal functions in minichlink.
+// The only strangeness is that empty memory will me masked and will show as some magic word (For example 0xa9bdf9f3 for CH570/2).
+// Other mamory areas, like EEPROM or options require special procedure.
 int CH5xxReadBinaryBlob(void* dev, uint32_t address_to_read_from, uint32_t read_size, uint8_t* blob) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
@@ -1063,6 +1081,7 @@ void CH5xxBlink(void* dev, uint8_t port, uint8_t pin, uint32_t delay) {
 	MCF.WriteReg32(dev, DMCONTROL, 0x80000003);
 }
 
+// Test function that was used during development, will remove it later.
 void CH5xxTestPC(void* dev) {
 	// struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	int r;
@@ -1178,6 +1197,8 @@ void CH5xxTestPC(void* dev) {
 	fprintf(stderr, "a1 = %08x\n", rr);
 }
 
+// Set of values for CH5xx is different compared to CH32 chips.
+// That's why we have a separate function to print infor about there chips.
 int ch5xx_print_info(void* dev) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	uint8_t info[8];
@@ -1241,6 +1262,7 @@ int ch5xx_print_info(void* dev) {
 	return 0;
 }
 
+// Redundand function to write worf to memory. Currently not used.
 void ch570_write_word_special(void * dev, uint32_t address, uint32_t word) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	
@@ -1264,6 +1286,9 @@ void ch570_write_word_special(void * dev, uint32_t address, uint32_t word) {
 
 }
 
+// This is only present in CH570/2 (as far as I know). I believe this serves the same purpose as "write safe" procedure.
+// Apparently the difference is that it enters "safe mode" permanently until it's closed, or chip is reset.
+// Maybe this is related to increased number of RWA registers in CH570/2.
 void ch570_disable_acauto(void * dev) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	iss->statetag = STTAG( "XXXX" );
@@ -1297,6 +1322,10 @@ void ch570_disable_acauto(void * dev) {
 	iss->currentstateval = -1;
 }
 
+// Proper read/write protection is only available on CH570/2.
+// Funnily the chips I have only prevent you from WRITING the flash, when this protection is enabled.
+// But you won't be able to write them. Spent some time to figure out how to do this properly,
+// without relying on internal LinkE functionality
 void ch570_disable_read_protection(void * dev) {
 	uint8_t options[4];
 
@@ -1320,6 +1349,9 @@ void ch570_disable_read_protection(void * dev) {
 	ch5xx_write_flash(dev, 0x3EFFC, options, 4);
 }
 
+// Flash controller in CH5xx has built-in verify function. Not sure how usefule it is.
+// Minichlink currently doesn't use it anywhere. And even if we would start using it,
+// we probably would write a generic one the would work on all chips, including CH32.
 int ch5xx_verify_data(void* dev, uint32_t addr, uint8_t* data, uint32_t len) {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
