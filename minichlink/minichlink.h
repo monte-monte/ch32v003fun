@@ -166,6 +166,7 @@ struct InternalState
 	uint32_t target_chip_id;
 	uint8_t flash_sector_status[MAX_FLASH_SECTORS];  // 0 means unerased/unknown. 1 means erased.
 	int nr_registers_for_debug; // Updated by PostSetupConfigureInterface
+	uint8_t isp_xor_key[8];
 };
 
 
