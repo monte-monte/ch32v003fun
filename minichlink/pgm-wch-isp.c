@@ -45,7 +45,7 @@ static inline libusb_device_handle * isp_base_setup( int inhibit_startup )
 		libusb_device *device = list[i];
 		struct libusb_device_descriptor desc;
 		int r = libusb_get_device_descriptor(device,&desc);
-		if( r == 0 && desc.idVendor == 0x4348 && desc.idProduct == 0x55e0) { found = device; }
+		if( r == 0 && (desc.idVendor == 0x4348 || desc.idVendor == 0x1a86) && desc.idProduct == 0x55e0) { found = device; }
 	}
 
 	if( !found )
@@ -120,8 +120,8 @@ int ISPSetupInterface( void * d ) {
 		// printf("id response: %02x %02x %02x %02x %02x %02x\n", rbuff[0], rbuff[1], rbuff[2], rbuff[3], rbuff[4], rbuff[5]);
 		chip_type = rbuff[4];
 		printf("chip type: ch5%02x\n", chip_type);
-		if(chip_type != 0x82 && chip_type != 0x92) {
-			printf("ERROR: ISP programming is currently only supported on ch582 and ch59x.\n");
+		if(chip_type != 0x70 && chip_type != 0x72 && chip_type != 0x82 && chip_type != 0x91 && chip_type != 0x92) {
+			printf("ERROR: ISP programming is currently only supported on ch570/2, ch582 and ch59x.\n");
 			return -1;
 		}
 	}
