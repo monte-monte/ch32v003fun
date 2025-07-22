@@ -166,6 +166,7 @@ struct InternalState
 	uint32_t target_chip_id;
 	uint8_t flash_sector_status[MAX_FLASH_SECTORS];  // 0 means unerased/unknown. 1 means erased.
 	int nr_registers_for_debug; // Updated by PostSetupConfigureInterface
+	uint8_t isp_xor_key[8];
 };
 
 
@@ -237,6 +238,7 @@ extern struct MiniChlinkFunctions MCF;
 
 // Returns 'dev' on success, else 0.
 void * TryInit_WCHLinkE(void);
+void * TryInit_WCHISP(void);
 void * TryInit_ESP32S2CHFUN(void);
 void * TryInit_NHCLink042(void);
 void * TryInit_B003Fun(uint32_t id);
