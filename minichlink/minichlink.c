@@ -29,6 +29,7 @@ void Sleep(uint32_t dwMilliseconds);
 static int64_t StringToMemoryAddress( void * dev, const char * number ) __attribute__((used));
 static void StaticUpdatePROGBUFRegs( void * dev ) __attribute__((used));
 int DefaultReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t read_size, uint8_t * blob );
+int DefaultDelayUS( void * dev, int us );
 void PostSetupConfigureInterface( void * dev );
 void TestFunction(void * v );
 struct MiniChlinkFunctions MCF;
@@ -891,11 +892,15 @@ keep_going:
 
 
 				int is_flash = IsAddressFlash( offset );
-				//if( MCF.HaltMode ) MCF.HaltMode( dev, is_flash ? HALT_MODE_HALT_AND_RESET : HALT_MODE_HALT_BUT_NO_RESET );
+				
 				if( MCF.HaltMode && is_flash )
 				{
 					if ( offset == 0x1ffff000 ) MCF.HaltMode( dev, HALT_MODE_HALT_BUT_NO_RESET ); // do not reset if writing bootloader, even if it is considered flash memory
 					else MCF.HaltMode( dev, HALT_MODE_HALT_AND_RESET );
+				}
+				else if( MCF.HaltMode )
+				{
+					MCF.HaltMode( dev, HALT_MODE_HALT_BUT_NO_RESET );
 				}
 				
 				if( MCF.WriteBinaryBlob )
@@ -924,6 +929,11 @@ keep_going:
 					  iss->target_chip_type == CHIP_CH58x ||
 					  iss->target_chip_type == CHIP_CH585 ||
 					  iss->target_chip_type == CHIP_CH59x) CH5xxBlink(dev, 0, 8, 0);
+			}
+			case 'y':
+			{
+				// MCF.HaltMode( dev, HALT_MODE_HALT_BUT_NO_RESET );
+        readCSR( dev, 0x7b1 );
 			}
 			
 		}
@@ -1159,7 +1169,7 @@ int DefaultSetupInterface( void * dev )
 	}
 	else
 	{
-		fprintf( stderr, "Error: Could not read dmstatus.\n" );
+		fprintf( stderr, "Error: Could not read dmstatus. r = %d\n", r );
 		return r;
 	}
 
@@ -1167,7 +1177,7 @@ int DefaultSetupInterface( void * dev )
 	return 0;
 }
 
-int DefaultGetUUID( void * dev, uint8_t * buffer)
+static int DefaultGetUUID( void * dev, uint8_t * buffer )
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	int ret = 0;
@@ -1181,16 +1191,16 @@ int DefaultGetUUID( void * dev, uint8_t * buffer)
 
 	if( chip == CHIP_CH32M030 )
 	{
-		MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 );	// c.ebreak <<== c.lw x8, 0(x8)
+		MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 ); // c.ebreak <<== c.lw x8, 0(x8)
 		MCF.WriteReg32( dev, DMDATA0, 0x1ffff3a8 );			
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 		MCF.WaitForDoneOp( dev, 0 );
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 		MCF.ReadReg32( dev, DMDATA0, (uint32_t*)local_buffer );
 		MCF.WriteReg32( dev, DMDATA0, 0x1ffff3ac );			
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 		MCF.WaitForDoneOp( dev, 0 );
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 		MCF.ReadReg32( dev, DMDATA0, (uint32_t*)(local_buffer + 4) );
 		*((uint32_t*)buffer) = local_buffer[0]<<24|local_buffer[1]<<16|local_buffer[2]<<8|local_buffer[3];
 		*(((uint32_t*)buffer)+1) = local_buffer[4]<<24|local_buffer[5]<<16|local_buffer[6]<<8|local_buffer[7];
@@ -1208,16 +1218,16 @@ int DefaultGetUUID( void * dev, uint8_t * buffer)
 	         chip == CHIP_CH643 ||
 	         chip == CHIP_CH645 )
 	{
-		MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 );	// c.ebreak <<== c.lw x8, 0(x8)
+		MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 ); // c.ebreak <<== c.lw x8, 0(x8)
 		MCF.WriteReg32( dev, DMDATA0, 0x1ffff7e8 );			
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 		MCF.WaitForDoneOp( dev, 0 );
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 		MCF.ReadReg32( dev, DMDATA0, (uint32_t*)local_buffer );
 		MCF.WriteReg32( dev, DMDATA0, 0x1ffff7ec );
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 		MCF.WaitForDoneOp( dev, 0 );
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 		MCF.ReadReg32( dev, DMDATA0, (uint32_t*)(local_buffer + 4) );
 		*((uint32_t*)buffer) = local_buffer[0]<<24|local_buffer[1]<<16|local_buffer[2]<<8|local_buffer[3];
 		*(((uint32_t*)buffer)+1) = local_buffer[4]<<24|local_buffer[5]<<16|local_buffer[6]<<8|local_buffer[7];
@@ -1229,16 +1239,16 @@ int DefaultGetUUID( void * dev, uint8_t * buffer)
  	         chip == CHIP_CH585 ||
  	         chip == CHIP_CH59x )
 	{
-		ret = ch5xx_read_uuid( dev, local_buffer );
+		ret = CH5xxReadUUID( dev, local_buffer );
 		memcpy(buffer, local_buffer, 8);
 	}
 	return ret;
 }
 
-int DefaultDetermineChipType( void * dev )
+static int DefaultDetermineChipType( void * dev )
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
-	if( iss->target_chip == NULL)
+	if( iss->target_chip == NULL )
 	{
 		uint32_t rr;
 		if( MCF.ReadReg32( dev, DMHARTINFO, &rr ) )
@@ -1253,7 +1263,7 @@ int DefaultDetermineChipType( void * dev )
 		// Tricky, this function needs to clean everything up because it may be used entering debugger.
 		uint32_t old_data0;
 		MCF.ReadReg32( dev, DMDATA0, &old_data0 );
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 		uint32_t old_x8;
 		MCF.ReadReg32( dev, DMDATA0, &old_x8 );
 
@@ -1265,7 +1275,7 @@ int DefaultDetermineChipType( void * dev )
 		MCF.WriteReg32( dev, DMCOMMAND, 0x00220000 | 0xf12 );
 		MCF.WriteReg32( dev, DMCOMMAND, 0x00220000 | 0xf12 );  // Need to double-read, not sure why.
 		MCF.ReadReg32( dev, DMDATA0, &marchid );
-		MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 );		// c.ebreak <<== c.lw x8, 0(x8)
+		MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 ); // c.ebreak <<== c.lw x8, 0(x8)
 		MCF.FlushLLCommands(dev);
 
 		uint32_t chip_id = 0;
@@ -1279,10 +1289,10 @@ int DefaultDetermineChipType( void * dev )
 			// Need to load new progbuf because we're reading 1 byte now
 			MCF.WriteReg32( dev, DMPROGBUF0, 0x00040403 ); // lb x8, 0(x8)
 			MCF.WriteReg32( dev, DMPROGBUF1, 0x00100073 ); // c.ebreak
-			MCF.WriteReg32( dev, DMDATA0, 0x40001041 );			// Special chip ID location.
-			MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+			MCF.WriteReg32( dev, DMDATA0, 0x40001041 ); // Special chip ID location.
+			MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 			MCF.WaitForDoneOp( dev, 0 );
-			MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+			MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 			MCF.ReadReg32( dev, DMDATA0, &chip_id );
 			chip_id = chip_id & 0xff;
 
@@ -1291,14 +1301,14 @@ int DefaultDetermineChipType( void * dev )
 			{
 				// First check for CH56x
 				MCF.WriteReg32( dev, DMDATA0, 0x40001001 );			
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 				MCF.WaitForDoneOp( dev, 1 );
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 				MCF.ReadReg32( dev, DMDATA0, &chip_id );
-				MCF.WriteReg32( dev, DMDATA0, 0x40001002 );			// Special chip ID location.
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+				MCF.WriteReg32( dev, DMDATA0, 0x40001002 ); // Special chip ID location.
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 				MCF.WaitForDoneOp( dev, 1 );
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 				MCF.ReadReg32( dev, DMDATA0, &vendor_bytes );
 
 				if( (vendor_bytes & 0xff) == 2 && ((chip_id & 0xff) == 65 || (chip_id & 0xff) == 69) )
@@ -1311,25 +1321,25 @@ int DefaultDetermineChipType( void * dev )
 				}
 
 				// Now actually check for CH32V103
-				MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 );	// c.ebreak <<== c.lw x8, 0(x8)
-				MCF.WriteReg32( dev, DMDATA0, 0x1ffff880 );			// Special chip ID location.
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+				MCF.WriteReg32( dev, DMPROGBUF0, 0x90024000 ); // c.ebreak <<== c.lw x8, 0(x8)
+				MCF.WriteReg32( dev, DMDATA0, 0x1ffff880 ); // Special chip ID location.
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 				MCF.WaitForDoneOp( dev, 1 );
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 				MCF.ReadReg32( dev, DMDATA0, &chip_id );
-				MCF.WriteReg32( dev, DMDATA0, 0x1ffff884 );			// Special chip ID location.
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+				MCF.WriteReg32( dev, DMDATA0, 0x1ffff884 ); // Special chip ID location.
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 				MCF.WaitForDoneOp( dev, 1 );
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 				MCF.ReadReg32( dev, DMDATA0, &vendor_bytes );
 				
 				if( ((((vendor_bytes >> 16) & 0xff00) != 0x2500) && (((vendor_bytes >> 16) & 0xdf00) != 0x1500)) || chip_id != 0xdc78fe34 )
 				{
 					uint32_t flash_obr = 0;
-					MCF.WriteReg32( dev, DMDATA0, 0x4002201c );			// Special chip ID location.
-					MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+					MCF.WriteReg32( dev, DMDATA0, 0x4002201c ); // Special chip ID location.
+					MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 					MCF.WaitForDoneOp( dev, 1 );
-					MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+					MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 					MCF.ReadReg32( dev, DMDATA0, &flash_obr );
 						
 					if( (flash_obr & 3) == 2 )
@@ -1348,7 +1358,7 @@ int DefaultDetermineChipType( void * dev )
 			}
 			else
 			{
-				// Check for CH5xx        
+				// Check for CH5xx
 				read_protection = -1;
 				if( (chip_id & 0xf0) == 0x90 )
 				{
@@ -1394,6 +1404,7 @@ int DefaultDetermineChipType( void * dev )
 					else if( chip_id == 0x73 )
 					{
 						uint32_t ch573_variant = 0;
+            ch5xx_read_options( dev, 0x7f00c, (uint8_t*)&ch573_variant );
 						if( (int)(ch573_variant << 18) < 0 )
 						{
 							iss->target_chip = &ch573q;
@@ -1420,7 +1431,7 @@ int DefaultDetermineChipType( void * dev )
 		}
 		else
 		{
-			uint32_t chip_id_address = 0x1ffff7c4;;
+			uint32_t chip_id_address = 0x1ffff7c4;
 			uint32_t flash_size_address = 0x1ffff7e0;
 			uint32_t masked_id = sevenf_id & 0xfff00000;
 			uint32_t masked_id2 = sevenf_id & 0xfff00f00;
@@ -1512,52 +1523,27 @@ int DefaultDetermineChipType( void * dev )
 			}
 			if( iss-> target_chip  && !iss->target_chip_id )
 			{
-				MCF.WriteReg32( dev, DMDATA0, chip_id_address );			// Special chip ID location.
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+				MCF.WriteReg32( dev, DMDATA0, chip_id_address );
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 				MCF.WaitForDoneOp( dev, 1 );
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 				MCF.ReadReg32( dev, DMDATA0, &chip_id );
 
 				iss->target_chip_id = chip_id;
 			}
 			if( iss-> target_chip && flash_size_address )
 			{
-				MCF.WriteReg32( dev, DMDATA0, flash_size_address );			// Special chip ID location.
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
+				MCF.WriteReg32( dev, DMDATA0, flash_size_address );
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
 				MCF.WaitForDoneOp( dev, 1 );
-				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
 				MCF.ReadReg32( dev, DMDATA0, &vendor_bytes );
 
 				iss->flash_size = vendor_bytes & 0xFFFF;
 			}
-							
 		}
 
 chip_identified:
-
-		if( read_protection == 0 )
-		{
-			uint32_t one;
-			int two;
-			MCF.WriteReg32( dev, DMDATA0, 0x4002201c );			// Special chip ID location.
-			MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
-			MCF.WaitForDoneOp( dev, 1 );
-			MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
-			MCF.ReadReg32( dev, DMDATA0, &one );
-			MCF.WriteReg32( dev, DMDATA0, 0x40022020 );			// Special chip ID location.
-			MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 );		// Copy data to x8, and execute.
-			MCF.WaitForDoneOp( dev, 1 );
-			MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 );		// Copy data from x8.
-			MCF.ReadReg32( dev, DMDATA0, (uint32_t*)&two );
-			
-			if( (one & 2) || two != -1 ) read_protection = 1;
-		}
-		
-		// Cleanup
-		MCF.WriteReg32( dev, DMDATA0, old_x8 );
-		MCF.WriteReg32( dev, DMCOMMAND, 0x00231008 );		// Copy data to x8
-		MCF.WriteReg32( dev, DMDATA0, old_data0 );
-
 
 		if( iss->target_chip == NULL)
 		{
@@ -1572,6 +1558,30 @@ chip_identified:
 			{
 				fprintf( stderr, "Detected %s chip, but it's not supported yet. Aborting\n", iss->target_chip->name_str );
 				return -3;
+			}
+
+			if( iss->target_chip_type == CHIP_CH570 )
+			{
+				uint32_t options;
+				MCF.ReadWord( dev, 0x40001058, &options );
+				if( (options&0x800000) || (options&0x200000) ) read_protection = 1;
+			}
+			else if( read_protection == 0 )
+			{
+				uint32_t one;
+				int two;
+				MCF.WriteReg32( dev, DMDATA0, 0x4002201c );
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
+				MCF.WaitForDoneOp( dev, 1 );
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
+				MCF.ReadReg32( dev, DMDATA0, &one );
+				MCF.WriteReg32( dev, DMDATA0, 0x40022020 );
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00271008 ); // Copy data to x8, and execute.
+				MCF.WaitForDoneOp( dev, 1 );
+				MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Copy data from x8.
+				MCF.ReadReg32( dev, DMDATA0, (uint32_t*)&two );
+				
+				if( (one & 2) || two != -1 ) read_protection = 1;
 			}
 			
 			iss->target_chip_type = iss->target_chip->family_id;
@@ -1590,21 +1600,27 @@ chip_identified:
 			{
 				MCF.WriteBinaryBlob = CH5xxWriteBinaryBlob;
 				MCF.Erase = CH5xxErase;
+				MCF.SetClock = CH5xxSetClock;
+				MCF.GetUUID = CH5xxReadUUID;
 			}
 
 			uint8_t * part_type = (uint8_t*)&iss->target_chip_id;
 			uint8_t uuid[8];
-			if( DefaultGetUUID( dev, uuid ) ) fprintf( stderr, "Couldn't read UUID\n" );
+			if( MCF.GetUUID( dev, uuid ) ) fprintf( stderr, "Couldn't read UUID\n" );
 			fprintf( stderr, "Detected %s\n", iss->target_chip->name_str );
 			fprintf( stderr, "Flash Storage: %d kB\n", iss->flash_size );
 			fprintf( stderr, "Part UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7] );
 			fprintf( stderr, "Part Type: %02x-%02x-%02x-%02x\n", part_type[3], part_type[2], part_type[1], part_type[0] );
 			fprintf( stderr, "Read protection: %s\n", (read_protection > 0)?"enabled":"disabled" );
-		}
+		}	
+		// Cleanup
+		MCF.WriteReg32( dev, DMDATA0, old_x8 );
+		MCF.WriteReg32( dev, DMCOMMAND, 0x00231008 ); // Copy data to x8
+		MCF.WriteReg32( dev, DMDATA0, old_data0 );
+
 		iss->statetag = STTAG( "XXXX" );
 	}
 
-	if( iss->target_chip_type == CHIP_CH585 ) ch5xx_set_clock( dev, 0 );
 	return 0;
 }
 
@@ -1747,8 +1763,6 @@ static int DefaultReadHalfWord( void * dev, uint32_t address_to_write, uint16_t 
 	return ret;
 }
 
-
-
 static int DefaultWriteByte( void * dev, uint32_t address_to_write, uint8_t data )
 {
 	int ret = 0;
@@ -1774,7 +1788,7 @@ static int DefaultWriteByte( void * dev, uint32_t address_to_write, uint8_t data
 	return ret;
 }
 
-static int DefaultReadByte( void * dev, uint32_t address_to_write, uint8_t * data )
+static int DefaultReadByte( void * dev, uint32_t address_to_read, uint8_t * data )
 {
 	int ret = 0;
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
@@ -1784,11 +1798,11 @@ static int DefaultReadByte( void * dev, uint32_t address_to_write, uint8_t * dat
 	MCF.WriteReg32( dev, DMABSTRACTAUTO, 0x00000000 ); // Disable Autoexec.
 
 	// Different address, so we don't need to re-write all the program regs.
-	// lb x8,0(x9)  // Write to the address.
+	// lb x8,0(x9)  // Read from the address.
 	MCF.WriteReg32( dev, DMPROGBUF0, 0x00048403 ); // lb x8, 0(x9)
 	MCF.WriteReg32( dev, DMPROGBUF1, 0x00100073 ); // c.ebreak
 
-	MCF.WriteReg32( dev, DMDATA0, address_to_write );
+	MCF.WriteReg32( dev, DMDATA0, address_to_read );
 	MCF.WriteReg32( dev, DMCOMMAND, 0x00231009 ); // Copy data to x9
 	MCF.WriteReg32( dev, DMCOMMAND, 0x00241000 ); // Only execute.
 	MCF.WriteReg32( dev, DMCOMMAND, 0x00221008 ); // Read x8 into DATA0.
@@ -1802,7 +1816,6 @@ static int DefaultReadByte( void * dev, uint32_t address_to_write, uint8_t * dat
 	*data = rr;
 	return ret;
 }
-
 
 static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t data )
 {
@@ -2850,10 +2863,12 @@ static int DefaultHaltMode( void * dev, int mode )
 		MCF.WriteReg32( dev, DMCONTROL, 0x80000001 ); // Make the debug module work properly.
 		if( mode == HALT_MODE_HALT_AND_RESET ) MCF.WriteReg32( dev, DMCONTROL, 0x80000003 ); // Reboot.
 		MCF.WriteReg32( dev, DMCONTROL, 0x80000001 ); // Re-initiate a halt request.
-		MCF.DelayUS( dev, 10000 );
+		MCF.WriteReg32( dev, DMCONTROL, 0x80000001 ); // Re-initiate a halt request.
 		// MCF.WriteReg32( dev, DMCONTROL, 0x00000001 ); // Clear Halt Request.  This is recommended, but not doing it seems more stable.
 		// Sometimes, even if the processor is halted but the MSB is clear, it will spuriously start?
 		MCF.FlushLLCommands( dev );
+		// MCF.DelayUS( dev, 100000 );
+		DefaultDelayUS( dev, 100000 );
 		iss->clock_set = 0;
 		break;
 	case HALT_MODE_REBOOT:
@@ -3067,34 +3082,33 @@ int DefaultPrintChipInfo( void * dev )
 
 	uint32_t reg;
 	MCF.HaltMode( dev, HALT_MODE_HALT_BUT_NO_RESET );
-	
 	if( iss->target_chip->protocol == PROTOCOL_DEFAULT )
 	{
-		if( MCF.ReadWord( dev, 0x1FFFF800, &reg ) ) goto fail;	
+		if( MCF.ReadWord( dev, 0x1FFFF800, &reg ) ) goto fail;
 		printf( "USER/RDPR  : %04x/%04x\n", reg>>16, reg&0xFFFF );
-		if( MCF.ReadWord( dev, 0x1FFFF804, &reg ) ) goto fail;	
+		if( MCF.ReadWord( dev, 0x1FFFF804, &reg ) ) goto fail;
 		printf( "DATA1/DATA0: %04x/%04x\n", reg>>16, reg&0xFFFF );
-		if( MCF.ReadWord( dev, 0x1FFFF808, &reg ) ) goto fail;	
+		if( MCF.ReadWord( dev, 0x1FFFF808, &reg ) ) goto fail;
 		printf( "WRPR1/WRPR0: %04x/%04x\n", reg>>16, reg&0xFFFF );
-		if( MCF.ReadWord( dev, 0x1FFFF80c, &reg ) ) goto fail;	
+		if( MCF.ReadWord( dev, 0x1FFFF80c, &reg ) ) goto fail;
 		printf( "WRPR3/WRPR2: %04x/%04x\n", reg>>16, reg&0xFFFF );
 		// if( MCF.ReadWord( dev, 0x1FFFF7E0, &reg ) ) goto fail;
 		// printf( "Flash Size: %d kB\n", (reg&0xffff) );
-		if( MCF.ReadWord( dev, 0x1FFFF7E8, &reg ) ) goto fail;	
+		if( MCF.ReadWord( dev, 0x1FFFF7E8, &reg ) ) goto fail;
 		printf( "R32_ESIG_UNIID1: %08x\n", reg );
-		if( MCF.ReadWord( dev, 0x1FFFF7EC, &reg ) ) goto fail;	
+		if( MCF.ReadWord( dev, 0x1FFFF7EC, &reg ) ) goto fail;
 		printf( "R32_ESIG_UNIID2: %08x\n", reg );
-		if( MCF.ReadWord( dev, 0x1FFFF7F0, &reg ) ) goto fail;	
+		if( MCF.ReadWord( dev, 0x1FFFF7F0, &reg ) ) goto fail;
 		printf( "R32_ESIG_UNIID3: %08x\n", reg );
 		return 0;
 	}
 	else if( iss->target_chip->protocol == PROTOCOL_CH5xx )
 	{
-		if ( ch5xx_print_info( dev ) ) goto fail;
+		if ( CH5xxPrintInfo( dev ) ) goto fail;
 		return 0;
 	}
 fail:
-	fprintf( stderr, "Error: Failed to get chip details\n" );
+	fprintf( stderr, "Error: Failed to get chip details\n");
 	return -11;
 }
 
@@ -3113,6 +3127,12 @@ int DefaultDelayUS( void * dev, int us )
 	usleep( us );
 #endif
 	return 0;
+}
+
+static int DefaultSetClock( void * dev, uint32_t clock )
+{
+  fprintf( stderr, "Will set clock here, when implemented\n" );
+  return 0;
 }
 
 int SetupAutomaticHighLevelFunctions( void * dev )
@@ -3175,6 +3195,10 @@ int SetupAutomaticHighLevelFunctions( void * dev )
 		MCF.VoidHighLevelState = DefaultVoidHighLevelState;
 	if( !MCF.DelayUS )
 		MCF.DelayUS = DefaultDelayUS;
+	if( !MCF.GetUUID )
+		MCF.GetUUID = DefaultGetUUID;
+  if( !MCF.SetClock )
+    MCF.SetClock = DefaultSetClock;
 
 	return 0;
 }
@@ -3375,7 +3399,7 @@ void readCSR( void * dev, uint32_t csr)
 	MCF.WriteReg32(dev, DMCOMMAND, 0x00220000 | csr); // Read a0 into DATA0.
 	uint32_t dmdata = 0;
 	MCF.ReadReg32(dev, DMDATA0, &dmdata);
-	fprintf(stderr, "mtvec = %08x\n", dmdata);
+	fprintf(stderr, "csr = %08x\n", dmdata);
 
 	MCF.WriteReg32( dev, DMCONTROL, 0x40000001 );
 }
