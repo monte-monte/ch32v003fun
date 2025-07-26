@@ -43,6 +43,8 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 	{
 		if( strcmp( specpgm, "linke" ) == 0 )
 			dev = TryInit_WCHLinkE();
+		else if( strcmp( specpgm, "isp" ) == 0 )
+			dev = TryInit_WCHISP();
 		else if( strcmp( specpgm, "esp32s2chfun" ) == 0 )
 			dev = TryInit_ESP32S2CHFUN();
 		else if( strcmp( specpgm, "nchlink" ) == 0 )
@@ -54,7 +56,11 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 	}
 	else
 	{
-		if( (dev = TryInit_WCHLinkE()) )
+		if( (dev = TryInit_WCHISP()) )
+		{
+			fprintf( stderr, "Found MCU in bootloader mode\n" );
+		}
+		else if( (dev = TryInit_WCHLinkE()) )
 		{
 			fprintf( stderr, "Found WCH Link\n" );
 		}

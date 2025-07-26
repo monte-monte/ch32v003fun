@@ -1,4 +1,4 @@
-# USBFS exapmles
+# USBFS examples
 
 This folder contains examples that use USBFS peripheral, the most common implementation among all WCH's RiscV chips. On some models it also called USBOTG, but it's basically the same peripheral + extra register for OTG functionality.
 

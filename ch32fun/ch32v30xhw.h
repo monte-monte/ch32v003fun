@@ -5140,8 +5140,8 @@ typedef struct{
 #define RCC_USBHSDIV_OFFSET						(24)
 #define RCC_USBHSDIV_MASK						((uint32_t)(7<<RCC_USBHSDIV_OFFSET))
 #define RCC_USBHSPLLSRC							((uint32_t)(1<<27))
-#define RCC_USBHSCLK_OFFSET						(3)
-#define RCC_USBHSCLK_MASK						((uint32_t)(3<<RCC_USBHSCLK))
+#define RCC_USBHSCLK_OFFSET						(28)
+#define RCC_USBHSCLK_MASK						((uint32_t)(3<<RCC_USBHSCLK_OFFSET))
 #define RCC_USBHSPLL							((uint32_t)(1<<30))
 #define RCC_USBHSSRC							((uint32_t)(1<<31))
 
