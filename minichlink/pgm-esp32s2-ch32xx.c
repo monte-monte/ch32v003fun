@@ -1167,19 +1167,21 @@ int ESPDetermineChipType( void * dev )
 				flash_size_address = 0;
 				break;
 			case 0x573:
-				uint32_t ch573_variant = 0;
-				esp_ch5xx_read_options_bulk( dev, 0x7f00c, (uint8_t*)&ch573_variant, 4 );
-				if( (int)(ch573_variant << 18) < 0 )
 				{
-					iss->target_chip = &ch573q;
-					iss->target_chip_id = 0x73550000;
+					uint32_t ch573_variant = 0;
+					esp_ch5xx_read_options_bulk( dev, 0x7f00c, (uint8_t*)&ch573_variant, 4 );
+					if( (int)(ch573_variant << 18) < 0 )
+					{
+						iss->target_chip = &ch573q;
+						iss->target_chip_id = 0x73550000;
+					}
+					else
+					{
+						iss->target_chip = &ch573;
+						iss->target_chip_id = 0x73 << 24;
+					}
+					flash_size_address = 0;
 				}
-				else
-				{
-					iss->target_chip = &ch573;
-					iss->target_chip_id = 0x73 << 24;
-				}
-				flash_size_address = 0;
 				break;
 			case 0x581:
 				iss->target_chip = &ch581;
