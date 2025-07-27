@@ -406,8 +406,7 @@ keep_going:
 				else if( argchar[1] == 'T' )
 				{
 					// In case we aren't running already.
-					if ( iss->target_chip_type == CHIP_CH570 || iss->target_chip_type == CHIP_CH585 ) MCF.HaltMode( dev, 1 );
-					else MCF.HaltMode( dev, 2 );
+					MCF.HaltMode( dev, 1 );
 				}
 
 				CaptureKeyboardInput();

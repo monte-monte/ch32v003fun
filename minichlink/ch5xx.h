@@ -14,7 +14,7 @@
 #define R8_FLASH_CTRL          0x40001806
 #define R8_FLASH_CFG           0x40001807
 
-#define DEBUG_CH5xx_MINICHLINK 1
+#define DEBUG_CH5xx_MINICHLINK 0
 
 uint8_t ch5xx_flash_wait(void* dev);
 void ch5xx_flash_close(void* dev);

@@ -643,7 +643,6 @@ int esp_ch5xx_write_flash(void * dev, uint32_t start_addr, uint8_t* data, uint32
 	struct ESP32ProgrammerStruct * eps = (struct ESP32ProgrammerStruct *)dev;
 	ESPFlushLLCommands( dev );
 
-	fprintf( stderr, "esp_ch5xx_write_flash\n" );
 	uint32_t pos = 0;
 	while( pos < len )
 	{
@@ -694,7 +693,6 @@ retry:
 void esp_ch5xx_end_write( void * dev )
 {
 	struct ESP32ProgrammerStruct * eps = (struct ESP32ProgrammerStruct *)dev;
-	fprintf( stderr, "esp_ch5xx_end_write\n" );
 	ESPFlushLLCommands( eps );
 	Write2LE( eps, 0x22fe );
 	ESPFlushLLCommands( eps );
@@ -913,7 +911,6 @@ int ESPCH5xxReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t 
 		ret = -1;
 		goto end;
 	}
-	fprintf( stderr, "ESPCH5xxReadBinaryBlob, %d, %d, %d\n", address_to_read_from, read_size, iss->current_area );
 	if (iss->current_area == OPTIONS_AREA) {
 		esp_ch5xx_read_options_bulk(dev, address_to_read_from, blob, read_size);
 	} else if (iss->current_area == EEPROM_AREA) {
