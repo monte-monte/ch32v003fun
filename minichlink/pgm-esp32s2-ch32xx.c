@@ -349,10 +349,13 @@ int ESPWriteWord( void * dev, uint32_t address_to_write, uint32_t data )
 {
 	struct ESP32ProgrammerStruct * eps = (struct ESP32ProgrammerStruct *)dev;
 
-//printf( "WRITE: %08x\n", address_to_write );
-
 	if( SRemain( eps ) < 10 )
-		ESPFlushLLComma+= 2;
+		ESPFlushLLCommands( eps );
+  
+	Write2LE( eps, 0x08fe );
+	Write4LE( eps, address_to_write );	
+	Write4LE( eps, data );	
+  eps->replysize += 2;
 	return 0;
 }
 
