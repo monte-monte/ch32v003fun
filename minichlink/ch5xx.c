@@ -1011,14 +1011,13 @@ int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_si
 
 	int ret = 0;
 
-	MCF.SetClock(dev, 0);
-
 	if (!iss->current_area) DetectMemoryArea(dev, address_to_write);
 	if (!CheckMemoryLocation(dev, 0, address_to_write, blob_size)) {
 		fprintf(stderr, "Data doesn't fit into memory location\n");
-		ret = -1;
-		goto end;
+		return -1;
 	}
+
+	MCF.SetClock(dev, 0);
 	
 	uint32_t sector_size = iss->target_chip->sector_size;
 	if (iss->current_area == EEPROM_AREA) sector_size = 256;

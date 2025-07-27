@@ -32,6 +32,7 @@ int DefaultReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t r
 int DefaultDelayUS( void * dev, int us );
 void PostSetupConfigureInterface( void * dev );
 void TestFunction(void * v );
+static void readCSR( void * dev, uint32_t csr );
 struct MiniChlinkFunctions MCF;
 
 void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints_t* init_hints )
@@ -43,8 +44,8 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 	{
 		if( strcmp( specpgm, "linke" ) == 0 )
 			dev = TryInit_WCHLinkE();
-		else if( strcmp( specpgm, "isp" ) == 0 )
-			dev = TryInit_WCHISP();
+		// else if( strcmp( specpgm, "isp" ) == 0 )
+			// dev = TryInit_WCHISP();
 		else if( strcmp( specpgm, "esp32s2chfun" ) == 0 )
 			dev = TryInit_ESP32S2CHFUN();
 		else if( strcmp( specpgm, "nchlink" ) == 0 )
@@ -2304,7 +2305,7 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 	}
 #endif
 
-	MCF.DelayUS( dev, 100 ); // Why do we need this? (We seem to need this on the WCH programmers?)
+	DefaultDelayUS( dev, 100 ); // Why do we need this? (We seem to need this on the WCH programmers?)
 	return 0;
 timedout:
 	fprintf( stderr, "Timed out\n" );
@@ -2873,8 +2874,6 @@ static int DefaultHaltMode( void * dev, int mode )
 		// MCF.WriteReg32( dev, DMCONTROL, 0x00000001 ); // Clear Halt Request.  This is recommended, but not doing it seems more stable.
 		// Sometimes, even if the processor is halted but the MSB is clear, it will spuriously start?
 		MCF.FlushLLCommands( dev );
-		// MCF.DelayUS( dev, 100000 );
-		DefaultDelayUS( dev, 100000 );
 		iss->clock_set = 0;
 		break;
 	case HALT_MODE_REBOOT:
@@ -2915,7 +2914,8 @@ static int DefaultHaltMode( void * dev, int mode )
 	iss->processor_in_mode = mode;
 
 	// In case processor halt process needs to complete, i.e. if it was in the middle of a flash op.
-	MCF.DelayUS( dev, 3000 );
+	// MCF.DelayUS( dev, 3000 );
+  DefaultDelayUS( dev, 10000 );
 
 	return 0;
 }
@@ -3388,24 +3388,20 @@ int CheckMemoryLocation( void * dev, enum MemoryArea area, uint32_t address, uin
 	return 0;
 }
 
-void readCSR( void * dev, uint32_t csr)
+static void readCSR( void * dev, uint32_t csr )
 {
-	MCF.WriteReg32( dev, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Shadow Config Reg
-	MCF.WriteReg32( dev, DMCFGR, 0x5aa50000 | (1<<10) ); // CFGR (1<<10 == Allow output from slave)
-	MCF.WriteReg32( dev, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // sometimes doing this just once isn't enough
-	MCF.WriteReg32( dev, DMCFGR, 0x5aa50000 | (1<<10) ); // And this is about as fast as checking, so why not.
-	MCF.WriteReg32( dev, DMCONTROL, 0x80000001 ); // Make the debug module work properly.
-	MCF.WriteReg32( dev, DMCONTROL, 0x80000001 );
+  MCF.HaltMode( dev, HALT_MODE_HALT_BUT_NO_RESET );
 
 	// MCF.WriteReg32(dev, DMABSTRACTAUTO, 0x00000000); // Disable Autoexec.
 	// MCF.WriteReg32(dev, DMPROGBUF0, 0x305022f3); // csrrs t0, mtvec, zero
 	// MCF.WriteReg32(dev, DMPROGBUF1, 0x00100073); // ebreak
 
 	// MCF.WriteReg32(dev, DMCOMMAND, 0x00271000); // Write execute.
-	MCF.WriteReg32(dev, DMCOMMAND, 0x00220000 | csr); // Read a0 into DATA0.
+	MCF.WriteReg32( dev, DMCOMMAND, 0x00220000 | csr ); // Read a0 into DATA0.
 	uint32_t dmdata = 0;
-	MCF.ReadReg32(dev, DMDATA0, &dmdata);
-	fprintf(stderr, "csr = %08x\n", dmdata);
+	MCF.ReadReg32( dev, DMDATA0, &dmdata );
+	fprintf( stderr, "Requested CSR: %08x = %08x\n", csr, dmdata );
 
+	MCF.WriteReg32( dev, DMCONTROL, 0x40000001 );
 	MCF.WriteReg32( dev, DMCONTROL, 0x40000001 );
 }
