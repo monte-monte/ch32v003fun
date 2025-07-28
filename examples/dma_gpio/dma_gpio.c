@@ -2,10 +2,9 @@
 // how you can output 8 pins all simultaneously
 // with a dynamic bit pattern at 2MSamples/s. As the
 // sampling rate increases (decreasing TIM1->ATRLR),
-// the jitter due to the CPU and DMA conflicting when
-// accessing SRAM simulatneously can be observed by
-// contrasting the timing of PC0-7 against the timer
-// output on PD2.
+// the jitter due to the CPU and DMA accessing SRAM
+// simultaneously can be observed by contrasting the
+// timing of PC0-7 against the timer output on PD2.
 //
 // It outputs a pattern of repeating 01010101 and
 // 000000 alternating "frames".
