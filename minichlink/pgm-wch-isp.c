@@ -6,6 +6,7 @@
 #include <string.h>
 #include "libusb.h"
 #include "minichlink.h"
+#include "chips.h"
 
 /*************************
  * All commands here are "inspired" by https://github.com/wagiminator/MCU-Flash-Tools/blob/main/chprog.py
@@ -101,41 +102,110 @@ sendfail:
 	exit( status );
 }
 
-int ISPWriteReg32( void * dev, uint8_t reg_7_bit, uint32_t command ) { fprintf( stderr, "ISPWriteReg32\n" ); return 0; }
-int ISPReadReg32( void * dev, uint8_t reg_7_bit, uint32_t * commandresp ) { fprintf( stderr, "ISPReadReg32\n" ); return 0; }
-int ISPWriteWord( void * dev, uint32_t address_to_write, uint32_t data ) { fprintf( stderr, "ISPWriteWord\n" ); return 0; }
+int ISPWriteReg32( void * dev, uint8_t reg_7_bit, uint32_t command ) { fprintf( stderr, "ISPWriteReg32\n" ); return -100; }
+int ISPReadReg32( void * dev, uint8_t reg_7_bit, uint32_t * commandresp ) { fprintf( stderr, "ISPReadReg32\n" ); return -100; }
+int ISPWriteWord( void * dev, uint32_t address_to_write, uint32_t data ) { fprintf( stderr, "ISPWriteWord\n" ); return -100; }
 
 int ISPSetupInterface( void * d ) {
 	libusb_device_handle * dev = ((struct ISPProgrammerStruct*)d)->devh;
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)d)->internal);
 	uint8_t rbuff[1024];
-	uint8_t chip_type = 0;
+	uint16_t chip_type = 0;
 	uint8_t uid[WCH_UID_LEN_8];
 	uint8_t xor_key[WCH_XOR_KEY_LEN_8];
 	uint32_t transferred = 0;
+	const struct RiscVChip_s* chip = NULL;
 
 	// request chip id
 	wch_isp_command( dev, "\xa1\x12\x00\x52\x11MCU ISP & WCH.CN", 21, (int*)&transferred, rbuff, 1024 );
 	if(transferred == 6) {
 		// printf("id response: %02x %02x %02x %02x %02x %02x\n", rbuff[0], rbuff[1], rbuff[2], rbuff[3], rbuff[4], rbuff[5]);
-		chip_type = rbuff[4];
-		printf("chip type: ch5%02x\n", chip_type);
-		if(chip_type != 0x70 && chip_type != 0x72 && chip_type != 0x82 && chip_type != 0x91 && chip_type != 0x92) {
-			printf("ERROR: ISP programming is currently only supported on ch570/2, ch582 and ch59x.\n");
+		chip_type = rbuff[4] | rbuff[5] << 8;
+		
+		if( (chip = FindChipISP( chip_type )) != NULL )
+		{
+			iss->target_chip = chip;
+			if( iss->target_chip == &ch32x035 ||
+			    iss->target_chip == &ch32l103 ||
+			    iss->target_chip == &ch32v103 ||
+			    iss->target_chip == &ch32v203 ||
+			    iss->target_chip == &ch32v303 )
+			{
+				if( iss->target_chip == &ch32v103 )
+				{
+					if( rbuff[4] == 0x32 ) iss->flash_size = 32;
+					else iss->flash_size = 64;
+				}
+				else if( iss->target_chip == &ch32v203 )
+				{
+					switch ( rbuff[4] )
+					{
+					case 0x33:
+					case 0x35:
+					case 0x36:
+					case 0x37:
+						iss->flash_size = 32;
+						break;
+					
+					case 0x30:
+					case 0x31:
+					case 0x32:
+					case 0x3a:
+					case 0x3b:
+					case 0x3e:
+						iss->flash_size = 64;
+						break;
+
+					default:
+						iss->flash_size = 128;
+						break;
+					}
+				}
+				else if ( iss->target_chip == &ch32v303 )
+				{
+					if( rbuff[4] == 0x32 || rbuff[4] == 0x33 ) iss->flash_size = 128;
+					else iss->flash_size = 128;
+				}
+				else // If CH32X035 of CH32L103
+				{
+					if ( (rbuff[4] & 0xf) == 7 ) iss->flash_size = 48;
+					else iss->flash_size = 64;
+				}
+			}
+			else
+			{
+				iss->flash_size = iss->target_chip->flash_size / 1024;
+			}
+		}
+		else
+		{
+			printf( "ERROR: This chip is upsupported: %04x.\n", chip_type );
 			return -1;
 		}
+		// printf("chip type: %04x\n", chip_type);
+		// if(chip_type != 0x70 && chip_type != 0x72 && chip_type != 0x82 && chip_type != 0x91 && chip_type != 0x92) {
 	}
-	else {
+	else 
+	{
 		printf("ERROR: Request Chip ID failed.\n");
 		return -1;
 	}
-
+	printf( "Detected %s\n", iss->target_chip->name_str );
+	uint8_t read_protection = 0;
+	
 	// read config
 	wch_isp_command( dev, "\xa7\x02\x00\x1f\x00", 5, (int*)&transferred, rbuff, 1024 );
-	if(transferred == 30) {
-		printf("config: %02x%02x%02x%02x%02x%02x%02x%02x %02x%02x%02x%02x\n", rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11], rbuff[12], rbuff[13], rbuff[14], rbuff[15], rbuff[16], rbuff[17]);
-		printf("bootloader: v%d.%d%d\n", rbuff[19], rbuff[20], rbuff[21]);
-		printf("chip uid: %02x %02x %02x %02x %02x %02x %02x %02x\n", rbuff[22], rbuff[23], rbuff[24], rbuff[25], rbuff[26], rbuff[27], rbuff[28], rbuff[29]);
+	if( transferred == 30 ) {
+		if( iss->target_chip->protocol == PROTOCOL_CH5xx && iss->target_chip_type != CHIP_CH570) read_protection = (rbuff[14] & 0x80);
+		else if( iss->target_chip->protocol == PROTOCOL_CH5xx && iss->target_chip_type != CHIP_CH570 ) read_protection = (rbuff[16] == 0x3a);
+		else read_protection = (rbuff[6] == 0xa5);
+		printf( "Bootloader version: %d.%d%d\n", rbuff[19], rbuff[20], rbuff[21] );
+		printf( "Flash Storage: %d kB\n", iss->flash_size );
+		iss->target_chip_type = iss->target_chip->family_id;
+		// printf("bootloader: v%d.%d%d\n", rbuff[19], rbuff[20], rbuff[21]);
+		printf( "Part UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", rbuff[22], rbuff[23], rbuff[24], rbuff[25], rbuff[26], rbuff[27], rbuff[28], rbuff[29] );
+		printf( "Read protection: %s\n", (read_protection)?"disabled":"enabled" );
+		// printf("chip uid: %02x %02x %02x %02x %02x %02x %02x %02x\n", rbuff[22], rbuff[23], rbuff[24], rbuff[25], rbuff[26], rbuff[27], rbuff[28], rbuff[29]);
 		memcpy(uid, &rbuff[22], WCH_UID_LEN_8);
 	}
 	else {
@@ -166,6 +236,67 @@ int ISPSetupInterface( void * d ) {
 	}
 	memcpy(iss->isp_xor_key, xor_key, WCH_XOR_KEY_LEN_8);
 
+	return 0;
+}
+
+int ISPPrintChipInfo( void * d )
+{
+	libusb_device_handle * dev = ((struct ISPProgrammerStruct*)d)->devh;
+	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)d)->internal); 
+
+	uint8_t rbuff[1024];
+	uint32_t transferred = 0;
+
+	wch_isp_command( dev, "\xa7\x02\x00\x1f\x00", 5, (int*)&transferred, rbuff, 1024 );
+
+	// printf("config: %02x%02x%02x%02x%02x%02x%02x%02x %02x%02x%02x%02x\n", rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11], rbuff[12], rbuff[13], rbuff[14], rbuff[15], rbuff[16], rbuff[17]);
+	switch (iss->target_chip_type)
+	{
+		case CHIP_CH32X03x:
+		case CHIP_CH32L10x:
+		case CHIP_CH32V10x:
+		case CHIP_CH32V20x:
+		case CHIP_CH32V30x:
+			printf("IWDG - %s\n", (rbuff[8]&1)?"enabled":"disabled");
+			//System reset control under the stop mode
+			printf("STOP_RST - %s\n", (rbuff[8]&2)?"disabled":"enabled");
+			printf("STANDY_RST - %s\n", (rbuff[8]&4)?"disabled":"enabled");
+			if( iss->target_chip_type == CHIP_CH32X03x ) printf("Reset pin - %s\n", ((rbuff[8]&0x18) == 0x18 )?"disabled":"enabled");
+			printf("DATA0 - 0x%02x\n", rbuff[10]);
+			printf("DATA1 - 0x%02x\n", rbuff[12]);
+			printf("WRPR - 0x%02x%02x%02x%02x\n", rbuff[16], rbuff[15], rbuff[14], rbuff[13]);
+			break;
+
+		case CHIP_CH570:
+		case CHIP_CH57x:
+		case CHIP_CH58x:
+		case CHIP_CH585:
+		case CHIP_CH59x:
+			{
+				uint32_t option_bytes = *((uint32_t*)&rbuff[14]);
+				// fprintf( stderr, "%08x\n", option_bytes );
+				if (iss->target_chip_type == CHIP_CH570 || iss->target_chip_type == CHIP_CH585)
+				{
+					printf("Reset - %s\n", (option_bytes&0x8)?"enabled":"disabled");
+					if (iss->target_chip_type == CHIP_CH570) printf("Boot pin - PA%d\n", (option_bytes&0x10)?7:8);
+					else printf("Debug - %s\n", (option_bytes&0x10)?"enabled":"disabled");
+					printf("IWDG - %s\n", (option_bytes&0x20)?"enabled":"disabled");
+					printf("Bootloader - %s\n", (option_bytes&0x40)?"enabled":"disabled");
+					if (iss->target_chip_type == CHIP_CH570) printf("Readout protection - %s\n", ((option_bytes&0x00FF0000)==0x3a0000)?"disabled":"enabled");
+					// else printf("Readout protection - %s\n", (option_bytes&80)?"disabled":"enabled");
+				} 
+				else 
+				{
+					printf("Reset - %s\n", (option_bytes&0x8)?"enabled":"disabled");
+					printf("Bootloader pin - PB%d\n", (rbuff[12]&2)?22:11);
+					printf("Debug - %s\n", (option_bytes&0x10)?"enabled":"disabled");
+					printf("UART_NO_KEY - %s\n", (rbuff[12]&1)?"enabled":"disabled");
+					// printf("Readout protection - %s\n", (option_bytes&80)?"disabled":"enabled");
+				}
+			}
+		default:
+			break;
+	}
 	return 0;
 }
 
@@ -252,6 +383,227 @@ int ISPHaltMode( void * d, int mode ) {
 	return 0;
 }
 
+int ISPConfigureNRSTAsGPIO( void * d, int one_if_yes_gpio )
+{
+	libusb_device_handle * dev = ((struct ISPProgrammerStruct*)d)->devh;
+	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)d)->internal);
+
+	if( (iss->target_chip->protocol != PROTOCOL_CH5xx && iss->target_chip_type != CHIP_CH32X03x) )
+	{
+		fprintf( stderr, "ERROR: You can't change function of a reset pin on this chip\n" );
+		return -1;	
+	}
+
+	uint8_t rbuff[1024];
+	uint32_t transferred = 0;
+	
+	wch_isp_command( dev, "\xa7\x02\x00\x1f\x00", 5, (int*)&transferred, rbuff, 1024 );
+	printf("Current config: %02x%02x%02x%02x%02x%02x%02x%02x %02x%02x%02x%02x\n", rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11], rbuff[12], rbuff[13], rbuff[14], rbuff[15], rbuff[16], rbuff[17]);
+
+	if( iss->target_chip_type == CHIP_CH32X03x )
+	{
+		if( (rbuff[8]&0x18) == 0x18 && one_if_yes_gpio > 0 )
+		{
+			printf( "Reset pin is already set as GPIO!\n" );
+			return 0;
+		}
+		else if( (rbuff[8]&0x18) != 0x18 && one_if_yes_gpio == 0 )
+		{
+			printf( "Reset pin is already set as reset!\n" );
+			return 0;
+		}
+		else
+		{
+			if( one_if_yes_gpio )
+			{
+				rbuff[8] |= 0x18;
+			}
+			else
+			{
+				rbuff[8] &= ~(0x18);
+			}
+
+			uint8_t conf_buffer[17] = { 0xa8, 0x0e, 0x00, 0x07, 0x00, 
+			                            rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11], rbuff[12], rbuff[13],
+			                            rbuff[14], rbuff[15], rbuff[16], rbuff[17] };
+			printf("New config: %02x%02x%02x%02x%02x%02x%02x%02x %02x%02x%02x%02x\n", conf_buffer[5], conf_buffer[6], conf_buffer[7], conf_buffer[8], conf_buffer[9], conf_buffer[10], conf_buffer[11], conf_buffer[12], conf_buffer[13], conf_buffer[14], conf_buffer[15], conf_buffer[16]);
+			wch_isp_command( dev, conf_buffer, 17, (int*)&transferred, rbuff, 1024 );	
+		}
+	}
+	else
+	{
+		if( !(rbuff[14]&0x8) && one_if_yes_gpio > 0 )
+		{
+			printf( "Reset pin is already set as GPIO!\n" );
+			return 0;
+		}
+		else if( (rbuff[14]&0x8) && one_if_yes_gpio == 0 )
+		{
+			printf( "Reset pin is already set as reset!\n" );
+			return 0;
+		}
+		else
+		{
+			if( one_if_yes_gpio )
+			{
+				rbuff[14] &= ~(0x8);
+			}
+			else
+			{
+				rbuff[14] |= 0x8;
+			}
+
+			uint8_t conf_buffer[17] = { 0xa8, 0x0e, 0x00, 0x07, 0x00, 
+			                            rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11], rbuff[12], rbuff[13],
+			                            rbuff[14], rbuff[15], rbuff[16], rbuff[17] };
+			printf("New config: %02x%02x%02x%02x%02x%02x%02x%02x %02x%02x%02x%02x\n", conf_buffer[5], conf_buffer[6], conf_buffer[7], conf_buffer[8], conf_buffer[9], conf_buffer[10], conf_buffer[11], conf_buffer[12], conf_buffer[13], conf_buffer[14], conf_buffer[15], conf_buffer[16]);
+			wch_isp_command( dev, conf_buffer, 17, (int*)&transferred, rbuff, 1024 );	
+		}	
+	}
+return 0;
+}
+
+int ISPConfigureReadProtection( void * d, int one_if_yes_protect )
+{
+	libusb_device_handle * dev = ((struct ISPProgrammerStruct*)d)->devh;
+	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)d)->internal);
+
+	if( iss->target_chip->protocol == PROTOCOL_CH5xx )
+	{
+		if( iss->target_chip->family_id != CHIP_CH570 )
+		{
+			fprintf( stderr, "ERROR: There is no true read protection on most of CH5xx chips\nUse \"Enable/Disable debug\" function instead\n" );
+			return -1;
+		}
+	}
+
+	uint8_t rbuff[1024];
+	uint32_t transferred = 0;
+	
+	wch_isp_command( dev, "\xa7\x02\x00\x1f\x00", 5, (int*)&transferred, rbuff, 1024 );
+	printf("Current config: %02x%02x%02x%02x%02x%02x%02x%02x %02x%02x%02x%02x\n", rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11], rbuff[12], rbuff[13], rbuff[14], rbuff[15], rbuff[16], rbuff[17]);
+
+	if( iss->target_chip_type == CHIP_CH570 )
+	{
+		if( rbuff[16] == 0x3a && one_if_yes_protect == 0 )
+		{
+			printf( "Flash is already unprotected!\n" );
+			return 0;
+		}
+		else if ( rbuff[16] != 0x3a && one_if_yes_protect > 0 )
+		{
+			printf( "Flash is already protected!\n" );
+			return 0;
+		}
+		else
+		{
+			if( one_if_yes_protect )
+			{
+				rbuff[16] = 0;
+			}
+			else
+			{
+				rbuff[16] = 0x3a;
+			}
+
+			ISPErase( d, 0, 0, 1 );
+
+			uint8_t conf_buffer[17] = { 0xa8, 0x0e, 0x00, 0x07, 0x00, 
+			                            rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11], rbuff[12], rbuff[13],
+			                            rbuff[14], rbuff[15], rbuff[16], rbuff[17] };
+			printf("New config: %02x%02x%02x%02x%02x%02x%02x%02x %02x%02x%02x%02x\n", conf_buffer[5], conf_buffer[6], conf_buffer[7], conf_buffer[8], conf_buffer[9], conf_buffer[10], conf_buffer[11], conf_buffer[12], conf_buffer[13], conf_buffer[14], conf_buffer[15], conf_buffer[16]);
+			wch_isp_command( dev, conf_buffer, 17, (int*)&transferred, rbuff, 1024 );
+		}
+	}
+	else
+	{
+		if( rbuff[6] == 0xa5 && one_if_yes_protect == 0 )
+		{
+			printf( "Flash is already unprotected!\n" );
+			return 0;
+		}
+		else if ( rbuff[6] != 0xa5 && one_if_yes_protect > 0 )
+		{
+			printf( "Flash is already protected!\n" );
+			return 0;
+		}
+		else
+		{
+			if( one_if_yes_protect )
+			{
+				rbuff[6] = 0;
+				rbuff[7] = 0;
+			}
+			else
+			{
+				rbuff[6] = 0xa5;
+				rbuff[7] = 0x5a;
+				rbuff[14] = 0xff;
+				rbuff[15] = 0xff;
+				rbuff[16] = 0xff;
+				rbuff[17] = 0xff;
+			}
+
+			uint8_t conf_buffer[17] = { 0xa8, 0x0e, 0x00, 0x07, 0x00, 
+			                            rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11], rbuff[12], rbuff[13],
+			                            rbuff[14], rbuff[15], rbuff[16], rbuff[17] };
+			printf("New config: %02x%02x%02x%02x%02x%02x%02x%02x %02x%02x%02x%02x\n", conf_buffer[5], conf_buffer[6], conf_buffer[7], conf_buffer[8], conf_buffer[9], conf_buffer[10], conf_buffer[11], conf_buffer[12], conf_buffer[13], conf_buffer[14], conf_buffer[15], conf_buffer[16]);
+			wch_isp_command( dev, conf_buffer, 17, (int*)&transferred, rbuff, 1024 );
+		}
+	}
+return 0;
+}
+
+int ISPCH5xxEnableDebug( void * d, uint8_t disable )
+{
+	libusb_device_handle * dev = ((struct ISPProgrammerStruct*)d)->devh;
+	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)d)->internal);
+
+	if( iss->target_chip->protocol != PROTOCOL_CH5xx )
+	{
+		fprintf( stderr, "ERROR: This function is only possible on CH5xx chips.\n" );
+		return -1;
+	}
+	if( iss->target_chip->family_id == CHIP_CH570 )
+	{
+		fprintf( stderr, "ERROR: This function can't be used on CH570/2 chips.\n" );
+		return -2;
+	}
+
+	uint8_t rbuff[1024];
+	uint32_t transferred = 0;
+
+	wch_isp_command( dev, "\xa7\x02\x00\x1f\x00", 5, (int*)&transferred, rbuff, 1024 );
+	printf("Current config: %02x%02x%02x%02x%02x%02x%02x%02x %02x%02x%02x%02x\n", rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11], rbuff[12], rbuff[13], rbuff[14], rbuff[15], rbuff[16], rbuff[17]);
+
+	if( (rbuff[14] & 0x10) && disable == 0 )
+	{
+		printf( "Debug module is already enabled!\n" );
+		return 0;
+	}
+	else if( !(rbuff[14] & 0x10) && disable > 0 )
+	{
+		printf( "Debug module is already disabled!\n" );
+		return 0;	
+	}
+	else
+	{
+		if( disable ) rbuff[14] &= ~(0x10);
+		else rbuff[14] |= 0x90;
+
+		// Set valid signature
+		rbuff[17] &= ~(0xf0);
+		rbuff[17] |= 0x40;
+		
+		uint8_t conf_buffer[17] = { 0xa8, 0x0e, 0x00, 0x07, 0x00, 
+		                            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		                            rbuff[14], rbuff[15], rbuff[16], rbuff[17] };
+		printf("New config: %02x%02x%02x%02x%02x%02x%02x%02x %02x%02x%02x%02x\n", conf_buffer[5], conf_buffer[6], conf_buffer[7], conf_buffer[8], conf_buffer[9], conf_buffer[10], conf_buffer[11], conf_buffer[12], conf_buffer[13], conf_buffer[14], conf_buffer[15], conf_buffer[16]);
+		wch_isp_command( dev, conf_buffer, 17, (int*)&transferred, rbuff, 1024 );
+	}
+	return 0;
+}
+
 void * TryInit_WCHISP() {
 	libusb_device_handle * wch_isp_devh;
 	wch_isp_devh = isp_base_setup(0);
@@ -270,6 +622,10 @@ void * TryInit_WCHISP() {
 	MCF.Erase = ISPErase;
 	MCF.WriteBinaryBlob = ISPWriteBinaryBlob;
 	MCF.HaltMode = ISPHaltMode;
+  MCF.PrintChipInfo = ISPPrintChipInfo;
+	MCF.ConfigureNRSTAsGPIO = ISPConfigureNRSTAsGPIO;
+	MCF.ConfigureReadProtection = ISPConfigureReadProtection;
+	MCF.EnableDebug = ISPCH5xxEnableDebug;
 
 	return ret;
 };

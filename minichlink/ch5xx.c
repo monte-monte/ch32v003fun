@@ -1400,19 +1400,19 @@ int CH5xxPrintInfo(void* dev) {
 	}
 	if (iss->target_chip_type == CHIP_CH570 || iss->target_chip_type == CHIP_CH585) {
 		printf("Reset - %s\n", (option_bytes&0x8)?"enabled":"disabled");
-		if (iss->target_chip_type == CHIP_CH570) printf("Reset pin - PA%d\n", (option_bytes&0x10)?7:8);
+		if (iss->target_chip_type == CHIP_CH570) printf("Boot pin - PA%d\n", (option_bytes&0x10)?7:8);
 		else printf("Debug - %s\n", (option_bytes&0x10)?"enabled":"disabled");
 		printf("IWDG - %s\n", (option_bytes&0x20)?"enabled":"disabled");
 		printf("Bootloader - %s\n", (option_bytes&0x40)?"enabled":"disabled");
 		if (iss->target_chip_type == CHIP_CH570) printf("Readout protection - %s\n", ((option_bytes&0x00FF0000)==0x3a0000)?"disabled":"enabled");
-		else printf("Readout protection - %s\n", (option_bytes&80)?"disabled":"enabled");
+		// else printf("Readout protection - %s\n", (option_bytes&80)?"disabled":"enabled");
 	} else {
 		printf("Reset - %s\n", (option_bytes&0x8)?"enabled":"disabled");
-		printf("Reset pin - PB%d\n", (option_bytes&0x200)?22:11);
+		printf("Bootloader pin - PB%d\n", (option_bytes&0x200)?22:11);
 		printf("Debug - %s\n", (option_bytes&0x10)?"enabled":"disabled");
 		printf("Bootloader - %s\n", (option_bytes&0x40)?"enabled":"disabled");
 		printf("UART_NO_KEY(what is that?) - %s\n", (option_bytes&0x100)?"enabled":"disabled");
-		printf("Readout protection - %s\n", (option_bytes&80)?"disabled":"enabled");
+		// printf("Readout protection - %s\n", (option_bytes&80)?"disabled":"enabled");
 	}
 
 	// uint32_t dmdata0_offset = 0xe0000380;

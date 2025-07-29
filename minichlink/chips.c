@@ -117,6 +117,7 @@ const struct RiscVChip_s ch32x033 = {
 	.options_size = 256,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
+  .isp_id_mask = 0x235a,
 };
 
 const struct RiscVChip_s ch32x035 = {
@@ -134,6 +135,7 @@ const struct RiscVChip_s ch32x035 = {
 	.options_size = 256,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
+  .isp_id_mask = 0x235f,
 };
 
 const struct RiscVChip_s ch32v103 = {
@@ -152,6 +154,7 @@ const struct RiscVChip_s ch32v103 = {
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
 	.no_autoexec = 1,
+  .isp_id_mask = 0x153f,
 };
 
 const struct RiscVChip_s ch32l103 = {
@@ -169,6 +172,7 @@ const struct RiscVChip_s ch32l103 = {
 	.options_size = 256,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
+  .isp_id_mask = 0x253f,
 };
 
 const struct RiscVChip_s ch32v203 = {
@@ -186,6 +190,7 @@ const struct RiscVChip_s ch32v203 = {
 	.options_size = 128,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
+  .isp_id_mask = 0x193f,
 };
 
 const struct RiscVChip_s ch32v208 = {
@@ -203,6 +208,7 @@ const struct RiscVChip_s ch32v208 = {
 	.options_size = 128,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
+  .isp_id_mask = 0x198f,
 };
 
 const struct RiscVChip_s ch32v303 = {
@@ -220,6 +226,7 @@ const struct RiscVChip_s ch32v303 = {
 	.options_size = 128,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
+  .isp_id_mask = 0x173f,
 };
 
 const struct RiscVChip_s ch32v305 = {
@@ -237,6 +244,7 @@ const struct RiscVChip_s ch32v305 = {
 	.options_size = 128,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
+  .isp_id_mask = 0x175f,
 };
 
 const struct RiscVChip_s ch32v307 = {
@@ -254,6 +262,7 @@ const struct RiscVChip_s ch32v307 = {
 	.options_size = 128,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
+  .isp_id_mask = 0x177f,
 };
 
 const struct RiscVChip_s ch32v317 = {
@@ -343,6 +352,7 @@ const struct RiscVChip_s ch565 = {
 	.options_size = 0,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_UNSUPPORTED,
+  .isp_id_mask = 0x1165,
 };
 
 const struct RiscVChip_s ch569 = {
@@ -362,6 +372,7 @@ const struct RiscVChip_s ch569 = {
 	.options_size = 0,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_UNSUPPORTED,
+  .isp_id_mask = 0x1169,
 };
 
 const struct RiscVChip_s ch570 = {
@@ -381,6 +392,7 @@ const struct RiscVChip_s ch570 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_CH5xx,
+  .isp_id_mask = 0x1370,
 };
 
 const struct RiscVChip_s ch571 = {
@@ -401,6 +413,7 @@ const struct RiscVChip_s ch571 = {
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
 	.no_autoexec = 1,
+  .isp_id_mask = 0x1371,
 };
 
 const struct RiscVChip_s ch572 = {
@@ -420,6 +433,7 @@ const struct RiscVChip_s ch572 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_CH5xx,
+  .isp_id_mask = 0x1372,
 };
 
 const struct RiscVChip_s ch573 = {
@@ -440,6 +454,7 @@ const struct RiscVChip_s ch573 = {
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
 	.no_autoexec = 1,
+  .isp_id_mask = 0x1373,
 };
 
 const struct RiscVChip_s ch573q = {
@@ -480,6 +495,7 @@ const struct RiscVChip_s ch581 = {
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
 	.no_autoexec = 1,
+  .isp_id_mask = 0x1681,
 };
 
 const struct RiscVChip_s ch582 = {
@@ -500,6 +516,7 @@ const struct RiscVChip_s ch582 = {
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_CH5xx,
 	.no_autoexec = 1,
+  .isp_id_mask = 0x1682,
 };
 
 const struct RiscVChip_s ch583 = {
@@ -520,6 +537,7 @@ const struct RiscVChip_s ch583 = {
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
 	.no_autoexec = 1,
+  .isp_id_mask = 0x1683,
 };
 
 const struct RiscVChip_s ch584 = {
@@ -540,6 +558,7 @@ const struct RiscVChip_s ch584 = {
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
 	.no_autoexec = 1,
+  .isp_id_mask = 0x1684,
 };
 
 const struct RiscVChip_s ch585 = {
@@ -560,6 +579,7 @@ const struct RiscVChip_s ch585 = {
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
 	.no_autoexec = 1,
+  .isp_id_mask = 0x1685,
 };
 
 const struct RiscVChip_s ch591 = {
@@ -579,6 +599,7 @@ const struct RiscVChip_s ch591 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
+  .isp_id_mask = 0x2291,
 };
 
 const struct RiscVChip_s ch592 = {
@@ -598,6 +619,7 @@ const struct RiscVChip_s ch592 = {
 	.options_size = 8*1024,
 	.interface_speed = 0x02,
 	.protocol = PROTOCOL_CH5xx,
+  .isp_id_mask = 0x2292,
 };
 
 const struct RiscVChip_s ch641 = {
@@ -632,6 +654,7 @@ const struct RiscVChip_s ch643 = {
 	.options_size = 256,
 	.interface_speed = 0x01,
 	.protocol = PROTOCOL_DEFAULT,
+  .isp_id_mask = 0x243f,
 };
 
 const struct RiscVChip_s ch645 = {
@@ -693,9 +716,20 @@ const struct RiscVChip_s* FindChip(uint32_t chip_id)
 	const struct RiscVChip_s* chip = chip_collection[0];
 	int cnt = 0;
 	// printf( "Looking for chip with this signature: %08x\n", chip_id );
-	while(chip)
-	{
-		if( (chip_id >> 16) == chip->family_id && (chip_id & 0xfff0) == chip->model_id) break;
+	while(chip) {
+		if ((chip_id >> 16) == chip->family_id && (chip_id & 0xfff0) == chip->model_id) break;
+		chip = chip_collection[cnt++];
+	}
+	return chip;
+}
+
+const struct RiscVChip_s* FindChipISP(uint16_t chip_id)
+{
+	const struct RiscVChip_s* chip = chip_collection[0];
+	int cnt = 0;
+	// printf( "Looking for chip with this signature: %08x\n", chip_id );
+	while(chip) {
+		if ( (chip_id & 0xff00) == (chip->isp_id_mask & 0xff00) && ((chip_id & chip->isp_id_mask) == chip_id)) break;
 		chip = chip_collection[cnt++];
 	}
 	return chip;

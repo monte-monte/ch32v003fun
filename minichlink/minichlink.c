@@ -44,8 +44,8 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 	{
 		if( strcmp( specpgm, "linke" ) == 0 )
 			dev = TryInit_WCHLinkE();
-		// else if( strcmp( specpgm, "isp" ) == 0 )
-			// dev = TryInit_WCHISP();
+		else if( strcmp( specpgm, "isp" ) == 0 )
+			dev = TryInit_WCHISP();
 		else if( strcmp( specpgm, "esp32s2chfun" ) == 0 )
 			dev = TryInit_ESP32S2CHFUN();
 		else if( strcmp( specpgm, "nchlink" ) == 0 )
@@ -336,8 +336,7 @@ keep_going:
 					fprintf(stderr, "Press Enter to proceed, Ctrl+C to abort.");
 					while(!IsKBHit());
 					// TODO: revert after testing
-					if( iss->target_chip_type == CHIP_CH570 ) ch570_disable_read_protection( dev );
-					else MCF.ConfigureReadProtection( dev, 0 );
+					MCF.ConfigureReadProtection( dev, 0 );
 				}
 				else
 					goto unimplemented;
@@ -928,6 +927,34 @@ keep_going:
 				free( image );
 				break;
 			}
+      case 'N':
+      {
+        if( MCF.EnableDebug )
+        {
+          printf("Enabling debug\n");
+          if( MCF.EnableDebug( dev, 0 ) )
+					{
+						return -13;
+					}
+        }
+        break;
+      }
+      case 'n':
+      {
+        if( MCF.EnableDebug )
+        {
+          fprintf( stderr, "This will disable debug module. And you will be only able to program the chip using the bootloader.\nPress Enter to continue\n");
+					while(!IsKBHit());
+          ReadKBByte();
+          fprintf( stderr, "Are you absolutely sure about it?\nPress Enter to continue, or Ctrl+C to cancel\n");
+					while(!IsKBHit());
+          if( MCF.EnableDebug( dev, 1 ) )
+					{
+						return -13;
+					}
+        }
+        break;
+      }
 			case 'Y':
 			{
 				if( iss->target_chip_type == CHIP_CH570 ||
@@ -935,11 +962,14 @@ keep_going:
 					  iss->target_chip_type == CHIP_CH58x ||
 					  iss->target_chip_type == CHIP_CH585 ||
 					  iss->target_chip_type == CHIP_CH59x) CH5xxBlink(dev, 0, 8, 0);
+        break;
 			}
+        
 			case 'y':
 			{
 				// MCF.HaltMode( dev, HALT_MODE_HALT_BUT_NO_RESET );
         readCSR( dev, 0x7b1 );
+        break;
 			}
 			
 		}
@@ -964,7 +994,7 @@ help:
 	fprintf( stderr, " -f Disable 5V\n" );
 	fprintf( stderr, " -k Skip programmer initialization\n" );
 	fprintf( stderr, " -c [serial port for Ardulink, try /dev/ttyACM0 or COM11 etc] or [VID+PID of USB for b003boot, try 0x1209b003]\n" );
-	fprintf( stderr, " -C [specified programmer, eg. b003boot, ardulink, esp32s2chfun]\n" );
+	fprintf( stderr, " -C [specified programmer, eg. b003boot, ardulink, esp32s2chfun, isp]\n" );
 	fprintf( stderr, " -u Clear all code flash - by power off (also can unbrick)\n" );
 	fprintf( stderr, " -E Erase chip\n" );
 	fprintf( stderr, " -b Reboot out of Halt\n" );
@@ -980,6 +1010,8 @@ help:
 	fprintf( stderr, " -G Terminal + GDB (must be last arg)\n" );
 	fprintf( stderr, " -P Enable Read Protection\n" );
 	fprintf( stderr, " -p Disable Read Protection\n" );
+	fprintf( stderr, " -N Enable Debug Module\n" );
+	fprintf( stderr, " -n Disable Debug Module\n" );
 	fprintf( stderr, " -S set FLASH/SRAM split [FLASH kbytes] [SRAM kbytes]\n" );
 	fprintf( stderr, " -w [binary image to write] [address, decimal or 0x, try0x08000000]\n" );
 	fprintf( stderr, " -r [output binary image] [memory address, decimal or 0x, try 0x08000000] [size, decimal or 0x, try 16384]\n" );
@@ -1178,6 +1210,7 @@ int DefaultSetupInterface( void * dev )
 		fprintf( stderr, "Error: Could not read dmstatus. r = %d\n", r );
 		return r;
 	}
+  fprintf( stderr, "Got code %08x\n", reg );
 
 	iss->statetag = STTAG( "STRT" );
 	return 0;
@@ -3071,7 +3104,22 @@ int DefaultConfigureNRSTAsGPIO( void * dev, int one_if_yes_gpio  )
 
 int DefaultConfigureReadProtection( void * dev, int one_if_yes_protect  )
 {
-	fprintf( stderr, "Error: DefaultConfigureReadProtection does not work via the programmer here.  Please see the demo \"optionbytes\"\n" );
+  struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
+  if( iss->target_chip_type == CHIP_CH570 && one_if_yes_protect == 0 )
+  {
+    ch570_disable_read_protection( dev );
+  }
+  else
+  {
+    fprintf( stderr, "Error: DefaultConfigureReadProtection does not work via the programmer here.  Please see the demo \"optionbytes\"\n" );
+    return -5;
+  }
+  return 0;
+}
+
+int DefaultEnableDebug( void * dev, uint8_t disable )
+{
+  fprintf( stderr, "Error: This is only possibe using ISP mode on some CH5xx chips.\n" );
 	return -5;
 }
 
@@ -3196,6 +3244,8 @@ int SetupAutomaticHighLevelFunctions( void * dev )
 		MCF.Unbrick = DefaultUnbrick;
 	if( !MCF.ConfigureNRSTAsGPIO )
 		MCF.ConfigureNRSTAsGPIO = DefaultConfigureNRSTAsGPIO;
+  if( !MCF.ConfigureReadProtection )
+    MCF.ConfigureReadProtection = DefaultConfigureReadProtection;
 	if( !MCF.VoidHighLevelState )
 		MCF.VoidHighLevelState = DefaultVoidHighLevelState;
 	if( !MCF.DelayUS )
@@ -3204,6 +3254,8 @@ int SetupAutomaticHighLevelFunctions( void * dev )
 		MCF.GetUUID = DefaultGetUUID;
   if( !MCF.SetClock )
     MCF.SetClock = DefaultSetClock;
+  if( !MCF.EnableDebug )
+    MCF.EnableDebug = DefaultEnableDebug;
 
 	return 0;
 }
