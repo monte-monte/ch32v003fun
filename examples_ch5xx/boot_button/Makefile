@@ -1,8 +1,8 @@
 all : flash
 
 TARGET:=boot_button
-TARGET_MCU:=CH582 # only 582 is supported currently
-TARGET_MCU_PACKAGE:=CH582F
+TARGET_MCU:=CH592 # only 582 and ch59x are supported currently
+TARGET_MCU_PACKAGE:=CH592F
 
 include ../../ch32fun/ch32fun.mk
 

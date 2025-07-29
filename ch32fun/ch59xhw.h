@@ -187,6 +187,18 @@ typedef enum
 	HSE_RCur_150
 } HSECurrentTypeDef;
 
+// for ISP programming
+#define ISPROM_ADDRESS                  0x00078000
+#define ISPROM_IN_RAM_ADDRESS           0x20003800
+#define ISPROM_START_OFFSET             0x94
+#define ISPROM_SIZE                     0x2500
+#define ISPROM_OPTIONBYTE_PATCH_ADDRESS 0x20005004
+#define ISPROM_BOOTBUTTON_CHECK_ADDRESS 0x200039a6
+#define ISPROM_BSS_ADDRESS              0x20005cb8
+#define ISPROM_BSS_SIZE                 0x0564
+#define ISPROM_IN_RAM_GLOBALPOINTER    "0x200064b0" // string because it goes into asm()
+#define ISPROM_IN_RAM_ENTRYPOINT        "0x20004e8a" // string because it goes into asm()
+
 // For debug writing to the debug interface.
 #define DMDATA0 			((vu32*)0xe0000380)
 #define DMDATA1 			((vu32*)0xe0000384)
@@ -1555,6 +1567,19 @@ RV_STATIC_INLINE void LowPower(uint32_t time, uint16_t power_plan) {
 	}
 	
 	RTCInit(); // after sleeping this is necessary, but resets the RTC to 0 so don't use it to keep wall time
+}
+
+RV_STATIC_INLINE void jump_isprom() {
+	memcpy((void*)ISPROM_IN_RAM_ADDRESS, (void*)(ISPROM_ADDRESS + ISPROM_START_OFFSET), ISPROM_SIZE); // copy bootloader to ram
+	*(int16_t*)(ISPROM_OPTIONBYTE_PATCH_ADDRESS) = 0x8fd1; // c.or a5,a2, fix config byte read
+	*(int16_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xe) = 0x4505; // li a0,1, patch PB22 detection to always return true
+	memset((void*)ISPROM_BSS_ADDRESS, 0, ISPROM_BSS_SIZE); // clear .bss
+
+	asm( "la gp, " ISPROM_IN_RAM_GLOBALPOINTER "\n"
+		 ".option arch, +zicsr\n"
+		 "li t0, " ISPROM_IN_RAM_ENTRYPOINT "\n"
+		 "csrw mepc, t0\n" // __set_MEPC is not available here
+		 "mret\n");
 }
 
 #define HardFault_IRQn        EXC_IRQn
