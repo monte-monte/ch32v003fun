@@ -218,10 +218,8 @@ typedef enum
 #define ISPROM_START_OFFSET             0xa4
 #define ISPROM_SIZE                     0x2500
 #define ISPROM_BOOTBUTTON_CHECK_ADDRESS 0x200038b0
-#define ISPROM_BSS_ADDRESS              0x20005c18
-#define ISPROM_BSS_SIZE                 0x04a8
-#define ISPROM_IN_RAM_GLOBALPOINTER     "0x20006410" // string because it goes into asm()
-#define ISPROM_IN_RAM_ENTRYPOINT        "0x20004ebc" // string because it goes into asm()
+#define ISPROM_GLOBALPOINTER           "0x20006410" // string because it goes into asm()
+#define ISPROM_ENTRYPOINT              "0x00078064" // string because it goes into asm()
 
 // For debug writing to the debug interface.
 #define DMDATA0 			((vu32*)0xe0000380)
@@ -1506,12 +1504,9 @@ typedef enum
 RV_STATIC_INLINE void jump_isprom() {
 	memcpy((void*)ISPROM_IN_RAM_ADDRESS, (void*)(ISPROM_ADDRESS + ISPROM_START_OFFSET), ISPROM_SIZE); // copy bootloader to ram
 	*(int16_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xe) = 0x4505; // li a0, 1, patch PB22 detection to always return true
-	memset((void*)ISPROM_BSS_ADDRESS, 0, ISPROM_BSS_SIZE); // clear .bss
 
-	asm( "la gp, " ISPROM_IN_RAM_GLOBALPOINTER "\n"
-		 "li t0, " ISPROM_IN_RAM_ENTRYPOINT "\n"
-		 ADD_ARCH_ZICSR "csrw mepc, t0\n" // __set_MEPC is not available here
-		 "mret\n");
+	asm( "la gp, " ISPROM_GLOBALPOINTER "\n"
+		 "j " ISPROM_ENTRYPOINT "\n");
 }
 
 #define HardFault_IRQn        EXC_IRQn
