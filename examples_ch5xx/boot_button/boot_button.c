@@ -1,7 +1,14 @@
 #include "ch32fun.h"
 
+#if defined(CH57x) && (MCU_PACKAGE == 0 || MCU_PACKAGE == 2) // ch570/2
+#define PIN_LED    PA9
+#define PIN_BUTTON PA1
+#define BUTTON_PRESSED funDigitalRead( PIN_BUTTON )
+#else
 #define PIN_LED    PA8
 #define PIN_BUTTON PB22
+#define BUTTON_PRESSED !funDigitalRead( PIN_BUTTON )
+#endif
 
 void blink(int n) {
 	for(int i = n-1; i >= 0; i--) {
@@ -24,7 +31,7 @@ int main()
 
 	while(1)
 	{
-		if(!funDigitalRead( PIN_BUTTON )) {
+		if( BUTTON_PRESSED ) {
 			blink(5);
 			jump_isprom();
 		}

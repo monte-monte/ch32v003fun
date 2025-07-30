@@ -235,7 +235,7 @@ typedef enum
 #endif
 } SYS_CLKTypeDef;
 
-// For debug writing to the debug interface.
+// For debug writing to the debug interface, and USB ISP.
 #if MCU_PACKAGE == 1 || MCU_PACKAGE == 3 // CH571/3
 #define DMDATA0 			((vu32*)0xe0000380)
 #define DMDATA1 			((vu32*)0xe0000384)
@@ -244,6 +244,16 @@ typedef enum
 #define DMDATA0 			((vu32*)0xe0000340)
 #define DMDATA1 			((vu32*)0xe0000344)
 #define DMSTATUS_SENTINEL	((vu32*)0xe0000348)// Reads as 0x00000000 if debugger is attached.
+
+#define ISPROM_ADDRESS                  0x0003c000
+#define ISPROM_IN_RAM_ADDRESS           0x20000000
+#define ISPROM_START_OFFSET             0xc0
+#define ISPROM_SIZE                     0x2000
+#define ISPROM_BOOTBUTTON_CHECK_ADDRESS 0x20000100
+#define ISPROM_BSS_ADDRESS              0x20001ba0
+#define ISPROM_BSS_SIZE                 0x0474
+#define ISPROM_IN_RAM_GLOBALPOINTER     "0x20002398" // string because it goes into asm()
+#define ISPROM_IN_RAM_ENTRYPOINT        "0x20001196" // string because it goes into asm()
 #endif
 
 /* Independent watch-dog register */
@@ -1798,6 +1808,18 @@ RV_STATIC_INLINE void LowPower(uint32_t time, uint16_t power_plan)
 		LowPowerIdle( time );
 	}
 
+}
+
+RV_STATIC_INLINE void jump_isprom() {
+	memcpy((void*)ISPROM_IN_RAM_ADDRESS, (void*)(ISPROM_ADDRESS + ISPROM_START_OFFSET), ISPROM_SIZE); // copy bootloader to ram
+	*(int32_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xc) = 0x00014505; // nop \n li a0,1, patch PA1 detection
+	memset((void*)ISPROM_BSS_ADDRESS, 0, ISPROM_BSS_SIZE); // clear .bss
+
+	asm( "la gp, " ISPROM_IN_RAM_GLOBALPOINTER "\n"
+		 ".option arch, +zicsr\n"
+		 "li t0, " ISPROM_IN_RAM_ENTRYPOINT "\n"
+		 "csrw mepc, t0\n" // __set_MEPC is not available here
+		 "mret\n");
 }
 
 #endif
