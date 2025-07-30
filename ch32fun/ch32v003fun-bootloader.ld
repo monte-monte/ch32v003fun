@@ -14,6 +14,7 @@ SECTIONS
       _sinit = .;
       . = ALIGN(4);
       KEEP(*(SORT_NONE(.init)))
+      *(.text.vector_handler)
       . = ALIGN(4);
       _einit = .;
     } >FLASH AT>FLASH
@@ -107,6 +108,7 @@ SECTIONS
     .data :
     {
       . = ALIGN(4);
+      *(.data.vector_handler)
       *(.gnu.linkonce.r.*)
       *(.data .data.*)
       *(.gnu.linkonce.d.*)
