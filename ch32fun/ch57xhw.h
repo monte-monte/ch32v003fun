@@ -1812,7 +1812,7 @@ RV_STATIC_INLINE void LowPower(uint32_t time, uint16_t power_plan)
 
 RV_STATIC_INLINE void jump_isprom() {
 	memcpy((void*)ISPROM_IN_RAM_ADDRESS, (void*)(ISPROM_ADDRESS + ISPROM_START_OFFSET), ISPROM_SIZE); // copy bootloader to ram
-	// *(int32_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xc) = 0x00014505; // nop \n li a0,1, patch PA1 detection
+	*(int32_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xc) = 0x00014505; // nop \n li a0,1, patch PA1 detection
 	memset((void*)ISPROM_BSS_ADDRESS, 0, ISPROM_BSS_SIZE); // clear .bss
 
 	asm( "la gp, " ISPROM_IN_RAM_GLOBALPOINTER "\n"
