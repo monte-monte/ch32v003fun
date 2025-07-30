@@ -353,6 +353,8 @@ typedef enum {RESET = 0, SET = !RESET} FlagStatus, ITStatus;
 #define   RV_STATIC_INLINE  static  inline
 #endif // __ASSEMBLER__
 
+#include <string.h> // for memcpy in ch5xx hw.h files
+
 #if FUNCONF_ISR_IN_RAM
 	#define VECTOR_HANDLER_SECTION ".data.vector_handler"
 	#define ISR_HANDLER_INITIAL_JUMP ".word 0x00000000\n"
@@ -388,7 +390,7 @@ typedef enum {RESET = 0, SET = !RESET} FlagStatus, ITStatus;
 #if __GNUC__ > 10
 	#define ADD_ARCH_ZICSR ".option arch, +zicsr\n"
 #else
-	#define ADD_ARCH_ZICSR 
+	#define ADD_ARCH_ZICSR
 #endif
 
 #ifndef __ASSEMBLER__

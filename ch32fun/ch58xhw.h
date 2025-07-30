@@ -212,6 +212,15 @@ typedef enum
 #endif
 } SYS_CLKTypeDef;
 
+// for ISP programming
+#define ISPROM_IN_RAM_ADDRESS           0x20003800
+#define ISPROM_ADDRESS                  0x00078000
+#define ISPROM_START_OFFSET             0xa4
+#define ISPROM_SIZE                     0x2500
+#define ISPROM_BOOTBUTTON_CHECK_ADDRESS 0x200038b0
+#define ISPROM_GLOBALPOINTER           "0x20006410" // string because it goes into asm()
+#define ISPROM_ENTRYPOINT              "0x00078064" // string because it goes into asm()
+
 // For debug writing to the debug interface.
 #define DMDATA0 			((vu32*)0xe0000380)
 #define DMDATA1 			((vu32*)0xe0000384)
@@ -664,6 +673,27 @@ typedef enum
 #define  bPWM0_  bTMR0_
 #define  bTXD2_  (1<<23)   // PB23
 #define  bPWM11  (1<<23)   // PB23
+
+typedef enum
+{
+	GPIO_ModeIN_Floating,
+	GPIO_ModeIN_PU,
+	GPIO_ModeIN_PD,
+	GPIO_ModeOut_PP_5mA,
+	GPIO_ModeOut_PP_20mA,
+} GPIOModeTypeDef;
+
+/* General Purpose I/O */
+typedef enum
+{
+	GPIO_CFGLR_IN_FLOAT = GPIO_ModeIN_Floating,
+	GPIO_CFGLR_IN_PUPD = GPIO_ModeIN_PU, // is most common
+	GPIO_CFGLR_IN_PU = GPIO_ModeIN_PU,
+	GPIO_CFGLR_IN_PD = GPIO_ModeIN_PD, // to suppress the -Wswitch warning
+	GPIO_CFGLR_OUT_10Mhz_PP = GPIO_ModeOut_PP_20mA,
+	GPIO_CFGLR_OUT_2Mhz_PP = GPIO_ModeOut_PP_5mA,
+	GPIO_CFGLR_OUT_50Mhz_PP = GPIO_ModeOut_PP_20mA,
+} GPIO_CFGLR_PIN_MODE_Typedef;
 
 /* System: Flash ROM control register */
 #define R32_FLASH_DATA      (*((vu32*)0x40001800)) // RO/WO, flash ROM data
@@ -1471,26 +1501,13 @@ typedef enum
 #define R8_U2EP7_T_LEN      (*((vu8*)0x4000846C))  // USB2 endpoint 7 transmittal length
 #define R8_U2EP7_CTRL       (*((vu8*)0x4000846E))  // USB2 endpoint 7 control
 
-typedef enum
-{
-	GPIO_ModeIN_Floating,
-	GPIO_ModeIN_PU,
-	GPIO_ModeIN_PD,
-	GPIO_ModeOut_PP_5mA,
-	GPIO_ModeOut_PP_20mA,
-} GPIOModeTypeDef;
+RV_STATIC_INLINE void jump_isprom() {
+	memcpy((void*)ISPROM_IN_RAM_ADDRESS, (void*)(ISPROM_ADDRESS + ISPROM_START_OFFSET), ISPROM_SIZE); // copy bootloader to ram
+	*(int16_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xe) = 0x4505; // li a0, 1, patch PB22 detection to always return true
 
-/* General Purpose I/O */
-typedef enum
-{
-	GPIO_CFGLR_IN_FLOAT = GPIO_ModeIN_Floating,
-	GPIO_CFGLR_IN_PUPD = GPIO_ModeIN_PU, // is most common
-	GPIO_CFGLR_IN_PU = GPIO_ModeIN_PU,
-	GPIO_CFGLR_IN_PD = GPIO_ModeIN_PD, // to suppress the -Wswitch warning
-	GPIO_CFGLR_OUT_10Mhz_PP = GPIO_ModeOut_PP_20mA,
-	GPIO_CFGLR_OUT_2Mhz_PP = GPIO_ModeOut_PP_5mA,
-	GPIO_CFGLR_OUT_50Mhz_PP = GPIO_ModeOut_PP_20mA,
-} GPIO_CFGLR_PIN_MODE_Typedef;
+	asm( "la gp, " ISPROM_GLOBALPOINTER "\n"
+		 "j " ISPROM_ENTRYPOINT "\n");
+}
 
 #define HardFault_IRQn        EXC_IRQn
 
