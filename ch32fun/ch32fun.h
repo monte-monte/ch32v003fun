@@ -82,6 +82,7 @@
                                         // If you are using that, consider using INTERRUPT_DECORATOR as an attribute to your interrupt handlers.
 #define FUNCONF_USE_5V_VDD 0            // Enable this if you plan to use your part at 5V - affects USB and PD configration on the x035.
 #define FUNCONF_DEBUG_HARDFAULT    1    // Log fatal errors with "printf"
+#define FUNCONF_ISR_IN_RAM 0            // Put the interrupt vector in RAM.
 */
 
 // Sanity check for when porting old code.
@@ -227,6 +228,10 @@
 	#define FUNCONF_USE_5V_VDD 0
 #endif
 
+#ifndef FUNCONF_ISR_IN_RAM
+	#define FUNCONF_ISR_IN_RAM 0
+#endif
+
 // Default package for CH32V20x
 #if defined(CH32V20x)
 #if !defined(CH32V20x_D8W) && !defined(CH32V20x_D8) && !defined(CH32V20x_D6)
@@ -349,6 +354,14 @@ typedef enum {RESET = 0, SET = !RESET} FlagStatus, ITStatus;
 #endif // __ASSEMBLER__
 
 #include <string.h> // for memcpy in ch5xx hw.h files
+
+#if FUNCONF_ISR_IN_RAM
+	#define VECTOR_HANDLER_SECTION ".data.vector_handler"
+	#define ISR_HANDLER_INITIAL_JUMP ".word 0x00000000\n"
+#else
+	#define VECTOR_HANDLER_SECTION ".text.vector_handler"
+	#define ISR_HANDLER_INITIAL_JUMP "j handle_reset\n"
+#endif
 
 #ifdef CH32V003
 	#include "ch32v003hw.h"
@@ -943,10 +956,10 @@ void funAnalogInit( void );
 int funAnalogRead( int nAnalogNumber );
 
 void handle_reset()            __attribute__((naked)) __attribute((section(".text.handle_reset"))) __attribute__((used));
-void DefaultIRQHandler( void ) __attribute__((section(".text.vector_handler"))) __attribute__((naked)) __attribute__((used));
+void DefaultIRQHandler( void ) __attribute__((section(VECTOR_HANDLER_SECTION))) __attribute__((naked)) __attribute__((used));
 // used to clear the CSS flag in case of clock fail switch
 #if defined(FUNCONF_USE_CLK_SEC) && FUNCONF_USE_CLK_SEC
-	void NMI_RCC_CSS_IRQHandler( void ) __attribute__((section(".text.vector_handler"))) __attribute__((naked)) __attribute__((used));
+	void NMI_RCC_CSS_IRQHandler( void ) __attribute__((section(VECTOR_HANDLER_SECTION))) __attribute__((naked)) __attribute__((used));
 #endif
 
 void DelaySysTick( uint32_t n );

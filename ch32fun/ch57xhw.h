@@ -18,7 +18,7 @@ typedef enum IRQn
 	Ecall_M_Mode_IRQn = 5,   /* 5 Ecall M Mode Interrupt                             */
 	Ecall_U_Mode_IRQn = 8,   /* 8 Ecall U Mode Interrupt                             */
 	Break_Point_IRQn = 9,    /* 9 Break Point Interrupt                              */
-	SysTicK_IRQn = 12,       /* 12 System timer Interrupt                            */
+	SysTick_IRQn = 12,       /* 12 System timer Interrupt                            */
 	Software_IRQn = 14,      /* 14 software Interrupt                                */
 
 	/******  RISC-V specific Interrupt Numbers *********************************************************/
@@ -60,7 +60,7 @@ typedef enum IRQn
 	".balign  2\n"\
 	".option   push;\n"\
 	".option   norvc;\n"\
-	"j handle_reset\n"\
+	ISR_HANDLER_INITIAL_JUMP \
 	".word   0\n"\
 	WORD_OR_JUMP " NMI_Handler                /* NMI Handler */\n"\
 	WORD_OR_JUMP " HardFault_Handler          /* Hard Fault Handler */\n"\
