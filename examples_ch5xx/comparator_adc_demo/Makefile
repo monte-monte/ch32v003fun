@@ -1,6 +1,6 @@
 all : flash
 
-TARGET:=adcdemo
+TARGET:=comparator_adc_demo
 TARGET_MCU:=CH572
 TARGET_MCU_PACKAGE:=CH572Q
 
