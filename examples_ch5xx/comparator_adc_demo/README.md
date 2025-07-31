@@ -4,6 +4,12 @@ This leverages the ch570/572's comparator to create a virtual ADC. It uses integ
 
 ![schematic](schematic.png)
 
+The bit depth varies over the voltage range, but is sort of like a logrithmic 11-bit ADC.
+
+In this graph over time, the voltage applied to the resistor (top schematic configuration) is about 2.1V, then 0.95V then 10.5V.
+
+![voltagegraph](voltagegraph.png)
+
 This demo leverages the connection between the comparator and TMR1.  This allows you to get extremely precise timestamps on when an edge occurred.
 
 This operates by clamping the voltage on the pin (PA4 or PA7) low, then timing the amount of time it takes to rise to a threshold.
