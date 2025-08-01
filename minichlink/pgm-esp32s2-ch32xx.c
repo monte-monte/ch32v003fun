@@ -1350,8 +1350,8 @@ void * TryInit_ESP32S2CHFUN()
 	hid_device * hd = hid_open( 0x303a, 0x4004, L"s2-ch32xx-pgm-v0"); // third parameter is "serial"
 	if( hd )
 	{
-		eps->commandbuffersize = 256;
-		eps->replybuffersize = 256;
+		eps->commandbuffersize = 255;
+		eps->replybuffersize = 255;
 		eps->programmer_type = PROGRAMMER_TYPE_ESP32S2;
 	}
 	else if( !!( hd = hid_open( 0x1206, 0x5D10, L"RVSWDIO003-01") ) )
