@@ -13,6 +13,8 @@
 #define BUTTON_PRESSED !funDigitalRead( PIN_BUTTON )
 #endif
 
+uint8_t run = 1; // print stuff or not
+
 void blink(int n) {
 	for(int i = n-1; i >= 0; i--) {
 		funDigitalWrite( PIN_LED, FUN_LOW ); // Turn on LED
@@ -24,23 +26,11 @@ void blink(int n) {
 
 int HandleInRequest( struct _USBState * ctx, int endp, uint8_t * data, int len )
 {
-	int ret = 0;  // Just NAK
-	blink(2);
-	switch (endp)
-	{
-		case 1:
-			// ret = -1; // Just ACK
-			break;
-		case 3:
-			// ret = -1; // ACK, without it RX was stuck in some cases, leaving for now as a reminder
-			break;
-	}
-	return ret;
+	return 0;
 }
 
 void HandleDataOut( struct _USBState * ctx, int endp, uint8_t * data, int len )
 {
-	blink(2);
 	if( endp == 0 )
 	{
 		ctx->USBFS_SetupReqLen = 0; // To ACK
@@ -50,14 +40,33 @@ void HandleDataOut( struct _USBState * ctx, int endp, uint8_t * data, int len )
 	}
 	if( endp == 2 )
 	{
+		if(len == 1) {
+			switch(*data) {
+			case '1':
+				blink(1);
+				break;
+			case '2':
+				blink(2);
+				break;
+			case '3':
+				blink(3);
+				break;
+			case 'c':
+				run = 1;
+				break;
+			case 'p':
+				run = 0;
+				break;
+			default:
+				break;
+			}
+		}
 	}
 }
 
 int HandleSetupCustom( struct _USBState * ctx, int setup_code)
 {
 	int ret = -1;
-	blink(2);
-
 	if( ctx->USBFS_SetupReqType & USB_REQ_TYP_CLASS )
 	{
 		switch( setup_code )
@@ -104,5 +113,11 @@ int main()
 	USBFSSetup();
 	blink(1);
 
-	while(1);
+	int i = 0;
+	while(1) {
+		if(run) {
+			printf("Press 'p' to pause counting, 'c' to continue, 1,2, or 3 to blink. %d\r", i++);
+		}
+		Delay_Ms(100);
+	}
 }
