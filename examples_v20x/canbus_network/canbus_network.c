@@ -2,9 +2,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define AHB1_DIV 2
+#define AHB1_DIV 1
 
-// These values are calculated based on the system clock clock being 144MHz.
+// These values are calculated based on the system clock clock being 144MHz
 // The print function bellow will print the actual baud rate
 // if the clock or divider is different.
 //                     TS1           TS2            BRP
@@ -46,16 +46,16 @@ int main()
 	SystemInit();
 
 	// Enable Peripherals
-	RCC->APB2PCENR |= RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOD;
+	RCC->APB2PCENR |= RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOA;
 	RCC->APB1PCENR |= RCC_APB1Periph_CAN1;
 
 	// Configure AF remapping for CAN
 	AFIO->PCFR1 &= ~AFIO_PCFR1_CAN_REMAP; // Clear remap bits
-	AFIO->PCFR1 |= AFIO_PCFR1_CAN_REMAP_REMAP3; // Set PD0 and PD1 for CAN RX and TX
+	AFIO->PCFR1 |= AFIO_PCFR1_CAN_REMAP_REMAP1; // Set PD0 and PD1 for CAN RX and TX
 
 	// Configure GPIO
-	funPinMode( PD0, GPIO_CFGLR_IN_FLOAT );
-	funPinMode( PD1, GPIO_CFGLR_OUT_50Mhz_AF_PP );
+	funPinMode( PA11, GPIO_CFGLR_IN_FLOAT );
+	funPinMode( PA12, GPIO_CFGLR_OUT_50Mhz_AF_PP );
 
 	// Wake up
 	CAN1->CTLR &= ( ~(uint32_t)CAN_CTLR_SLEEP );
