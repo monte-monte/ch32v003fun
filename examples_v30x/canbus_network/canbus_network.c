@@ -123,9 +123,13 @@ int main()
 		const int mailbox = Transmit( data, 8 );
 		if ( mailbox != -1 )
 		{
-			while ( !MessageSent( mailbox ) )
+			uint32_t timeout = 0xFFFFF;
+			while ( !MessageSent( mailbox ) && timeout-- )
 				; // Wait for message to be sent
-			printf( "Message sent successfully on mailbox %d\n", mailbox );
+			if ( timeout == 0 )
+				printf( "Message sending timed out on mailbox %d\n", mailbox );
+			else
+				printf( "Message sent successfully on mailbox %d\n", mailbox );
 		}
 		else
 		{
