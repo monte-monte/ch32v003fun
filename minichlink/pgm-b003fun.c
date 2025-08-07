@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-
+#include "chips.h"
 #include "../ch32fun/ch32fun.h"
 
 //#define DEBUG_B003
@@ -66,10 +66,10 @@ static const unsigned char word_wise_write_blob[] = { // size and address must b
 };
 
 static const unsigned char write64_flash[] = { // size and address must be aligned by 4.
-  0x13, 0x07, 0x45, 0x03, 0x0c, 0x43, 0x13, 0x86, 0x05, 0x04, 0x5c, 0x43,
-  0x8c, 0xc7, 0x14, 0x47, 0x94, 0xc1, 0xb7, 0x06, 0x05, 0x00, 0xd4, 0xc3,
-  0x94, 0x41, 0x91, 0x05, 0x11, 0x07, 0xe3, 0xc8, 0xc5, 0xfe, 0xc1, 0x66,
-  0x93, 0x86, 0x06, 0x04, 0xd4, 0xc3, 0xfd, 0x56, 0x14, 0xc1, 0x82, 0x80
+	0x13, 0x07, 0x45, 0x03, 0x0c, 0x43, 0x13, 0x86, 0x05, 0x04, 0x5c, 0x43,
+	0x8c, 0xc7, 0x14, 0x47, 0x94, 0xc1, 0xb7, 0x06, 0x05, 0x00, 0xd4, 0xc3,
+	0x94, 0x41, 0x91, 0x05, 0x11, 0x07, 0xe3, 0xc8, 0xc5, 0xfe, 0xc1, 0x66,
+	0x93, 0x86, 0x06, 0x04, 0xd4, 0xc3, 0xfd, 0x56, 0x14, 0xc1, 0x82, 0x80
 };
 
 static const unsigned char half_wise_write_blob[] = { // size and address must be aligned by 2
@@ -117,7 +117,7 @@ static const unsigned char run_app_blob[] = {
 	0x63,0x16,0xf7,0x00,  // bne    a4,a5,.L2       - if xor is valid
 	0x33,0x87,0xb6,0x00,  // add    a4, a3, a1      - make absolute address of reboot function an jump
 	0x67,0x00,0x07,0x00,  // jr     a4              - jump to it
-  /* else - means that we didn't find a reboot function address
+	/* else - means that we didn't find a reboot function address
 	and need to send the blob to do a reboot
 .L2:                                                - Same sequence as in "Run app blob (old)"*/
 	0xb7,0x27,0x02,0x40,  // li     a5,1073881088
@@ -211,7 +211,7 @@ resend:
 			goto resend;
 		}
 	}
-        
+
 	if (eps->no_get_report) return r;
 
 	int timeout = 0;
@@ -457,6 +457,10 @@ static int InternalB003FunBoot( void * dev )
 static int B003FunSetupInterface( void * dev )
 {
 	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	struct InternalState * iss = (struct InternalState*)(((struct B003FunProgrammerStruct*)eps)->internal);
+	iss->target_chip = &ch32v003;
+	iss->target_chip_type = CHIP_CH32V003;
+	iss->flash_size = 16*1024;
 	printf( "Halting Boot Countdown\n" );
 	ResetOp( eps );
 	WriteOpArb( eps, halt_wait_blob, sizeof(halt_wait_blob) );
@@ -661,7 +665,7 @@ void * TryInit_B003Fun(uint32_t id)
 			// hd = hid_open( id>>16, id&0xFFFF, 0);
 			if (!hd) return 0;
 		}
-  }
+	}
 
 	//extern int g_hidapiSuppress;
 	//g_hidapiSuppress = 1;  // Suppress errors for this device.  (don't do this yet)
@@ -670,7 +674,6 @@ void * TryInit_B003Fun(uint32_t id)
 	memset( eps, 0, sizeof( *eps ) );
 	eps->hd = hd;
 	eps->commandplace = 1;
-
 	memset( &MCF, 0, sizeof( MCF ) );
 	MCF.WriteReg32 = 0;
 	MCF.ReadReg32 = 0;

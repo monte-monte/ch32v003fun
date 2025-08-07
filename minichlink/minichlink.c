@@ -203,13 +203,13 @@ int main( int argc, char ** argv )
 		printf( "Interface Setup\n" );
 	}
 
-  struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
-  if( iss->target_chip == 0 && !skip_startup )
-  {
-    int ret = 0;
-    ret = MCF.DetermineChipType( dev );
-    if( ret ) return ret;
-  }
+	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
+	if( iss->target_chip == 0 && !skip_startup )
+	{
+		int ret = 1;
+		if( MCF.DetermineChipType ) ret = MCF.DetermineChipType( dev );
+		if( ret ) return ret;
+	}
 
 	// PostSetupConfigureInterface( dev );
 
