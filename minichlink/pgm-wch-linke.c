@@ -294,9 +294,9 @@ int LEFlushLLCommands( void * dev )
 
 int LEResetInterface( void * d )
 {
-  libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
-  wch_link_command( dev, "\x81\x0d\x01\xff", 4, 0, 0, 0);
-  wch_link_command( dev, "\x81\x0d\x01\x01", 4, 0, 0, 0 );
+	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
+	wch_link_command( dev, "\x81\x0d\x01\xff", 4, 0, 0, 0 );
+	wch_link_command( dev, "\x81\x0d\x01\x01", 4, 0, 0, 0 );
 	return 0;
 }
 
