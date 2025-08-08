@@ -7,7 +7,7 @@ The following table details which demo is working on which chip, since some func
 |                     | ch570/2 | ch571/3 | ch582/3 | ch584/5 | ch59x |
 |---------------------|---------|---------|---------|---------|-------|
 | blink               |    √    |    √    |    √    |    ×    |   √   |
-| ble_beacon          |    √    |    ×    |    ×    |    ×    |   ×   |
+| ble_beacon          |    √    |    ×    |    ×    |    ×    |   √   |
 | boot_button         |    √    |    ×    |    √    |    ×    |   √   |
 | comparator_adc_demo |    √    |    ×    |    ×    |    ×    |   ×   |
 | debugprintfdemo     |    √    |    √    |    √    |    ×    |   √   |

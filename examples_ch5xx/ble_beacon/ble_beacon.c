@@ -51,7 +51,7 @@ int main() {
 		for(int c = 0; c < sizeof(adv_channels); c++) {
 			Frame_TX(adv, sizeof(adv), adv_channels[c], PHY_1M);
 		}
-		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM12K | RB_PWR_EXTEND) );
+		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM2K | RB_PWR_RAM24K | RB_PWR_EXTEND) ); // PWR_RAM can be optimized
 		RFCoreInit(txPower);
 		DCDCEnable();
 		blink(1);
