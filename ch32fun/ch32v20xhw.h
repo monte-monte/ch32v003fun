@@ -8225,6 +8225,19 @@ typedef struct
 #define PD14 62
 #define PD15 63
 
+#define LL_TX_POWER_MINUS_18_DBM       0x01
+#define LL_TX_POWER_MINUS_10_DBM       0x03
+#define LL_TX_POWER_MINUS_5_DBM        0x05
+#define LL_TX_POWER_MINUS_3_DBM        0x07
+#define LL_TX_POWER_0_DBM              0x09
+#define LL_TX_POWER_1_DBM              0x0B
+#define LL_TX_POWER_2_DBM              0x0D
+#define LL_TX_POWER_3_DBM              0x11
+#define LL_TX_POWER_4_DBM              0x15
+#define LL_TX_POWER_5_DBM              0x1B
+#define LL_TX_POWER_6_DBM              0x25
+#define LL_TX_POWER_7_DBM              0x3F
+
 /*
  * This file contains various parts of the official WCH EVT Headers which
  * were originally under a restrictive license.
