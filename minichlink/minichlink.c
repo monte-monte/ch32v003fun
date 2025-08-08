@@ -3025,6 +3025,7 @@ int DefaultPollTerminal( void * dev, uint8_t * buffer, int maxlen, uint32_t leav
 
 int DefaultUnbrick( void * dev )
 {
+	if( MCF.ResetInterface) MCF.ResetInterface( dev );
 	printf( "Entering Unbrick Mode\n" );
 	if( MCF.Control5v ) MCF.Control5v( dev, 0 );
 	MCF.Control3v3( dev, 0 );
@@ -3039,7 +3040,7 @@ int DefaultUnbrick( void * dev )
 	MCF.FlushLLCommands( dev );
 
 	int timeout = 0;
-	int max_timeout = 50000; // An absurdly long time.
+	int max_timeout = 500; // An absurdly long time.
 	uint32_t ds = 0;
 	for( timeout = 0; timeout < max_timeout; timeout++ )
 	{
@@ -3059,6 +3060,7 @@ int DefaultUnbrick( void * dev )
 		}
 		MCF.FlushLLCommands( dev );
 		if( ds != 0xffffffff && ds != 0x00000000 ) break;
+		else fprintf( stderr, "%08x\n", ds );
 	}
 
 	if( timeout == max_timeout ) 

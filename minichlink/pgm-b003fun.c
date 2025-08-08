@@ -460,11 +460,30 @@ static int B003FunSetupInterface( void * dev )
 	struct InternalState * iss = (struct InternalState*)(((struct B003FunProgrammerStruct*)eps)->internal);
 	iss->target_chip = &ch32v003;
 	iss->target_chip_type = CHIP_CH32V003;
-	iss->flash_size = 16*1024;
+	iss->flash_size = 16;
+	iss->ram_base = iss->target_chip->ram_base;
+	iss->ram_size = iss->target_chip->ram_size;
+	iss->sector_size = iss->target_chip->sector_size;
 	printf( "Halting Boot Countdown\n" );
 	ResetOp( eps );
 	WriteOpArb( eps, halt_wait_blob, sizeof(halt_wait_blob) );
 	if( CommitOp( eps ) ) return -5;
+	
+	uint32_t one;
+	int two;
+	uint8_t read_protection;
+	MCF.ReadWord( dev, 0x4002201c, &one );
+	MCF.ReadWord( dev, 0x40022020, (uint32_t*)&two );
+	
+	if( (one & 2) || two != -1 ) read_protection = 1;
+
+	uint8_t uuid[8];
+	fprintf( stderr, "Detected %s\n", iss->target_chip->name_str );
+	fprintf( stderr, "Flash Storage: %d kB\n", iss->flash_size );
+	if( MCF.GetUUID( dev, uuid ) ) fprintf( stderr, "Couldn't read UUID\n" );
+	else fprintf( stderr, "Part UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7] );
+	// fprintf( stderr, "Part Type: %02x-%02x-%02x-%02x\n", part_type[3], part_type[2], part_type[1], part_type[0] );
+	fprintf( stderr, "Read protection: %s\n", (read_protection > 0)?"enabled":"disabled" );
 	return 0;
 }
 
@@ -638,6 +657,19 @@ int B003PollTerminal( void * dev, uint8_t * buffer, int maxlen, uint32_t leavefl
 	}
 }
 
+static int B003FunGetUUID(void * dev, uint8_t * buffer)
+{
+	int ret = 0;
+	uint8_t local_buffer[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+	ret |= MCF.ReadWord( dev, 0x1ffff7e8, (uint32_t*)local_buffer );			
+	ret |= MCF.ReadWord( dev, 0x1ffff7ec, (uint32_t*)(local_buffer + 4) );
+	
+	*((uint32_t*)buffer) = local_buffer[0]<<24|local_buffer[1]<<16|local_buffer[2]<<8|local_buffer[3];
+	*(((uint32_t*)buffer)+1) = local_buffer[4]<<24|local_buffer[5]<<16|local_buffer[6]<<8|local_buffer[7];
+	return ret;
+}
+
 void * TryInit_B003Fun(uint32_t id)
 {
 	hid_init();
@@ -704,6 +736,8 @@ void * TryInit_B003Fun(uint32_t id)
 	MCF.PrepForLongOp = B003FunPrepForLongOp;
 
 	MCF.HaltMode = B003FunHaltMode;
+
+	MCF.GetUUID = B003FunGetUUID;
 
 	return eps;
 }
