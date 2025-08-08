@@ -1801,6 +1801,7 @@ RV_STATIC_INLINE void LowPowerSleep(uint32_t cyc, uint16_t power_plan)
   	   R16_POWER_PLAN = RB_PWR_PLAN_EN | RB_PWR_CORE | power_plan | (1<<12);
 	);
 	
+	NVIC->SCTLR &= ~(1 << 3); // wfi
 	asm volatile ("wfi\nnop\nnop" );
 
 	#if ( CLK_SOURCE_CH5XX == CLK_SOURCE_PLL_75MHz ) || ( CLK_SOURCE_CH5XX == CLK_SOURCE_PLL_100MHz )
