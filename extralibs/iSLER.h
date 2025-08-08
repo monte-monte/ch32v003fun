@@ -702,18 +702,6 @@ void RFCoreInit(uint8_t TxPower) {
 	NVIC_EnableIRQ(LLE_IRQn);
 }
 
-void RFWakeup(uint8_t TxPower) {
-#if defined(CH570_CH572)
-	LL->LL1 |= 0x1e;
-	LL->LL21 = 0;
-	LL->INT_EN = 0x20003;
-
-	BB->BB15 = 0x40;
-	BB->BB16 = 0xffff;
-#endif
-	DevInit(TxPower);
-}
-
 void DevSetChannel(uint8_t channel) {
 #ifdef CH571_CH573
 	BB->BB6 = (BB->BB6 & 0xf8ffffff) | 0x4000000;

@@ -52,7 +52,7 @@ int main() {
 			Frame_TX(adv, sizeof(adv), adv_channels[c], PHY_1M);
 		}
 		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM12K | RB_PWR_EXTEND) );
-		RFWakeup(txPower);
+		RFCoreInit(txPower);
 		DCDCEnable();
 		blink(1);
 	}
