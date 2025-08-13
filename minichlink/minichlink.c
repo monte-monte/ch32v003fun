@@ -1079,7 +1079,7 @@ static int64_t StringToMemoryAddress( void * dev, const char * number )
 	{
 		base = iss->target_chip->bootloader_offset;
 		number += 10;
-		iss->current_area = PROGRAM_AREA;
+		iss->current_area = BOOTLOADER_AREA;
 	}
 	if( strncmp( number, "option", 6 ) == 0 )
 	{
