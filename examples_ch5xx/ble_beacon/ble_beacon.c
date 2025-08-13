@@ -21,6 +21,18 @@ void RTC_IRQHandler(void) {
 	R8_RTC_FLAG_CTRL = RB_RTC_TRIG_CLR;
 }
 
+void allPinPullUp(void)
+{
+	R32_PA_DIR = 0; //Direction input
+	R32_PA_PD_DRV = 0; //Disable pull-down
+	R32_PA_PU = P_All; //Enable pull-up
+#ifdef PB
+	R32_PB_DIR = 0; //Direction input
+	R32_PB_PD_DRV = 0; //Disable pull-down
+	R32_PB_PU = P_All; //Enable pull-up
+#endif
+}
+
 void blink(int n) {
 	for(int i = n-1; i >= 0; i--) {
 		funDigitalWrite( LED, FUN_LOW ); // Turn on LED
@@ -37,6 +49,8 @@ int main() {
 	LSIEnable(); // Disable LSE, enable LSI
 	RTCInit(); // Set the RTC counter to 0
 	SleepInit(); // Enable wakeup from sleep by RTC, and enable RTC IRQ
+
+	allPinPullUp(); // this reduces sleep from ~70uA to 1uA
 
 	funGpioInitAll();
 	funPinMode( LED, GPIO_CFGLR_OUT_2Mhz_PP );
