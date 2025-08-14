@@ -57,11 +57,11 @@ int main()
 	uint8_t i = 5;
 	while(i--)
 	{ 
-		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM12K) );
+		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM2K) );
 		DCDCEnable();
 		blink_led(2);
 		
-		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM12K) );
+		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM2K) );
 		DCDCEnable();
 		blink_led(3);
 	}

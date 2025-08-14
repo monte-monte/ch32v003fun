@@ -9,6 +9,7 @@
 #endif
 
 #define SLEEPTIME_MS 300
+#define RB_PWR_RAM_MAIN 0x10 // RB_PWR_RAM16K for ch570/2, RB_PWR_RAM30K for ch582/3, RB_PWR_RAM24K for ch59x
 
 uint8_t adv[] = {0x66, 0x55, 0x44, 0x33, 0x22, 0x11, // MAC (reversed)
 				 0x03, 0x19, 0x00, 0x00, // 0x19: "Appearance", 0x00, 0x00: "Unknown"
@@ -65,7 +66,7 @@ int main() {
 		for(int c = 0; c < sizeof(adv_channels); c++) {
 			Frame_TX(adv, sizeof(adv), adv_channels[c], PHY_1M);
 		}
-		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM2K | RB_PWR_RAM24K | RB_PWR_EXTEND) ); // PWR_RAM can be optimized
+		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM2K | RB_PWR_RAM_MAIN | RB_PWR_EXTEND) ); // PWR_RAM can be optimized
 		RFCoreInit(txPower);
 		DCDCEnable();
 		blink(1);
