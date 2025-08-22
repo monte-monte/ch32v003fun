@@ -7,8 +7,8 @@ You can set any pins for LED and switch by editing their defines.
 */
 #include "ch32fun.h"
 
-#define LED_PIN PB2
-#define INT_PIN PA4
+#define LED_PIN PA10
+#define INT_PIN PA1
 
 #define RISING_EDGE 1
 #define FALLING_EDGE 0
