@@ -165,6 +165,19 @@ jobs:
           tar czf ../../minichlink-macos-universal.tar.gz *
           cd ../..
 
+      - name: Test binaries
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "ARM64 version:"
+          otool -L dist/arm64/minichlink 
+          dist/arm64/minichlink -h || true
+          echo "Intel version:"
+          otool -L dist/x86_64/minichlink 
+          dist/x86_64/minichlink -h || true
+          echo "Universal version:"
+          otool -L tmp/universal/minichlink 
+          tmp/universal/minichlink -h || true
+
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'macos-latest'
         with:
