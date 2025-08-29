@@ -1,9 +1,11 @@
 all : flash
 
 TARGET:=spi_dma_chain
-TARGET_MCU:=CH32V203
-
+# TARGET_MCU:=CH32V203
+TARGET_MCU:=CH32V307
+ENABLE_FPU:=0
 include ../../ch32fun/ch32fun.mk
+CFLAGS+=-O0
 
 flash : cv_flash
 clean : cv_clean

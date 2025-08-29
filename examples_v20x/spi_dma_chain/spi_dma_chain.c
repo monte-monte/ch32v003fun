@@ -35,16 +35,23 @@ enum SPITransfer {
 };
 
 #define PACKET_SIZE 10
-#define BUFFER_SIZE PACKET_SIZE*32
+#define BUFFER_SIZE PACKET_SIZE*10
+
+typedef enum {
+  commandIdle = 0,
+  commandEnumerate,
+  commandReadSensor,
+  commandLed,
+} command_t;
 
 typedef struct {
-	volatile uint8_t in[BUFFER_SIZE];
-	volatile uint8_t out[BUFFER_SIZE];
-	uint32_t pos_out; // Position in the array for the next packet to be placed at
-	uint32_t pos_in;
-	uint32_t sending_pos; // Position we are actually reading data from during send
-	uint32_t receiving_pos; // or writing to during receive
-  uint32_t to_send;
+	uint8_t in[BUFFER_SIZE];
+	uint8_t out[BUFFER_SIZE];
+	volatile uint32_t pos_out; // Position in the array for the next packet to be placed at
+	volatile uint32_t pos_in;
+	volatile uint32_t sending_pos; // Position we are actually reading data from during send
+	volatile uint32_t receiving_pos; // or writing to during receive
+  volatile uint32_t to_send;
 } buffer_t;
 
 typedef struct {
@@ -56,7 +63,9 @@ typedef struct {
   buffer_t * buffer;
   uint8_t next_node_ID;
   uint16_t message_number;
-  uint8_t incoming_message[PACKET_SIZE];
+  command_t pending_command;
+  volatile uint8_t incoming_message[PACKET_SIZE];
+  uint8_t ack_incomming;
 } spi_t;
 
 volatile uint8_t message_received = 0;
@@ -88,26 +97,31 @@ spi_t spi2 = {
 spi_t* spi_master = &spi1;
 spi_t* spi_slave = &spi2;
 
-uint32_t timer = 0;
+uint64_t timer = 0;
 volatile uint8_t incomming_packet = 0;
 
-void process_incoming(spi_t * spi) {
-  printf("Processing incoming: %02x %02x %02x %02x %02x %02x %02x %02x\n", spi->buffer->in[spi->buffer->pos_in], spi->buffer->in[spi->buffer->pos_in + 1], spi->buffer->in[spi->buffer->pos_in + 2], spi->buffer->in[spi->buffer->pos_in + 3], spi->buffer->in[spi->buffer->pos_in + 4], spi->buffer->in[spi->buffer->pos_in + 5], spi->buffer->in[spi->buffer->pos_in + 6], spi->buffer->in[spi->buffer->pos_in + 7]);
-  // printf("%d - %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n", spi->buffer->pos_in, spi->buffer->in[spi->buffer->pos_in], spi->buffer->in[spi->buffer->pos_in + 1], spi->buffer->in[spi->buffer->pos_in + 2], spi->buffer->in[spi->buffer->pos_in + 3], spi->buffer->in[spi->buffer->pos_in + 4], spi->buffer->in[spi->buffer->pos_in + 5], spi->buffer->in[spi->buffer->pos_in + 6], spi->buffer->in[spi->buffer->pos_in + 7], spi->buffer->in[spi->buffer->pos_in + 8], spi->buffer->in[spi->buffer->pos_in + 9]);
-  uint8_t inc_id = spi->buffer->in[spi->buffer->pos_in] & 0xff;
+static inline void process_incoming(spi_t * spi) {
+  // printf("M\n");
+  // printf("Processing incoming: %02x %02x %02x %02x %02x %02x %02x %02x\n", spi->buffer->in[spi->buffer->pos_in], spi->buffer->in[spi->buffer->pos_in + 1], spi->buffer->in[spi->buffer->pos_in + 2], spi->buffer->in[spi->buffer->pos_in + 3], spi->buffer->in[spi->buffer->pos_in + 4], spi->buffer->in[spi->buffer->pos_in + 5], spi->buffer->in[spi->buffer->pos_in + 6], spi->buffer->in[spi->buffer->pos_in + 7]);
+  uint8_t inc_id = spi->buffer->in[spi->buffer->pos_in];
 	if (inc_id == NODE_ID || inc_id == 0 || inc_id == 0xff) {
-		if (message_received == 0) memcpy(spi->incoming_message, &spi->buffer->in[spi->buffer->pos_in], PACKET_SIZE);
+    // printf("here\n");
+		if (message_received == 0) {
+      memcpy(spi->incoming_message, &spi->buffer->in[spi->buffer->pos_in], PACKET_SIZE);
+      spi->ack_incomming = 0;
+    }
     if (inc_id == 0 && spi->next_node_ID == 0) spi->next_node_ID = spi->incoming_message[1];
 	} else {
+    // printf("there\n");
 		memcpy(&spi->buffer->out[spi->buffer->pos_out], &spi->buffer->in[spi->buffer->pos_in], PACKET_SIZE);
 		if ((spi->buffer->pos_out += PACKET_SIZE) >= BUFFER_SIZE) spi->buffer->pos_out = 0;
 	}
+  // printf("nowhere\n");
 	if ((spi->buffer->pos_in += PACKET_SIZE) >= BUFFER_SIZE) spi->buffer->pos_in = 0;
-  memset(spi->buffer->in, 0, PACKET_SIZE);
+  // memset(spi->buffer->in, 0, PACKET_SIZE);
 }
 
-void DMA1_Channel2_IRQHandler( void ) __attribute__((interrupt));
-void DMA1_Channel2_IRQHandler( void ) 
+__attribute__((interrupt)) void DMA1_Channel2_IRQHandler( void ) 
 {
   printf("\nCH2 INTERRUPT\n");
 	// Backup flags.
@@ -126,10 +140,9 @@ void DMA1_Channel2_IRQHandler( void )
 	} while( intfr );
 }
 
-void DMA1_Channel3_IRQHandler( void ) __attribute__((interrupt));
-void DMA1_Channel3_IRQHandler( void ) 
+__attribute__((interrupt)) void DMA1_Channel3_IRQHandler( void ) 
 {
-  printf("\nCH3 INTERRUPT\n");
+  // printf("\nCH3 INTERRUPT\n");
 	volatile int intfr = DMA1->INTFR;
 	do
 	{
@@ -137,7 +150,7 @@ void DMA1_Channel3_IRQHandler( void )
 		if( intfr & DMA1_IT_TC3 )
 		{
 			if (spi1.buffer->sending_pos != spi1.buffer->pos_out) {
-        printf("There is something to send %ld - %ld\n", spi1.buffer->sending_pos, spi1.buffer->pos_out);
+        // printf("There is something to send %ld - %ld\n", spi1.buffer->sending_pos, spi1.buffer->pos_out);
         DMA1_CH(3)->CFGR &= ~DMA_CFGR1_EN;
 				if (spi1.buffer->sending_pos > spi1.buffer->pos_out) {
 					DMA1_CH(3)->CNTR = (BUFFER_SIZE - spi1.buffer->sending_pos) + spi1.buffer->pos_out;
@@ -146,14 +159,14 @@ void DMA1_Channel3_IRQHandler( void )
 				}
 				DMA1_CH(3)->CFGR |= DMA_CFGR1_EN;
 				spi1.buffer->sending_pos = spi1.buffer->pos_out;
+        // printf("sending_pos %ld\n", spi1.buffer->sending_pos);
 			}
 		}
 		intfr = DMA1->INTFR;
 	} while( intfr );
 }
 
-void DMA1_Channel4_IRQHandler( void ) __attribute__((interrupt));
-void DMA1_Channel4_IRQHandler( void ) 
+__attribute__((interrupt)) void DMA1_Channel4_IRQHandler( void ) 
 {
   printf("\nCH4 INTERRUPT\n");
 	volatile int intfr = DMA1->INTFR;
@@ -169,8 +182,7 @@ void DMA1_Channel4_IRQHandler( void )
 	} while( intfr );
 }
 
-void DMA1_Channel5_IRQHandler( void ) __attribute__((interrupt));
-void DMA1_Channel5_IRQHandler( void ) 
+__attribute__((interrupt)) void DMA1_Channel5_IRQHandler( void ) 
 {
 	printf("\nCH5 INTERRUPT\n");
 	volatile int intfr = DMA1->INTFR;
@@ -197,89 +209,97 @@ void DMA1_Channel5_IRQHandler( void )
 	} while( intfr );
 }
 
-static inline void spi_nodma_transmission(spi_t * spi) {
-  volatile uint32_t timer1 = SysTick->CNT;
+static inline void spi_nodma_transmission(spi_t * spi, uint8_t * buf, uint32_t len) {
+  // volatile uint32_t timer1 = SysTick->CNT;
   // printf("nodma\n");
-  // volatile uint8_t local_buffer[20];
   uint8_t master = ((spi->addr->CTLR1 & 0x4) == 0x4);
   uint32_t timeout = SPI_TRANSMISSION_TIMEOUT;
+  uint32_t buf_pos = 0;
+  if (buf && len == 0) buf = NULL;
   
   uint8_t to_receive = PACKET_SIZE;
   while (timeout--) {
     // If SPI slave, we only run this function in interrupt
-    
-    // If SPI master, we only run while there is something to send, or until timeout if POLLING
-    if (master && spi->buffer->to_send && spi->transmission != SPI_POLLING) break;
-
-    if ((spi->addr->STATR & SPI_STATR_TXE) && spi->buffer->to_send) {
-      // Write byte from buffer
-      spi->addr->DATAR = spi->buffer->out[spi->buffer->sending_pos++];
-      spi->buffer->to_send--;
-      timeout = SPI_TRANSMISSION_TIMEOUT; // Update timeout
-    }
-    if ((spi->addr->STATR & SPI_STATR_RXNE) && spi->buffer->receiving_pos < BUFFER_SIZE) {
-      
-      // local_buffer[spi->buffer->receiving_pos++] = spi->addr->DATAR;
-      spi->buffer->in[spi->buffer->receiving_pos++] = spi->addr->DATAR;
-      if (to_receive) to_receive--;
-      timeout = SPI_TRANSMISSION_TIMEOUT;
-    }
     if (!master && funDigitalRead(spi->cs_pin)) {
       // printf("CS pin HIGH, breaking\n");
       break;
     }
+    // If SPI master, we only run while there is something to send, or until timeout if POLLING
+    if (master && (!spi->buffer->to_send || !len) && spi->transmission != SPI_POLLING) break;
+
+    if ((spi->addr->STATR & SPI_STATR_TXE) && (spi->buffer->to_send || len)) {
+      // Write byte from buffer
+      if (buf == NULL) {
+        spi->addr->DATAR = spi->buffer->out[spi->buffer->sending_pos++];
+        spi->buffer->to_send--;
+      } else {
+        spi->addr->DATAR = buf[buf_pos++];
+        len--;
+      }
+      timeout = SPI_TRANSMISSION_TIMEOUT; // Reload timeout
+    }
+
+    if ((spi->addr->STATR & SPI_STATR_RXNE) && spi->buffer->receiving_pos < BUFFER_SIZE) {
+      // Read from SPI to buffer
+      spi->buffer->in[spi->buffer->receiving_pos++] = spi->addr->DATAR;
+      if (to_receive) to_receive--;
+      timeout = SPI_TRANSMISSION_TIMEOUT;
+    }
   }
 
   // printf("to_receive = %d, timeout = %d\n", to_receive, timeout);
-  EXTI->INTFR = 1 << (spi->cs_pin % 16);
+  
   
   // If we actually received anything, process incoming buffer
   if (to_receive != PACKET_SIZE) {
-    // printf("%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n", local_buffer[0], local_buffer[1], local_buffer[2], local_buffer[3], local_buffer[4], local_buffer[5], local_buffer[6], local_buffer[7], local_buffer[8], local_buffer[9]);
-    process_incoming(&spi2);
+    process_incoming(spi);
     spi->buffer->receiving_pos = 0; // In nodma mode we don't need circular buffer for receive;
     spi->buffer->pos_in = 0; // In nodma mode we don't need circular buffer for receive;
-    // spi->addr->DATAR; // Clear buffer?
   }
-  uint32_t timer2 = SysTick->CNT;
-  printf("interrupt took %ld ticks, %ldus\n", (timer2 - timer1), (timer2 - timer1)/DELAY_US_TIME);
+
+  EXTI->INTFR = 1 << (spi->cs_pin % 16);
+  // uint32_t timer2 = SysTick->CNT;
+  // printf("interrupt took %ld ticks, %ldus\n", (timer2 - timer1), (timer2 - timer1)/DELAY_US_TIME);
 }
 
-__attribute__((interrupt)) void EXTI0_IRQHandler( void ) { spi_nodma_transmission(spi_slave); }
-__attribute__((interrupt)) void EXTI1_IRQHandler( void ) { spi_nodma_transmission(spi_slave); }
-__attribute__((interrupt)) void EXTI2_IRQHandler( void ) { spi_nodma_transmission(spi_slave); }
-__attribute__((interrupt)) void EXTI3_IRQHandler( void ) { spi_nodma_transmission(spi_slave); }
-__attribute__((interrupt)) void EXTI4_IRQHandler( void ) { spi_nodma_transmission(spi_slave); }
-__attribute__((interrupt)) void EXTI9_5_IRQHandler( void ) { spi_nodma_transmission(spi_slave); }
-__attribute__((interrupt)) void EXTI15_10_IRQHandler( void ) { spi_nodma_transmission(spi_slave); }
+__attribute__((interrupt)) void EXTI0_IRQHandler( void ) { spi_nodma_transmission(spi_slave, NULL, 0); }
+__attribute__((interrupt)) void EXTI1_IRQHandler( void ) { spi_nodma_transmission(spi_slave, NULL, 0); }
+__attribute__((interrupt)) void EXTI2_IRQHandler( void ) { spi_nodma_transmission(spi_slave, NULL, 0); }
+__attribute__((interrupt)) void EXTI3_IRQHandler( void ) { spi_nodma_transmission(spi_slave, NULL, 0); }
+__attribute__((interrupt)) void EXTI4_IRQHandler( void ) { spi_nodma_transmission(spi_slave, NULL, 0); }
+__attribute__((interrupt)) void EXTI9_5_IRQHandler( void ) { spi_nodma_transmission(spi_slave, NULL, 0); }
+__attribute__((interrupt)) void EXTI15_10_IRQHandler( void ) { spi_nodma_transmission(spi_slave, NULL, 0); }
 
-void SPI1_IRQHandler(void) __attribute__((interrupt));
-void SPI1_IRQHandler(void) {
+__attribute__((interrupt)) void SPI1_IRQHandler(void) {
   printf("SPI1 IRQ %04x\n", SPI1->STATR);
-  if (SPI1->STATR & SPI_STATR_RXNE) {
-    // printf("%02x ", SPI1->DATAR);
-    SPI1->CTLR2 &= ~SPI_CTLR2_RXNEIE;
-    incomming_packet = 1;
+  if (SPI1->STATR & SPI_STATR_RXNE || ((SPI1->STATR & SPI_STATR_TXE) && (SPI1->CTLR2 & SPI_CTLR2_TXEIE))) {
     // Starting receiving new packet
-    // if (spi1.buffer->receiving_pos >= spi1.buffer->pos_in) {
-    //   spi1.buffer->pos_in += PACKET_SIZE;
-    // }
-    // spi1.buffer->in[spi1.buffer->receiving_pos] = SPI1->DATAR;
-    // for( uint8_t i = 0; i < 8; i++) printf("%02x\n", SPI1->DATAR);
-    // if (spi1.buffer->receiving_pos++ >= spi1.buffer->pos_in) {
-    //   process_incoming(&spi1);
-    // } 
-  }
-  if ((SPI1->STATR & SPI_STATR_TXE) && (SPI1->CTLR2 & SPI_CTLR2_TXEIE)) {
-    // Write byte from buffer
-    SPI1->DATAR = spi1.buffer->out[spi1.buffer->sending_pos];
-    // If we've sent everything there was, disable TX interrupt
-    if (spi1.buffer->sending_pos++ >= spi1.buffer->pos_out) SPI1->CTLR2 &= ~SPI_CTLR2_TXEIE;
+    uint8_t i = 0;
+    uint8_t j = 0;
+    while (i < PACKET_SIZE || (j < PACKET_SIZE && (SPI1->CTLR2 & SPI_CTLR2_TXEIE))) {
+      if (SPI1->STATR & SPI_STATR_TXE && j < PACKET_SIZE + 1 && (SPI1->CTLR2 & SPI_CTLR2_TXEIE)) {
+        // Write byte from buffer
+        SPI1->DATAR = spi1.buffer->out[spi1.buffer->pos_out + j];
+        // If we've sent everything there was, disable TX interrupt
+        if (spi1.buffer->sending_pos++ >= spi1.buffer->pos_out) SPI1->CTLR2 &= ~SPI_CTLR2_TXEIE;
+        j++;
+      }
+      if (SPI1->STATR & SPI_STATR_RXNE && i < PACKET_SIZE + 1) {
+        spi1.buffer->in[spi1.buffer->pos_in + i] = SPI1->DATAR;
+        i++;
+      }
+    }
+    if (spi1.buffer->receiving_pos >= spi1.buffer->pos_in) {
+      
+      process_incoming(&spi2);
+      spi1.buffer->pos_in += PACKET_SIZE;
+      spi1.buffer->receiving_pos = spi1.buffer->pos_in;
+      SPI1->DATAR; // Clear buffer?
+    }
   }
 }
 
-void SPI2_IRQHandler(void) __attribute__((interrupt));
-void SPI2_IRQHandler(void) {
+__attribute__((interrupt)) void SPI2_IRQHandler(void) {
   // printf("SPI2 IRQ\n");
   if (SPI2->STATR & SPI_STATR_RXNE || ((SPI2->STATR & SPI_STATR_TXE) && (SPI2->CTLR2 & SPI_CTLR2_TXEIE))) {
     // Starting receiving new packet
@@ -304,43 +324,41 @@ void SPI2_IRQHandler(void) {
       spi2.buffer->pos_in += PACKET_SIZE;
       spi2.buffer->receiving_pos = spi2.buffer->pos_in;
       SPI2->DATAR; // Clear buffer?
-    } 
-    // if (spi2.buffer->receiving_pos >= spi2.buffer->pos_in) {
-    //   spi2.buffer->pos_in += PACKET_SIZE;
-    // }
-    // spi2.buffer->in[spi2.buffer->receiving_pos] = SPI2->DATAR;
-    // if (spi2.buffer->receiving_pos++ >= spi2.buffer->pos_in) {
-    //   process_incoming(&spi2);
-    // } 
+    }
   }
 }
 
 static inline void setupEXTI(uint8_t pin, uint8_t rising) {
   uint8_t port = (uint8_t)(pin / 16);
-  uint8_t exti = (uint8_t)((pin%16) / 4);
+  pin = pin%16;
+  uint8_t exti = (uint8_t)(pin / 4);
 
 	AFIO->EXTICR[exti] |= port;
 
   if (rising) {
-    EXTI->RTENR |= 1 << (pin%16); // enable rising edge trigger
-    EXTI->FTENR &= ~(1 << (pin%16)); // disable falling edge trigger
+    EXTI->RTENR |= 1 << pin; // enable rising edge trigger
+    EXTI->FTENR &= ~(1 << pin); // disable falling edge trigger
   } else {
-    EXTI->RTENR &= ~(1 << (pin%16)); // disable rising edge trigger
-    EXTI->FTENR |= 1 << (pin%16); // enable falling edge trigger
+    EXTI->RTENR &= ~(1 << pin); // disable rising edge trigger
+    EXTI->FTENR |= 1 << pin; // enable falling edge trigger
   }
 
-  if ((pin%16) < 5) NVIC_EnableIRQ((IRQn_Type)((uint8_t)EXTI0_IRQn + (pin%16)));
-  else if ((pin%16) < 10) NVIC_EnableIRQ(EXTI9_5_IRQn);
-  else NVIC_EnableIRQ(EXTI15_10_IRQn);
+  IRQn_Type irqn;
+  if (pin < 5) irqn = (IRQn_Type)((uint8_t)EXTI0_IRQn + pin);
+  else if (pin < 10) irqn = EXTI9_5_IRQn;
+  else irqn = EXTI15_10_IRQn;
 
   // printf("exti priority %02x\n", NVIC);
-  // NVIC_SetPriority();
-  EXTI->INTENR |= 1 << (pin%16); // Enable EXTIx interrupt
+  NVIC_EnableIRQ(irqn);
+#if defined(FUNCONF_ENABLE_HPE) && FUNCONF_ENABLE_HPE
+  NVIC_SetPriority(irqn, 0<<7); // Set HIGH preemptive priority for the IRQ
+#endif
+  EXTI->INTENR |= 1 << pin; // Enable EXTIx interrupt
 }
 
 void setupDMA(uint8_t ch, SPI_TypeDef * spi, uint8_t mode, uint8_t sixteen_bits, uint8_t* buffer)
 {
-  printf("DMA_ch%d, buffer = %08x\n", ch, buffer);
+  // printf("DMA_ch%d, buffer = %08x\n", ch, buffer);
 	RCC->AHBPCENR |= RCC_AHBPeriph_DMA1;
 
 	DMA1_CH(ch)->PADDR = (uint32_t)&spi->DATAR;
@@ -349,7 +367,7 @@ void setupDMA(uint8_t ch, SPI_TypeDef * spi, uint8_t mode, uint8_t sixteen_bits,
 	DMA1_CH(ch)->CNTR  = 0;
 	DMA1_CH(ch)->CFGR  =
 		DMA_M2M_Disable |		 
-		DMA_Priority_High |
+		DMA_Priority_Low |
 		(sixteen_bits?DMA_MemoryDataSize_Word:DMA_MemoryDataSize_Byte) |
 		(sixteen_bits?DMA_PeripheralDataSize_Word:DMA_PeripheralDataSize_Byte) |
 		DMA_MemoryInc_Enable |
@@ -363,6 +381,9 @@ void setupDMA(uint8_t ch, SPI_TypeDef * spi, uint8_t mode, uint8_t sixteen_bits,
   // printf("CFGR%d = %08x\n", ch, DMA1_CH(ch)->CFGR);
 
 	NVIC_EnableIRQ( DMA1_IRQ(ch) );
+#if defined(FUNCONF_ENABLE_HPE) && FUNCONF_ENABLE_HPE && (TARGET_MCU!=CH32V103)
+  NVIC_SetPriority(DMA1_IRQ(ch), 1<<7);
+#endif
 	DMA1_CH(ch)->CFGR |= DMA_CFGR1_EN;
 }
 
@@ -425,29 +446,34 @@ void spi_send(spi_t * spi, uint8_t receiver_id, uint8_t* buf) {
   
   printf("sending message via SPI-%s\n", (master?"master":"slave"));
   
+  if (spi->message_number++ > 32767) spi->message_number = 1;
   spi->buffer->out[spi->buffer->pos_out] = (uint8_t)NODE_ID;
   spi->buffer->out[spi->buffer->pos_out+1] = receiver_id;
-  spi->buffer->out[spi->buffer->pos_out+2] = (uint8_t)(spi->message_number<<9);
+  spi->buffer->out[spi->buffer->pos_out+2] = (uint8_t)(spi->message_number>>7);
   spi->buffer->out[spi->buffer->pos_out+3] = (uint8_t)((spi->message_number<<1) | 1);
 
-  memcpy(&spi->buffer->out[spi->buffer->pos_out+4], buf, PACKET_SIZE);
+  memcpy(&spi->buffer->out[spi->buffer->pos_out+4], buf, PACKET_SIZE-4);
   
-  printf("%02x %02x %02x %02x %02x %02x %02x %02x\n", spi->buffer->out[0], spi->buffer->out[1], spi->buffer->out[2], spi->buffer->out[3], spi->buffer->out[4], spi->buffer->out[5], spi->buffer->out[6], spi->buffer->out[7]);
+  // printf("%02x %02x %02x %02x %02x %02x %02x %02x\n", spi->buffer->out[0], spi->buffer->out[1], spi->buffer->out[2], spi->buffer->out[3], spi->buffer->out[4], spi->buffer->out[5], spi->buffer->out[6], spi->buffer->out[7]);
   
-  if (master) {  
-    if (spi->transmission == SPI_IDLE && master) if (master) funDigitalWrite(spi->cs_pin, 0);
-    if (spi->transmission == SPI_IDLE || spi->transmission == SPI_DONE) {
+  if (master) {
+    if (spi->transmission == SPI_IDLE) {
       spi->dma_out->CFGR &= ~DMA_CFGR1_EN;
       spi->dma_out->MADDR = &spi->buffer->out[spi->buffer->pos_out];
-      spi->dma_out->CNTR = PACKET_SIZE;
-      // printf("CNTR = %d\n", DMA1_CH(3)->CNTR);
-      spi->dma_out->CFGR |= DMA_CFGR1_EN;
       spi->buffer->sending_pos = spi->buffer->pos_out;
+      spi->dma_out->CNTR = PACKET_SIZE;
+      // printf("out = %08x\n", &spi->buffer->out[spi->buffer->pos_out]);
+      // printf("MADDR = %08lx\n", spi->dma_out->MADDR);
+      // printf("buffer.out = %08lx\n", (uint32_t)&spi->buffer->out);
+      // printf("buffer.pos_out = %ld\n", spi->buffer->pos_out);
+      // Delay_Ms(100);
+      funDigitalWrite(spi->cs_pin, 0);
+      spi->dma_out->CFGR |= DMA_CFGR1_EN;
+      spi->transmission = SPI_IN_PROGRESS;
+      // printf("NEW sending_pos %ld\n", spi->buffer->sending_pos);
     }
 
-    printf("MADDR = %08lx\n", spi->dma_out->MADDR);
-    printf("buffer.out = %08lx\n", (uint32_t)&spi->buffer->out);
-    printf("buffer.pos_out = %ld\n", spi->buffer->pos_out);
+    
 
   } else {
     if (spi->transmission == SPI_IDLE || spi->transmission == SPI_DONE) {
@@ -456,12 +482,78 @@ void spi_send(spi_t * spi, uint8_t receiver_id, uint8_t* buf) {
   }
 
   if ((spi->buffer->pos_out += PACKET_SIZE) >= BUFFER_SIZE) spi->buffer->pos_out = 0;
+  // Delay_Ms(100);
+  // printf("on exit buffer.pos_out = %ld\n", spi->buffer->pos_out);
 }
 
 void spi_poll(spi_t * spi) {
   uint8_t buf[6] = {0, 0, 0, 0, 0, 0,};
 
   spi_send(spi, 0, buf);
+}
+
+void process_message(spi_t * spi) {
+  if (spi->ack_incomming) return;
+  
+  uint8_t local_message[PACKET_SIZE];
+  uint32_t local_number = spi->message_number;
+
+  memcpy(local_message, spi->incoming_message, PACKET_SIZE);
+  uint16_t message_number = (local_message[2]<<8) | local_message[3];
+  if (!message_number) return;
+  if (spi->pending_command != commandIdle) {
+    if ((message_number >> 1) == local_number) {
+      // switch (spi->pending_command) {
+      //   case commandEnumerate:
+      //     /* code */
+      //     break;
+      //   case commandLed:
+      //     break;
+      //   case commandReadSensor:
+      //     break;
+      // }
+    } else {
+      printf("unknown message number: %d", message_number);
+    }
+  } else {
+    printf("Message number %04x, %d, type: %s Incomming message:\n", message_number, message_number >> 1, (message_number&1)?"new":"reply");
+    for (uint8_t i = 0; i < PACKET_SIZE; i++) {
+      printf("%02x ", local_message[i]);
+    }
+    printf("\n");
+  }
+  // __disable_irq();
+  if (spi->message_number == local_number) {
+    spi->message_number = message_number >> 1;
+    spi->ack_incomming = 1;
+  }
+  // __enable_irq();
+
+  // spi->incoming_message[2] = 0;
+  // spi->incoming_message[3] = 0;
+  // memset(spi->incoming_message, 0, PACKET_SIZE);
+}
+
+void read_sensor_local() {
+  SPI_TypeDef * master = spi_master->addr;
+  
+  while ((master->STATR & SPI_I2S_FLAG_BSY)) {
+    funDigitalWrite(spi_master->cs_pin, 1);
+    spi_master->transmission = SPI_IDLE;
+  }
+
+  uint16_t save_ctlr2 = master->CTLR2;
+  master->CTLR2 = 0; // Disable SPI DMA, and interrupts if enabled
+
+  // do sensor stuff
+
+  // Wait until done
+  while ((master->STATR & SPI_I2S_FLAG_BSY)) {
+    funDigitalWrite(spi_master->cs_pin, 1);
+    spi_master->transmission = SPI_IDLE;
+  }
+
+  master->CTLR2 = save_ctlr2; // Restore SPI DMA and interrupt settings
 }
 
 int main()
@@ -471,6 +563,7 @@ int main()
 	funGpioInitAll();
 
   printf("setup\n");
+  printf("SysTick->CNT = %lu\n", (uint32_t)SysTick->CNT);
 
   memset(spi_master->buffer->in, 0, BUFFER_SIZE);
   memset(spi_master->buffer->out, 0, BUFFER_SIZE);
@@ -478,56 +571,45 @@ int main()
   memset(spi_slave->buffer->in, 0, BUFFER_SIZE);
   memset(spi_slave->buffer->out, 0, BUFFER_SIZE);
 
-	// setup_SPI(SPI1, SPI_Master, 0);
-  // funDigitalWrite(spi_master->cs_pin, 1);
+	setup_SPI(spi_master->addr, SPI_Master, 0);
+  funDigitalWrite(spi_master->cs_pin, 1);
 
-	setup_SPI(SPI2, SPI_Slave, 0);
+	setup_SPI(spi_slave->addr, SPI_Slave, 0);
   funDigitalWrite(spi_slave->cs_pin, 0);
 #if USE_EXTI
   setupEXTI(spi_slave->cs_pin, 0);
 #endif
 
+#if (TARGET_MCU==CH32V103)
+  // printf("PFIC_CFGR = %08x\n", PFIC->CFGR);
+  // NVIC->CFGR = NVIC_KEY1|1;
+  // printf("PFIC_CFGR = %08x\n", PFIC->CFGR);
+#endif
 	// RCC->CFGR0 &= ~RCC_PPRE1_DIV16;
 
   uint8_t message[PACKET_SIZE-2] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x77};
-  // spi_send(spi_master, 0xaa, message);
-  printf("sent\n");
+  spi_send(spi_master, 0xaa, message);
+  // printf("sent\n");
 
 	while(1)
 	{
-    if(SysTick->CNT - timer > Ticks_from_Ms(1000))
-		{
-			timer = SysTick->CNT;
-      printf("timer tick\n");
-			// spi_send(spi_master, 0xaa, message);
+    if (SysTick->CNT - timer > Ticks_from_Ms(1000)) {
+      SysTick->CNT = 0;
+			
+      printf("timer = %lu\n", (uint32_t)timer);
+      // printf("timer tick\n");
+			spi_send(spi_master, 0xaa, message);
+      // Delay_Ms(10);
+      
       // printf("%02x\n", incomming_packet);
+      timer = SysTick->CNT;
 		}
+    process_message(spi_slave);
 
-    if(!(spi_master->addr->STATR & SPI_I2S_FLAG_BSY)) {
+    if (!(spi_master->addr->STATR & SPI_I2S_FLAG_BSY)) {
 			funDigitalWrite(spi_master->cs_pin, 1);
       spi_master->transmission = SPI_IDLE;
 		}
-    
-    // if (incomming_packet) {
-    //   printf("%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n", spi2.buffer->in[0], spi2.buffer->in[1], spi2.buffer->in[2], spi2.buffer->in[3], spi2.buffer->in[4], spi2.buffer->in[5], spi2.buffer->in[6], spi2.buffer->in[7], spi2.buffer->in[8], spi2.buffer->in[9]);
-    //   // uint8_t i = 0;
-    //   // uint8_t j = 0;
-
-    //   // while (i < PACKET_SIZE || j < PACKET_SIZE) {
-    //   //   if (SPI2->STATR & SPI_STATR_TXE && j < PACKET_SIZE) {
-    //   //     spi_slave->addr->DATAR = 0xff;
-    //   //     j++;
-    //   //   }
-    //   //   if (SPI2->STATR & SPI_STATR_RXNE && i < PACKET_SIZE) {
-    //   //     // uint16_t datar = spi_slave->addr->DATAR;
-    //   //     printf("%04x", spi_slave->addr->DATAR);
-    //   //     spi_slave->addr->DATAR = 0;
-    //   //     i++;
-    //   //   }
-        
-    //   // }
-    //   incomming_packet = 0;
-    // }
 
 	}
 }
