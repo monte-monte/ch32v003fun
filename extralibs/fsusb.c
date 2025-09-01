@@ -802,7 +802,7 @@ int USBFSSetup()
 	EXTEN->EXTEN_CTR |= EXTEN_USBFS_IO_EN;
 #endif
 
-#if defined (CH32V20x) || defined (CH32V30x)
+#if defined (CH32V20x) || defined (CH32V30x) || defined(CH32L103)
 #if (defined (CH32V20x_D8W) || defined (CH32V20x_D8)) && (defined (FUNCONF_USE_HSE) && FUNCONF_USE_HSE)
 	RCC->CFGR0 = (RCC->CFGR0 & ~(3<<22)) | (3<<22);
 #else
@@ -851,7 +851,7 @@ int USBFSSetup()
 
 #else
 
-#if defined (CH32V10x) || defined (CH32V30x)
+#if defined (CH32V10x) || defined (CH32V30x) || defined(CH32L103)
 	RCC->APB2PCENR |= RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOA;
 #endif
 
