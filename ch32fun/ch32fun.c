@@ -92,8 +92,6 @@ void __libc_init_array(void)
 #include <stdint.h>
 #include <ch32fun.h>
 
-#define WEAK __attribute__((weak))
-
 WEAK int errno;
 
 static int __puts_uart( char *s, int len, void *buf )
