@@ -231,14 +231,14 @@ typedef struct
 typedef enum
 {
 #ifdef CH570_CH572
-	CLK_SOURCE_LSI = 0xC0,
+	CLK_SOURCE_LSI = 0xC0, // WARNING: when using this the debug interface has issues (programming, infobytes, bootloader, everything!)
 
 	CLK_SOURCE_HSE_16MHz = (0x02),
 	CLK_SOURCE_HSE_8MHz = (0x04),
 	CLK_SOURCE_HSE_6_4MHz = (0x05),
 	CLK_SOURCE_HSE_4MHz = (0x08),
 	CLK_SOURCE_HSE_2MHz = (0x10),
-	CLK_SOURCE_HSE_1MHz = (0x0),
+	CLK_SOURCE_HSE_1MHz = (0x0), // WARNING: when using this the debug interface has issues (programming, infobytes, bootloader, everything!)
 
 	CLK_SOURCE_PLL_100MHz = (0x40 | 6),
 	CLK_SOURCE_PLL_75MHz = (0x40 | 8),
@@ -377,9 +377,14 @@ typedef enum
 #define ISPROM_ENTRYPOINT               "0x00078064"  // string because it goes into asm()
 #elif defined(CH584_CH585)
 #define ISPROM_ADDRESS                  0x00078000
-#define ISPROM_IN_RAM_ADDRESS           0x20003800 // just a placeholder, this is not implemented yet for 584/5
-#define ISPROM_START_OFFSET             0x0 // just a placeholder, this is not implemented yet for 584/5
+#define ISPROM_IN_RAM_ADDRESS           0x20000000
+#define ISPROM_START_OFFSET             0x88
 #define ISPROM_SIZE                     0x2500
+#define ISPROM_BOOTBUTTON_CHECK_ADDRESS 0x2000010a
+#define ISPROM_BSS_ADDRESS              0x200024f0
+#define ISPROM_BSS_SIZE                 0x0560
+#define ISPROM_IN_RAM_GLOBALPOINTER     "0x20002ce8"  // string because it goes into asm()
+#define ISPROM_IN_RAM_ENTRYPOINT        "0x200018c2"  // string because it goes into asm()
 #elif defined(CH591_CH592)
 #define ISPROM_ADDRESS                  0x00078000
 #define ISPROM_IN_RAM_ADDRESS           0x20003800
@@ -405,12 +410,18 @@ typedef enum
 
 /* System: clock configuration register */
 #define R32_CLK_SYS_CFG     (*((vu32*)0x40001008))    // RWA, system clock configuration, SAM
+#define R16_CLK_SYS_CFG     (*((vu16*)0x40001008))    // RWA, system clock configuration, SAM
 #define R8_CLK_SYS_CFG      (*((vu8*)0x40001008))     // RWA, system clock configuration, SAM
 #define  RB_CLK_SYS_MOD     0xC0                      // RWA, system clock source mode: 00/10=divided from 32MHz, 01=divided from PLL-600MHz,11=directly from LSI
 #define  RB_CLK_PLL_DIV     0x1F                      // RWA, output clock divider from PLL or CK32M
+#define  RB_XROM_SCLK_SEL   0x0100                    // RWA, XROM clk 624MHz selected
+#define  RB_OSC32M_SEL      0x0200                    // RWA, PLL source clk external 32MHz selected
+#define  RB_PLL_GATE_DISS   0x1000                    // RWA, PLL clk closed when source clk changed
+#define  RB_PLL_GATE_TIME   0x2000                    // RWA, PLL clk time sel closed when source clk changed
 #define  RB_TX_32M_PWR_EN   0x40000                   // RWA, extern 32MHz HSE power contorl
 #define  RB_PLL_PWR_EN      0x100000                  // RWA, PLL power control
 #define R8_HFCK_PWR_CTRL    (*((vu8*)0x4000100A))     // RWA, power configuration for system high clock, SAM
+#define  RB_CLK_RC16M_PON   0x02                      // RWA, enable RC16M OSC HSI
 #define  RB_CLK_XT32M_PON   0x04                      // RWA, extern 32MHz HSE power contorl
 #define  RB_CLK_XT32M_KEEP  0x08                      // RWA, RWA, disable auto closing when in halt mode
 #define  RB_CLK_PLL_PON     0x10                      // RWA, PLL power control
@@ -486,9 +497,9 @@ typedef enum
 #endif
 #ifdef CH584_CH585
 #define R32_SAFE_MODE_CTRL  (*((vu32*)0x40001010))    // RWA, safe mode control register
-#define R8_SAFE_MODE_CTRL   (*((vu8*)0x40001010))     // RW, safe mode control register
-#define RB_SAFE_AUTO_EN     0x01                      // RW, disable safe mode auto close 
-#define RB_XROM_312M_SEL    0x10                      // RW, XROM CLK 312MHz sel
+#define R8_SAFE_MODE_CTRL   (*((vu8*)0x40001010))     // RWA, safe mode control register
+#define RB_SAFE_AUTO_EN     0x01                      // RWA, disable safe mode auto close
+#define RB_XROM_312M_SEL    0x10                      // RWA, XROM CLK 312MHz sel
 #define R8_SAFE_CLK_CTRL    (*((vu8*)0x40001011))     // RWA, main clk off control register
 #define RB_CLK_OFF_NFC      0x01                      // RWA, disable NFC main clock 
 #define RB_CLK_OFF_ADC      0x02                      // RWA, disable ADC main clock 
@@ -2589,8 +2600,15 @@ RV_STATIC_INLINE void LowPower(uint32_t time, uint16_t power_plan)
 RV_STATIC_INLINE void jump_isprom()
 {
 	memcpy((void*)ISPROM_IN_RAM_ADDRESS, (void*)(ISPROM_ADDRESS + ISPROM_START_OFFSET), ISPROM_SIZE); // copy bootloader to ram
-#ifdef CH570_CH572
+#ifdef CH570_CH572	
 	*(int32_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xc) = 0x00014505; // nop \n li a0,1, patch PA1 detection
+#elif defined(CH582_CH583)
+	*(int16_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xe) = 0x4505; // li a0, 1, patch PB22 detection to always return true
+#elif (defined(CH584_CH585) || defined(CH591_CH592))
+	*(int16_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xa) = 0x4505; // li a0,1, patch PB11 (option byte is not read correctly) detection
+#endif
+	
+#if (defined(CH570_CH572) || defined(CH584_CH585) || defined(CH591_CH592))
 	memset((void*)ISPROM_BSS_ADDRESS, 0, ISPROM_BSS_SIZE); // clear .bss
 
 	asm( "la gp, " ISPROM_IN_RAM_GLOBALPOINTER "\n"
@@ -2599,19 +2617,8 @@ RV_STATIC_INLINE void jump_isprom()
 		 "csrw mepc, t0\n" // __set_MEPC is not available here
 		 "mret\n");
 #elif defined(CH582_CH583)
-	*(int16_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xe) = 0x4505; // li a0, 1, patch PB22 detection to always return true
-
 	asm( "la gp, " ISPROM_GLOBALPOINTER "\n"
 		 "j " ISPROM_ENTRYPOINT "\n");
-#elif defined(CH591_CH592)
-	*(int16_t*)(ISPROM_BOOTBUTTON_CHECK_ADDRESS + 0xa) = 0x4505; // li a0,1, patch PB11 (option byte is not read correctly) detection
-	memset((void*)ISPROM_BSS_ADDRESS, 0, ISPROM_BSS_SIZE); // clear .bss
-
-	asm( "la gp, " ISPROM_IN_RAM_GLOBALPOINTER "\n"
-		 ".option arch, +zicsr\n"
-		 "li t0, " ISPROM_IN_RAM_ENTRYPOINT "\n"
-		 "csrw mepc, t0\n" // __set_MEPC is not available here
-		 "mret\n");
 #endif
 }
 

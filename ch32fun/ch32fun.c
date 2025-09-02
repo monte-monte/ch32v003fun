@@ -1675,7 +1675,7 @@ void SystemInit( void )
 				R8_FLASH_SCK |= 1<<4; //50M
 			);
 		}
-		else    // 32M div
+		else
 		{
 			SYS_SAFE_ACCESS(
 				R8_FLASH_CFG = (sc & 0x1F) ? 0x02 : 0x07;
@@ -1696,7 +1696,9 @@ void SystemInit( void )
 			R32_CLK_SYS_CFG = (0 << 6) | (sc & 0x1f) | RB_TX_32M_PWR_EN | RB_PLL_PWR_EN;
 		);
 		ADD_N_NOPS(4);
-		R8_FLASH_CFG = 0X51;
+		SYS_SAFE_ACCESS(
+			R8_FLASH_CFG = 0x51;
+		);
 	}
 	else if(sc & 0x40) // PLL div
 	{
@@ -1704,7 +1706,9 @@ void SystemInit( void )
 			R32_CLK_SYS_CFG = (1 << 6) | (sc & 0x1f) | RB_TX_32M_PWR_EN | RB_PLL_PWR_EN;
 		);
 		ADD_N_NOPS(4);
-		R8_FLASH_CFG = 0x52;
+		SYS_SAFE_ACCESS(
+			R8_FLASH_CFG = 0x52;
+		);
 	}
 	else
 	{
