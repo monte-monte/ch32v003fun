@@ -299,6 +299,9 @@
 
 #endif
 
+#ifndef WEAK
+#define WEAK __attribute__((weak))
+#endif
 
 #ifdef __cplusplus
  extern "C" {

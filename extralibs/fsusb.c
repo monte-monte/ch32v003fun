@@ -965,3 +965,40 @@ static inline int USBFS_SendNAK( int endp, int tx )
 #endif
 	return 0;
 }
+
+#if defined( FUNCONF_USE_USBPRINTF ) && FUNCONF_USE_USBPRINTF
+WEAK int HandleInRequest( struct _USBState *ctx, int endp, uint8_t *data, int len )
+{
+	return 0;
+}
+
+WEAK void HandleDataOut( struct _USBState *ctx, int endp, uint8_t *data, int len )
+{
+	if ( endp == 0 )
+	{
+		ctx->USBFS_SetupReqLen = 0; // To ACK
+	}
+}
+
+WEAK int HandleSetupCustom( struct _USBState *ctx, int setup_code )
+{
+	int ret = -1;
+	if ( ctx->USBFS_SetupReqType & USB_REQ_TYP_CLASS )
+	{
+		switch ( setup_code )
+		{
+			case CDC_SET_LINE_CODING:
+			case CDC_SET_LINE_CTLSTE:
+			case CDC_SEND_BREAK: ret = ( ctx->USBFS_SetupReqLen ) ? ctx->USBFS_SetupReqLen : -1; break;
+			case CDC_GET_LINE_CODING: ret = ctx->USBFS_SetupReqLen; break;
+			default: ret = 0; break;
+		}
+	}
+	else
+	{
+		ret = 0; // Go to STALL
+	}
+	return ret;
+}
+#endif // FUNCONF_USE_USBPRINTF
+
