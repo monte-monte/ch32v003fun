@@ -1672,7 +1672,7 @@ void SystemInit( void )
 			SYS_SAFE_ACCESS(
 				R8_HFCK_PWR_CTRL |= RB_CLK_PLL_PON;
 				R8_FLASH_CFG = 0x01;
-				R8_FLASH_SCK |= 1<<4; //50M
+				R8_FLASH_SCK |= 1<<4;
 			);
 		}
 		else
@@ -1682,7 +1682,11 @@ void SystemInit( void )
 			);
 		}
 		SYS_SAFE_ACCESS(
+#ifdef CH570_CH572
 			R8_CLK_SYS_CFG = sc;
+#else // CH584_585
+			R16_CLK_SYS_CFG = sc;
+#endif
 		);
 	}
 #else // ch5xx EXCEPT ch570/2 ch584/5
