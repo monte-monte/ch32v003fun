@@ -253,7 +253,7 @@ int ISPPrintChipInfo( void * d )
 	switch (iss->target_chip_type)
 	{
 		case CHIP_CH32X03x:
-		case CHIP_CH32L10x:
+		case CHIP_CH32L103:
 		case CHIP_CH32V10x:
 		case CHIP_CH32V20x:
 		case CHIP_CH32V30x:

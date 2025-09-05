@@ -159,7 +159,7 @@ const struct RiscVChip_s ch32v103 = {
 
 const struct RiscVChip_s ch32l103 = {
 	.name_str = "CH32L103",
-	.family_id = CHIP_CH32L10x,
+	.family_id = CHIP_CH32L103,
 	.model_id = 0x1030,
 	.ram_base = 0x20000000,
 	.ram_size = 20*1024,

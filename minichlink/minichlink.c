@@ -1904,7 +1904,7 @@ static int DefaultWriteWord( void * dev, uint32_t address_to_write, uint32_t dat
 			MCF.WriteReg32( dev, DMPROGBUF2, 0x0001c184 );
 			MCF.WriteReg32( dev, DMPROGBUF3, 
 				(iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32V00x
-				 || iss->target_chip_type == CHIP_CH32X03x || iss->target_chip_type == CHIP_CH32L10x
+				 || iss->target_chip_type == CHIP_CH32X03x || iss->target_chip_type == CHIP_CH32L103
 				 || iss->target_chip_type == CHIP_CH641 || iss->target_chip_type == CHIP_CH643) ?
 				0x4200c254 : 0x42000001  );
 
@@ -3075,7 +3075,7 @@ int DefaultUnbrick( void * dev )
 
 		const uint8_t * option_data = 
 			(iss->target_chip_type == CHIP_CH32V003 || iss->target_chip_type == CHIP_CH32V00x
-			|| iss->target_chip_type == CHIP_CH32X03x || iss->target_chip_type == CHIP_CH32L10x
+			|| iss->target_chip_type == CHIP_CH32X03x || iss->target_chip_type == CHIP_CH32L103
 			|| iss->target_chip_type == CHIP_CH641 || iss->target_chip_type == CHIP_CH643) ?
 			option_data_003_x03x : option_data_20x_30x;
 

@@ -1111,7 +1111,7 @@ asm volatile(
 "	mret\n" : : [main]"r"(main) );
 }
 
-#elif defined(CH32V10x) || defined(CH32V20x) || defined(CH32V30x) ||  defined(CH5xx)
+#elif defined(CH32V10x) || defined(CH32V20x) || defined(CH32V30x) || defined(CH32L103) ||  defined(CH5xx)
 
 void handle_reset( void )
 {
@@ -1527,7 +1527,7 @@ void SetupDebugPrintf( void )
 int WaitForDebuggerToAttach( int timeout_ms )
 {
 
-#if defined(CH32V20x) || defined(CH32V30x) || defined(CH32X03x) || defined(CH571_CH573) || defined(CH582_CH583) || defined(CH591_CH592)
+#if defined(CH32V20x) || defined(CH32V30x) || defined(CH32X03x) || defined(CH32L103) || defined(CH571_CH573) || defined(CH582_CH583) || defined(CH591_CH592)
 	#define systickcnt_t uint64_t
 	#define SYSTICKCNT SysTick->CNT
 #elif defined(CH32V10x) || defined(CH570_CH572) || defined(CH584_CH585)
@@ -1577,7 +1577,7 @@ void DelaySysTick( uint32_t n )
 #if defined(CH32V003) || defined(CH32V00x)
 	uint32_t targend = SysTick->CNT + n;
 	while( ((int32_t)( SysTick->CNT - targend )) < 0 );
-#elif defined(CH32V20x) || defined(CH32V30x) || defined(CH32X03x) || defined(CH582_CH583) || defined(CH591_CH592)
+#elif defined(CH32V20x) || defined(CH32V30x) || defined(CH32X03x) || defined(CH32L103) || defined(CH582_CH583) || defined(CH591_CH592)
 	uint64_t targend = SysTick->CNT + n;
 	while( ((int64_t)( SysTick->CNT - targend )) < 0 );
 #elif defined(CH32V10x) || defined(CH570_CH572) || defined(CH584_CH585)
@@ -1716,7 +1716,7 @@ void SystemInit( void )
 	);
 #endif // switch between ch570/2 and other ch5xx
 #elif defined(FUNCONF_USE_HSI) && FUNCONF_USE_HSI
-	#if defined(CH32V30x) || defined(CH32V20x) || defined(CH32V10x)
+	#if defined(CH32V30x) || defined(CH32V20x) || defined(CH32L103) || defined(CH32V10x)
 		EXTEN->EXTEN_CTR |= EXTEN_PLL_HSI_PRE;
 	#endif
 	#if defined(FUNCONF_USE_PLL) && FUNCONF_USE_PLL
@@ -1771,6 +1771,17 @@ void SystemInit( void )
 		#endif
 	#else
 		FLASH->ACTLR = FLASH_ACTLR_LATENCY_1;       		// +1 Cycle Latency
+	#endif
+#endif
+
+#if defined(CH32L103)
+	// Per TRM
+	#if FUNCONF_SYSTEM_CORE_CLOCK > 72000000
+		FLASH->ACTLR = FLASH_ACTLR_LATENCY_2;
+	#elif FUNCONF_SYSTEM_CORE_CLOCK > 40000000
+		FLASH->ACTLR = FLASH_ACTLR_LATENCY_1;
+	#else
+		FLASH->ACTLR = FLASH_ACTLR_LATENCY_0;
 	#endif
 #endif
 

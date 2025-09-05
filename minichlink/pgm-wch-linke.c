@@ -28,7 +28,7 @@ static int checkChip(enum RiscVChip chip) {
 		case CHIP_CH32V00x:
 		case CHIP_CH641:
 		case CHIP_CH643:
-		case CHIP_CH32L10x:
+		case CHIP_CH32L103:
 		case CHIP_CH570:
 		case CHIP_CH57x:
 		case CHIP_CH58x:

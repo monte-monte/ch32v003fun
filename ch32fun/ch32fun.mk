@@ -121,6 +121,24 @@ else ifeq ($(findstring CH32X03,$(TARGET_MCU)),CH32X03) # CH32X033, X035
 	endif
 
 	TARGET_MCU_LD:=4		
+else ifeq ($(findstring CH32L103,$(TARGET_MCU)),CH32L103) # CH32L103
+	TARGET_MCU_PACKAGE?=CH32L103C8T6
+	CFLAGS_ARCH+=-march=rv32imac \
+		-mabi=ilp32 \
+		-DCH32L103=1
+
+	# MCU Flash/RAM split
+	ifeq ($(findstring F8, $(TARGET_MCU_PACKAGE)), F8)
+		MCU_PACKAGE:=1
+	else ifeq ($(findstring K8, $(TARGET_MCU_PACKAGE)), K8)
+		MCU_PACKAGE:=1
+	else ifeq ($(findstring C8, $(TARGET_MCU_PACKAGE)), C8)
+		MCU_PACKAGE:=1
+	else ifeq ($(findstring G8, $(TARGET_MCU_PACKAGE)), G8)
+		MCU_PACKAGE:=1
+	endif
+
+	TARGET_MCU_LD:=4
 else ifeq ($(findstring CH32V20,$(TARGET_MCU)),CH32V20) # CH32V203
 	TARGET_MCU_PACKAGE?=CH32V203F6P6
 	CFLAGS_ARCH+=	-march=rv32imac \
