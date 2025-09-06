@@ -21,7 +21,7 @@
 // Pick a GPIO pin
 #define PIN PD6
 
-// SCALE will determine how many inner loop itterations we do between intensity calculation, 
+// SCALE will determine how many inner loop iterations we do between intensity calculation, 
 // alter this to adjust the speed of the breath (smaller is faster)
 #define SCALE  64
 
@@ -29,7 +29,7 @@ int main(){
 	uint32_t lung = 1, roll = 0, volume = 1;
 	int32_t io = 1;
 
-  // Setup the clocks and other default values with the ch32fun environment
+	// Setup the clocks and other default values with the ch32fun environment
 	SystemInit();
 	// Enable GPIOs
 	funGpioInitAll();
