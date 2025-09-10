@@ -11,7 +11,7 @@ u8 cmd_buf[RX_BUF_LEN] = {0}; // buffer for complete command strings
 
 void process_cmd(u8* buf)
 {
-	if ( strncmp(buf, "toggle\r\n", 9) == 0) {
+	if ( strncmp((char*)buf, "toggle\r\n", 9) == 0) {
 		GPIOC->OUTDR ^= (1<<7);
 		printf("Horay!\r\n");
 	} else {
