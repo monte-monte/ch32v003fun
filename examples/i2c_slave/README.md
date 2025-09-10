@@ -24,28 +24,29 @@ For chips other than the CH32V003 you should change the above pin numbers to the
 
 ## Alternate Pins
 
-If you want to use alternative pins for the I2C periperal, then you must take an additional step to configure the chip to use one of the 2 alternative pin mappings.
+Optional: If you want to use alternative pins for the I2C periperal, then you must take an additional step to configure the chip to use one of the 2 alternative pin mappings.
 
-You can do this using the `AFIO_PCFR1_I2C1_HIGH_BIT_REMAP` and `AFIO_PCFR1_I2C1_REMAP` fields of the `AFIO->PCFR1` register.
+You can do this using the `I2C1_RM` and `I2C1REMAP1` fields of the `AFIO_PCFR1` register.
 
 Remapping examples:
 
 ```c++
-// 2 bits [bit 22 and bit 1] of AFIO->PCFR1 register control I2C1 pin remapping on ch32v003
+// 2 bits [bit 22 and bit 1] of AFIO_PCFR1 register are what control I2C1 pin remapping on ch32v003
 // [high bit, low bit]
+// [I2C1REMAP1, I2C1_RM]
 
 // [0, 0]				default mapping (SCL on pin PC2, SDA on pin PC1)
-// note: you don't need to do this, since it's the defualt:
-AFIO->PCFR1 &= ~AFIO_PCFR1_I2C1_HIGH_BIT_REMAP;	  // set high bit = 0
-AFIO->PCFR1 &= ~AFIO_PCFR1_I2C1_REMAP;            // set low bit = 0
+// (note: you don't need to do this, since it's the defualt:)
+AFIO->PCFR1 &= ~AFIO_PCFR1_I2C1_HIGH_BIT_REMAP;	  // set high bit = 0  (I2C1REMAP1)
+AFIO->PCFR1 &= ~AFIO_PCFR1_I2C1_REMAP;            // set low bit = 0   (I2C1_RM)
 
 // [0, 1]:			Remapping option #1 (SCL on pin PD1, SDA on pin PD0)
-AFIO->PCFR1 &= ~AFIO_PCFR1_I2C1_HIGH_BIT_REMAP;   // set high bit = 0
-AFIO->PCFR1 |= AFIO_PCFR1_I2C1_REMAP;             // set low bit = 1
+AFIO->PCFR1 &= ~AFIO_PCFR1_I2C1_HIGH_BIT_REMAP;   // set high bit = 0  (I2C1REMAP1)
+AFIO->PCFR1 |= AFIO_PCFR1_I2C1_REMAP;             // set low bit = 1   (I2C1_RM)
 
 // [1, X]:			Remapping option #2 (SCL on pin PC5, SDA on pin PC6)
-AFIO->PCFR1 |= AFIO_PCFR1_I2C1_HIGH_BIT_REMAP;   // set high bit = 1
-AFIO->PCFR1 |= AFIO_PCFR1_I2C1_REMAP;            // set low bit [ignored / don't care]
+AFIO->PCFR1 |= AFIO_PCFR1_I2C1_HIGH_BIT_REMAP;    // set high bit = 1  (I2C1REMAP1)
+AFIO->PCFR1 |= AFIO_PCFR1_I2C1_REMAP;             // set low bit [ignored / don't care]    (I2C1_RM)
 ```
 
 ## Initialization
