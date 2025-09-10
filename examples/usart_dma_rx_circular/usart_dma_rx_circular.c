@@ -2,6 +2,7 @@
 // Using any terminal, send "toggle\r\n" to control the LED connected to PC7.
 
 #include "ch32fun.h"
+#include <stdio.h>
 
 #define RX_BUF_LEN 16 // size of receive circular buffer
 
