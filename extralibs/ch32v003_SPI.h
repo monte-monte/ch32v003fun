@@ -119,8 +119,8 @@ static uint16_t EXT1_INTENR_backup;
 #define SPI_CLK_PRESCALER LOG2(SPI_CLK_RATIO)
 
 // ensure that CLOCK_PRESCALER_VALUE is within the range of 0..7
-// _Static_assert(SPI_CLK_PRESCALER >= 0 && SPI_CLK_PRESCALER <= 7, "SPI_CLK_PRESCALER is out of range (0..7). Please set a different SPI bus speed. prescaler = log2(f_CPU/f_SPI)");
-//#pragma message(VAR_NAME_VALUE(SPI_CLK_PRESCALER))
+_Static_assert(SPI_CLK_PRESCALER >= 0 && SPI_CLK_PRESCALER <= 7, "SPI_CLK_PRESCALER is out of range (0..7). Please set a different SPI bus speed. prescaler = log2(f_CPU/f_SPI)");
+#pragma message(VAR_NAME_VALUE(SPI_CLK_PRESCALER))
 
 
 

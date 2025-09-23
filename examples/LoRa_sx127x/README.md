@@ -1,15 +1,13 @@
-# LoRa SX126X Communication Example
+# LoRa SX127X Communication Example
 This example demonstrates bidirectional communication between two 
 LoRa devices using SX126X-series modules. Each device send out a message
 every 3 seconds and then switch back to RX mode.
 
 ## Tested Hardware:
-
-SX1262 (XL12620-PD1, blue board)
-LLCC68 (E220-900M)
+RF95
 
 // DataSheet
-// ref: https://www.mouser.com/pdfDocs/DS_LLCC68_V10-2.pdf?srsltid=AfmBOooSw4VnT0K2j8FhU1Ni7i8inGRofGu9IxMCgdq02lwq11JMnoPt
+// ref: https://www.mouser.com/datasheet/2/761/sx1276-1278113.pdf?srsltid=AfmBOorDqVAyhX5J-Lmr_4lud-BnEsvxK5Ckh002gdR3Nj9gTKy8Qciv
 
 ## WEIRD:
 
