@@ -1829,7 +1829,12 @@ void funAnalogInit( void )
 	ADC1->SAMPTR2 = (ADC_SMP0_1<<(3*0)) | (ADC_SMP0_1<<(3*1)) | (ADC_SMP0_1<<(3*2)) | (ADC_SMP0_1<<(3*3)) | (ADC_SMP0_1<<(3*4)) | (ADC_SMP0_1<<(3*5)) | (ADC_SMP0_1<<(3*6)) | (ADC_SMP0_1<<(3*7)) | (ADC_SMP0_1<<(3*8)) | (ADC_SMP0_1<<(3*9));
 	ADC1->SAMPTR1 = (ADC_SMP0_1<<(3*0)) | (ADC_SMP0_1<<(3*1)) | (ADC_SMP0_1<<(3*2)) | (ADC_SMP0_1<<(3*3)) | (ADC_SMP0_1<<(3*4)) | (ADC_SMP0_1<<(3*5));
 
-	ADC1->CTLR2 |= ADC_ADON | ADC_EXTSEL | ADC_EXTTRIG;	// turn on ADC and set rule group to sw trig
+	// turn on ADC and set rule group to sw trig
+	#if defined(CH32V20x)
+		ADC1->CTLR2 |= ADC_ADON | ADC_EXTSEL | ADC_EXTTRIG;
+	#else
+		ADC1->CTLR2 |= ADC_ADON | ADC_EXTSEL;
+	#endif
 
 	// Reset calibration
 	ADC1->CTLR2 |= CTLR2_RSTCAL_Set;
