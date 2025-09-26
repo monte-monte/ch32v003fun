@@ -210,7 +210,12 @@ void USBFS_IRQHandler()
 							if( ctx->USBFS_SetupReqCode == HID_SET_REPORT )
 								HandleHidUserReportOutComplete( ctx );
 #endif
-							ctx->USBFS_errata_dont_send_endpoint_in_window = 1;
+							// Only set this flag for OUT requests (e.g. SET_LINE_CODING).
+							// For IN requests (e.g. GET_DESCRIPTOR), don't set it.
+							if ( ( ctx->USBFS_SetupReqType & USB_REQ_TYP_IN ) == 0 )
+							{
+								ctx->USBFS_errata_dont_send_endpoint_in_window = 1;
+							}
 							UEP_CTRL_LEN(0) = 0;
 							UEP_CTRL_TX(0) = USBFS_UEP_T_TOG | CHECK_USBFS_UEP_T_AUTO_TOG | USBFS_UEP_T_RES_ACK;
 						}
