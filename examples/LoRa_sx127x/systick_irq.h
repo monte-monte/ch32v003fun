@@ -3,7 +3,7 @@
  * 03-25-2023 E. Brombaugh
  * 05-12-2023 C. Lohr (Modified to reflect updated sysclk)
  * 09-25-2024 ADBeta (Minor updates to main loop, comments and added
- *                    convenient macro function)
+ *					convenient macro function)
  */
 
 #include "ch32fun.h"
@@ -43,9 +43,9 @@ void systick_init(void)
 	// Set the SysTick Configuration
 	// NOTE: By not setting SYSTICK_CTLR_STRE, we maintain compatibility with
 	// busywait delay funtions used by ch32v003_fun.
-	SysTick->CTLR |= SYSTICK_CTLR_STE   |  // Enable Counter
-	                 SYSTICK_CTLR_STIE  |  // Enable Interrupts
-	                 SYSTICK_CTLR_STCLK ;  // Set Clock Source to HCLK/1
+	SysTick->CTLR |= SYSTICK_CTLR_STE |			// Enable Counter
+						SYSTICK_CTLR_STIE  |	// Enable Interrupts
+						SYSTICK_CTLR_STCLK ;	// Set Clock Source to HCLK/1
 	
 	// Enable the SysTick IRQ
 	NVIC_EnableIRQ(SysTicK_IRQn);

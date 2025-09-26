@@ -64,8 +64,8 @@ void sx126x_write_REG(u16 addr, u8 *data, u8 len) {
 	//# 0x0D: Write Register
 	if (LORA_CS_PIN2 != -1) funDigitalWrite(LORA_CS_PIN2, 0);
 	SPI_transfer_8(0x0D);
-	SPI_transfer_8((u8)((addr >> 8) & 0xFF));   // trasfer MSB
-	SPI_transfer_8((u8)(addr & 0xFF));		  	// transfer LSB
+	SPI_transfer_8((u8)((addr >> 8) & 0xFF));	// trasfer MSB
+	SPI_transfer_8((u8)(addr & 0xFF));			// transfer LSB
 
 	for (int i=0; i<len; i++) {
 		SPI_transfer_8(data[i]);
@@ -77,9 +77,9 @@ void sx126x_read_REG(u16 addr, u8 *data, u8 len) {
 	//# 0x1D: Read Register
 	if (LORA_CS_PIN2 != -1) funDigitalWrite(LORA_CS_PIN2, 0);
 	SPI_transfer_8(0x1D);
-	SPI_transfer_8((u8)((addr >> 8) & 0xFF));   // trasfer MSB
-	SPI_transfer_8((u8)(addr & 0xFF));		  	// transfer LSB
-	SPI_transfer_8(0x00);					   	// Dummy Byte
+	SPI_transfer_8((u8)((addr >> 8) & 0xFF));	// trasfer MSB
+	SPI_transfer_8((u8)(addr & 0xFF));			// transfer LSB
+	SPI_transfer_8(0x00);						// Dummy Byte
 
 	// read data
 	for (int i=0; i<len; i++) {
@@ -106,7 +106,7 @@ void sx126x_read_BUFF(u8 offset, u8 *data, u8 len) {
 	if (LORA_CS_PIN2 != -1) funDigitalWrite(LORA_CS_PIN2, 0);
 	SPI_transfer_8(0x1E);
 	SPI_transfer_8(offset);
-	SPI_transfer_8(0x00);				   		// Dummy Byte
+	SPI_transfer_8(0x00);						// Dummy Byte
 
 	// read data
 	for (int i=0; i<len; i++) {
@@ -121,13 +121,13 @@ void sx126x_read_BUFF(u8 offset, u8 *data, u8 len) {
 //! ####################################
 
 // LoRa bandwidth
-#define SX126X_BW_7800		  	0x00		// 7.8 kHz
-#define SX126X_BW_10400		 	0x08		// 10.4 kHz
-#define SX126X_BW_15600		 	0x01		// 15.6 kHz
-#define SX126X_BW_20800		 	0x09		// 20.8 kHz
-#define SX126X_BW_31250		 	0x02		// 31.25 kHz
-#define SX126X_BW_41700		 	0x0A		// 41.7 kHz
-#define SX126X_BW_62500		 	0x03		// 62.5 kHz
+#define SX126X_BW_7800			0x00		// 7.8 kHz
+#define SX126X_BW_10400			0x08		// 10.4 kHz
+#define SX126X_BW_15600			0x01		// 15.6 kHz
+#define SX126X_BW_20800			0x09		// 20.8 kHz
+#define SX126X_BW_31250			0x02		// 31.25 kHz
+#define SX126X_BW_41700			0x0A		// 41.7 kHz
+#define SX126X_BW_62500			0x03		// 62.5 kHz
 #define SX126X_BW_125000		0x04		// 125 kHz
 #define SX126X_BW_250000		0x05		// 250 kHz
 #define SX126X_BW_500000		0x06		// 500 kHz
@@ -140,19 +140,19 @@ void fun_sx126x_setFreq(uint32_t frequency) {
 		buf[0] = 0x6B;
 		buf[1] = 0x6F;
 	}
-	else if (frequency < 734E6) {	   // 470 - 510 Mhz
+	else if (frequency < 734E6) {		// 470 - 510 Mhz
 		buf[0] = 0x75;
 		buf[1] = 0x81;
 	}
-	else if (frequency < 828E6) {	   // 779 - 787 Mhz
+	else if (frequency < 828E6) {		// 779 - 787 Mhz
 		buf[0] = 0xC1;
 		buf[1] = 0xC5;
 	}
-	else if (frequency < 877E6) {	   // 863 - 870 Mhz
+	else if (frequency < 877E6) {		// 863 - 870 Mhz
 		buf[0] = 0xD7;
 		buf[1] = 0xDB;
 	}
-	else if (frequency < 1100E6) {	  // 902 - 928 Mhz
+	else if (frequency < 1100E6) {		// 902 - 928 Mhz
 		buf[0] = 0xE1;
 		buf[1] = 0xE9;
 	}
@@ -201,18 +201,18 @@ void fun_sx126x_setModulation(u8 sf, u8 bw, u8 cr, u8 lowDataRateOptimization) {
 
 // setTxPower
 #define SX126X_PA_DUTYCYCLE_22DBM		0x04		// +22 dBm
-#define SX126X_PA_DUTYCYCLE_20DBM	   	0x03		// +20 dBm
-#define SX126X_PA_DUTYCYCLE_LOWDBM	  	0x02		// +14 dBm or +17 dBm
+#define SX126X_PA_DUTYCYCLE_20DBM		0x03		// +20 dBm
+#define SX126X_PA_DUTYCYCLE_LOWDBM		0x02		// +14 dBm or +17 dBm
 
 // Ramp time
-#define SX126X_PA_RAMP_10US			 	0x00		// 10 us
-#define SX126X_PA_RAMP_20US			 	0x01		// 20 us
-#define SX126X_PA_RAMP_40US			 	0x02		// 40 us
-#define SX126X_PA_RAMP_80US			 	0x03		// 80 us
+#define SX126X_PA_RAMP_10US				0x00		// 10 us
+#define SX126X_PA_RAMP_20US				0x01		// 20 us
+#define SX126X_PA_RAMP_40US				0x02		// 40 us
+#define SX126X_PA_RAMP_80US				0x03		// 80 us
 #define SX126X_PA_RAMP_200US			0x04		// 200 us
 #define SX126X_PA_RAMP_800US			0x05		// 800 us
-#define SX126X_PA_RAMP_1700US		   	0x06		// 1700 us
-#define SX126X_PA_RAMP_3400US		   	0x07		// 3400 us
+#define SX126X_PA_RAMP_1700US			0x06		// 1700 us
+#define SX126X_PA_RAMP_3400US			0x07		// 3400 us
 
 void fun_sx126x_setTxPower(s8 power, u8 paDutyCycle) {
 	// ref: `Table 13-21: PA Operating Modes with Optimal Settings`
@@ -227,7 +227,7 @@ void fun_sx126x_setTxPower(s8 power, u8 paDutyCycle) {
 	u8 buf[4] = {
 		paDutyCycle,
 		hpMax,
-		0x00,		   // Device Select
+		0x00,			// Device Select
 		0x01			// PowerLUT. Reserved value 0x01
 	};
 
@@ -286,7 +286,7 @@ void fun_sx126x_setDioIrqParams(
 // ref: `Table 9-3: Rx Gain Configuration`
 void fun_sx126x_setRxGain(u8 boost) {
 	//# addr 0x08AC: set Rx gain
-	u8 buf[1] = { 0x94 };		   // 0x94 = 0dBm default, 0x96 = 14dBm
+	u8 buf[1] = { 0x94 };			// 0x94 = 0dBm default, 0x96 = 14dBm
 	if (boost) buf[0] = 0x96;
 	sx126x_write_REG(0x08AC, buf, 1);
 }
@@ -314,31 +314,31 @@ void fun_sx126x_setBufferBaseAddr(u8 txAddress, u8 rxAddress) {
 
 // Chip mode
 #define SX126X_MODE_STDBY_RC			0x20
-#define SX126X_MODE_STDBY_XOSC		  	0x30
-#define SX126X_STATUS_MODE_FS		   	0x40
-#define SX126X_STATUS_MODE_RX		   	0x50
-#define SX126X_STATUS_MODE_TX		   	0x60
+#define SX126X_MODE_STDBY_XOSC			0x30
+#define SX126X_STATUS_MODE_FS			0x40
+#define SX126X_STATUS_MODE_RX			0x50
+#define SX126X_STATUS_MODE_TX			0x60
 
 // SetDioIrqParams
-#define SX126X_IRQ_NONE				 	0x0000	  // no interrupts
-#define SX126X_IRQ_TX_DONE			  	0x0001	  // packet transmission completed
-#define SX126X_IRQ_RX_DONE			  	0x0002	  // packet received
-#define SX126X_IRQ_PREAMBLE_DETECTED	0x0004	  // preamble detected
-#define SX126X_IRQ_SYNC_WORD_VALID	  	0x0008	  // valid sync word detected
-#define SX126X_IRQ_HEADER_VALID		 	0x0010	  // valid LoRa header received
-#define SX126X_IRQ_HEADER_ERR		   	0x0020	  // LoRa header CRC error
-#define SX126X_IRQ_CRC_ERR			  	0x0040	  // wrong CRC received
-#define SX126X_IRQ_CAD_DONE			 	0x0080	  // channel activity detection finished
-#define SX126X_IRQ_CAD_DETECTED		 	0x0100	  // channel activity detected
-#define SX126X_IRQ_TIMEOUT			  	0x0200	  // Rx or Tx timeout
-#define SX126X_IRQ_ALL				  	0x03FF	  // all interrupts
+#define SX126X_IRQ_NONE					0x0000		// no interrupts
+#define SX126X_IRQ_TX_DONE				0x0001		// packet transmission completed
+#define SX126X_IRQ_RX_DONE				0x0002		// packet received
+#define SX126X_IRQ_PREAMBLE_DETECTED	0x0004		// preamble detected
+#define SX126X_IRQ_SYNC_WORD_VALID		0x0008		// valid sync word detected
+#define SX126X_IRQ_HEADER_VALID			0x0010		// valid LoRa header received
+#define SX126X_IRQ_HEADER_ERR			0x0020		// LoRa header CRC error
+#define SX126X_IRQ_CRC_ERR				0x0040		// wrong CRC received
+#define SX126X_IRQ_CAD_DONE				0x0080		// channel activity detection finished
+#define SX126X_IRQ_CAD_DETECTED			0x0100		// channel activity detected
+#define SX126X_IRQ_TIMEOUT				0x0200		// Rx or Tx timeout
+#define SX126X_IRQ_ALL					0x03FF		// all interrupts
 
 u8 SX126X_OK = 0;
 
 // #define DIO_PIN		 PD4
 
-#define SX126X_PREAMBLE_LEN	 12
-#define SX126X_HEADER_IMPLICIT  0x00	// 0x00: implicit, 0x01: explicit
+#define SX126X_PREAMBLE_LEN			12
+#define SX126X_HEADER_IMPLICIT		0x00	// 0x00: implicit, 0x01: explicit
 
 void fun_sx126x_RXMode(u32 timeoutMs) {
 	u8 buf[3];
@@ -409,10 +409,10 @@ void fun_sx126x_init(uint32_t frequency, u8 cs_pin) {
 
 	//# 0x08: set IRQ params
 	fun_sx126x_setDioIrqParams(
-		0x0002,	 	// IRQ mask for receiving
-		0xFFFF,	 	// DIO1 mask turn ON
-		0x0000,	 	// DIO2 mask
-		0x0000	  	// DIO3 mask
+		0x0002,		// IRQ mask for receiving
+		0xFFFF,		// DIO1 mask turn ON
+		0x0000,		// DIO2 mask
+		0x0000		// DIO3 mask
 	);
 	Delay_Ms(10);
 
@@ -421,7 +421,7 @@ void fun_sx126x_init(uint32_t frequency, u8 cs_pin) {
 }
 
 void fun_sx126x_clearIQR_status() {
-	u16 clearMask = 0xFFFF;		 // flag to select all IRQs to clear
+	u16 clearMask = 0xFFFF;		// flag to select all IRQs to clear
 	u8 buf[2] = {
 		(u8)((clearMask >> 8) & 0xFF),
 		(u8)(clearMask & 0xFF)
@@ -432,11 +432,11 @@ void fun_sx126x_clearIQR_status() {
 }
 
 // ref: 13.5.1 `GetStatus`
-#define SX126X_CHIPMODE_STBY_RC		 0x02
-#define SX126X_CHIPMODE_STBY_XOSC	   0x03
-#define SX126X_CHIPMODE_FS			  0x04
-#define SX126X_CHIPMODE_RX			  0x05
-#define SX126X_CHIPMODE_TX			  0x06
+#define SX126X_CHIPMODE_STBY_RC			0x02
+#define SX126X_CHIPMODE_STBY_XOSC		0x03
+#define SX126X_CHIPMODE_FS				0x04
+#define SX126X_CHIPMODE_RX				0x05
+#define SX126X_CHIPMODE_TX				0x06
 
 void fun_sx126x_printIQR_status(u8 chipMode, u8 cmdStatus) {
 	//# 0x12: get IRQ status
@@ -473,7 +473,7 @@ void fun_sx126x_printIQR_status(u8 chipMode, u8 cmdStatus) {
 //! ####################################
 
 // ref: `Table 13-76: Status Bytes Definition`
-#define SX126X_CMDSTATUS_RX_AVAILABLE   0x02
+#define SX126X_CMDSTATUS_RX_AVAILABLE	0x02
 #define SX126X_CMDSTATUS_TIMEOUT		0x03
 #define SX126X_CMDSTATUS_TX_DONE		0x06
 
@@ -501,7 +501,7 @@ u8 fun_sx126x_parsePacket(u8 *memoryIndex, u32 timeoutMs) {
 	u8 status;
 	sx126x_read_CMD(0xC0, &status, 1);
 	u8 chipMode = (status >> 4) & 0b111;	// bit 6:4
-	u8 cmdStatus = (status >> 1) & 0b111;   // bit 3:1
+	u8 cmdStatus = (status >> 1) & 0b111;	// bit 3:1
 
 	//! filter for error
 	// 0x04 = Processing Error, 0x05 = Command Error
@@ -557,7 +557,7 @@ void fun_sx126x_send(char* message, u8 len, u32 timeoutMs) {
 	u8 status;
 	sx126x_read_CMD(0xC0, &status, 1);
 	u8 chipMode = (status >> 4) & 0b111;	// bit 6:4
-	u8 cmdStatus = (status >> 1) & 0b111;   // bit 3:1
+	u8 cmdStatus = (status >> 1) & 0b111;	// bit 3:1
 
 	//# filter for error
 	// 0x04 = Processing Error, 0x05 = Command Error

@@ -135,10 +135,10 @@ void fun_sx127x_config1(u8 headerMode, u8 cr, u8 bw) {
 	// bit1-3: Coding Rate. CR1 = 4/5, CR2 = 4/6, CR3 = 4/7, CR4 = 4/8
 	cr = cr < 1 ? 1 : cr;
 	cr = cr > 4 ? 4 : cr;
-	cr = cr & 0b00000111;   // Ensure 3 bit value
+	cr = cr & 0b00000111;	// Ensure 3 bit value
 
 	// bit4-7: Bandwidth
-	bw = bw & 0b00001111;   // Ensure 4 bit value
+	bw = bw & 0b00001111;	// Ensure 4 bit value
 
 	//# 0x1D: RegModemConfig1
 	u8 configValue = (bw << 4) | (cr << 1) | headerMode ;
@@ -150,13 +150,13 @@ void fun_sx127x_config1(u8 headerMode, u8 cr, u8 bw) {
 //! INIT FUNCTIONS
 //! ####################################
 
-#define SX127X_LONGRANGE_MODE	   	0b10000000	  	// bit7: 1 = LoRa, 0 = FSK/OOK
-#define SX127X_MODE_SLEEP		   	0b00000000	  	// bit0-2: 0 = Sleep
-#define SX127X_MODE_STDBY		   	0b00000001	  	// bit0-2: 1 = Standby
-#define SX127X_MODE_TX			  	0b00000011	  	// bit0-2: 3 = TX
-#define SX127X_MODE_RX_SINGLE	   	0b00000110	  	// bit0-2: 6 = RX Single
+#define SX127X_LONGRANGE_MODE		0b10000000		// bit7: 1 = LoRa, 0 = FSK/OOK
+#define SX127X_MODE_SLEEP			0b00000000		// bit0-2: 0 = Sleep
+#define SX127X_MODE_STDBY			0b00000001		// bit0-2: 1 = Standby
+#define SX127X_MODE_TX				0b00000011		// bit0-2: 3 = TX
+#define SX127X_MODE_RX_SINGLE		0b00000110		// bit0-2: 6 = RX Single
 
-#define SX127X_FIFO_RX_CURRENTADDR	  0x10
+#define SX127X_FIFO_RX_CURRENTADDR	0x10
 
 u8 SX127X_OK = 0;
 
@@ -182,7 +182,7 @@ void fun_sx127x_init(uint32_t frequency, u8 cs_pin) {
 	//! 0x42: RegVersion = sanity check
 	u8 version = sx127x_read(0x42);
 	printf("LoRa version: 0x%02x\n", version);
-	SX127X_OK = version == 0x12;	  // expect 0x12
+	SX127X_OK = version == 0x12;		// expect 0x12
 
 	//! 0x01: RegOpMode - Set Mode sleep (*REQUIRED*)
 	sx127x_setMode(SX127X_MODE_SLEEP);
@@ -206,7 +206,7 @@ void fun_sx127x_init(uint32_t frequency, u8 cs_pin) {
 	// bit3: lowDataRateOptimize 0 = Disabled, 1 = Enabled
 	// bit2: AGCAutoOn 0 = Disabled, 1 = Enabled
 	// bit0-1: Reserved
-	sx127x_write(0x26, 0x0010);  // AGCAutoOn
+	sx127x_write(0x26, 0x0010);		// AGCAutoOn
 
 	//# 0x1D: RegModemConfig1
 	sx127x_setMode(SX127X_MODE_STDBY);
@@ -218,8 +218,8 @@ void fun_sx127x_init(uint32_t frequency, u8 cs_pin) {
 //! ####################################
 
 #define SX127X_REG_FIFO_ADDR_PTR		0x0D
-#define SX127X_REG_PAYLOAD_LENGTH	   	0x22
-#define SX127X_REG_FIFO				 	0x00
+#define SX127X_REG_PAYLOAD_LENGTH		0x22
+#define SX127X_REG_FIFO					0x00
 
 void fun_sx127x_send(u8 *data, u8 size) {
 	if (!SX127X_OK) {
@@ -257,8 +257,8 @@ void fun_sx127x_send(u8 *data, u8 size) {
 //! ####################################
 
 #define IRQ_RX_DONE_MASK			0x40
-#define IRQ_PAYLOAD_CRC_ERROR_MASK  0x20
-#define REG_RX_NB_BYTES			 	0x13	// Reg for number of payload bytes of latest packet
+#define IRQ_PAYLOAD_CRC_ERROR_MASK	0x20
+#define REG_RX_NB_BYTES				0x13	// Reg for number of payload bytes of latest packet
 
 int fun_sx127x_parsePacket() {
 	if (!SX127X_OK) return 0;

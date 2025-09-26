@@ -11,32 +11,32 @@
 #include "fun_sx126x.h"
 
 void SPI_Configure() {
-    // reset control register
+	// reset control register
 	SPI1->CTLR1 = 0;
 
-    // Enable GPIO Port C and SPI peripheral
-    RCC->APB2PCENR |= RCC_APB2Periph_GPIOC | RCC_APB2Periph_SPI1;
+	// Enable GPIO Port C and SPI peripheral
+	RCC->APB2PCENR |= RCC_APB2Periph_GPIOC | RCC_APB2Periph_SPI1;
 
-    // PC5 is SCLK
-    GPIOC->CFGLR &= ~(0xf << (4*5));
-    GPIOC->CFGLR |= (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF) << (4*5);
+	// PC5 is SCLK
+	GPIOC->CFGLR &= ~(0xf << (4*5));
+	GPIOC->CFGLR |= (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF) << (4*5);
 
-    // PC6 is MOSI
-    GPIOC->CFGLR &= ~(0xf << (4*6));
-    GPIOC->CFGLR |= (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF) << (4*6);
+	// PC6 is MOSI
+	GPIOC->CFGLR &= ~(0xf << (4*6));
+	GPIOC->CFGLR |= (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF) << (4*6);
 
-    // PC7 is MISO
-    GPIOC->CFGLR &= ~(0xf << (4 * 7));
-    GPIOC->CFGLR |= GPIO_CNF_IN_FLOATING << (4 * 7);
+	// PC7 is MISO
+	GPIOC->CFGLR &= ~(0xf << (4 * 7));
+	GPIOC->CFGLR |= GPIO_CNF_IN_FLOATING << (4 * 7);
 
-    // Configure SPI
-    SPI1->CTLR1 |= SPI_CPHA_1Edge | SPI_CPOL_Low
+	// Configure SPI
+	SPI1->CTLR1 |= SPI_CPHA_1Edge | SPI_CPOL_Low
 				| SPI_Mode_Master| SPI_BaudRatePrescaler_2
 				| SPI_NSS_Soft | SPI_DataSize_8b;
-    
-    SPI1->CTLR1 |= SPI_Direction_2Lines_FullDuplex;
+	
+	SPI1->CTLR1 |= SPI_Direction_2Lines_FullDuplex;
 
-	SPI1->CTLR1 |= CTLR1_SPE_Set;		  // Enable SPI Port
+	SPI1->CTLR1 |= CTLR1_SPE_Set;			// Enable SPI Port
 }
 
 int main() {

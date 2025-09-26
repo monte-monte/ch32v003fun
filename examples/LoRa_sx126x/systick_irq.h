@@ -44,8 +44,8 @@ void systick_init(void)
 	// NOTE: By not setting SYSTICK_CTLR_STRE, we maintain compatibility with
 	// busywait delay funtions used by ch32v003_fun.
 	SysTick->CTLR |= SYSTICK_CTLR_STE   |  // Enable Counter
-	                 SYSTICK_CTLR_STIE  |  // Enable Interrupts
-	                 SYSTICK_CTLR_STCLK ;  // Set Clock Source to HCLK/1
+						SYSTICK_CTLR_STIE  |  // Enable Interrupts
+						SYSTICK_CTLR_STCLK ;  // Set Clock Source to HCLK/1
 	
 	// Enable the SysTick IRQ
 	NVIC_EnableIRQ(SysTicK_IRQn);
