@@ -432,11 +432,11 @@ void fun_sx126x_clearIQR_status() {
 }
 
 // ref: 13.5.1 `GetStatus`
-#define SX126X_CHIPMODE_STBY_RC			0x02
-#define SX126X_CHIPMODE_STBY_XOSC		0x03
-#define SX126X_CHIPMODE_FS				0x04
-#define SX126X_CHIPMODE_RX				0x05
-#define SX126X_CHIPMODE_TX				0x06
+#define SX126X_CHIPMODE_STBY_RC 0x02
+#define SX126X_CHIPMODE_STBY_XOSC 0x03
+#define SX126X_CHIPMODE_FS 0x04
+#define SX126X_CHIPMODE_RX 0x05
+#define SX126X_CHIPMODE_TX 0x06
 
 void fun_sx126x_printIQR_status(u8 chipMode, u8 cmdStatus) {
 	//# 0x12: get IRQ status
