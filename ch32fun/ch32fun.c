@@ -1815,7 +1815,10 @@ void SystemInit( void )
 #if defined(FUNCONF_INIT_ANALOG) && FUNCONF_INIT_ANALOG
 void funAnalogInit( void )
 {
-	//RCC->CFGR0 &= ~(0x1F<<11); // Assume ADCPRE = 0
+	// Please remember that ADC clock should not exceed 14Mhz!
+	// To ensure that, you may need to adjust RCC depending on your clock speed in the following way:
+	// RCC->CFGR0 |= RCC_ADCPRE_DIV6 // ADC prediv
+	// RCC->CFGR0 |= RCC_PPRE2_DIV2; // Divide HCLK by 2 in PPRE2 because ADCPRE is not enough at high speeds 
 	RCC->APB2PCENR |= RCC_APB2Periph_ADC1;
 
 	// Reset ADC.
@@ -1826,7 +1829,12 @@ void funAnalogInit( void )
 	ADC1->SAMPTR2 = (ADC_SMP0_1<<(3*0)) | (ADC_SMP0_1<<(3*1)) | (ADC_SMP0_1<<(3*2)) | (ADC_SMP0_1<<(3*3)) | (ADC_SMP0_1<<(3*4)) | (ADC_SMP0_1<<(3*5)) | (ADC_SMP0_1<<(3*6)) | (ADC_SMP0_1<<(3*7)) | (ADC_SMP0_1<<(3*8)) | (ADC_SMP0_1<<(3*9));
 	ADC1->SAMPTR1 = (ADC_SMP0_1<<(3*0)) | (ADC_SMP0_1<<(3*1)) | (ADC_SMP0_1<<(3*2)) | (ADC_SMP0_1<<(3*3)) | (ADC_SMP0_1<<(3*4)) | (ADC_SMP0_1<<(3*5));
 
-	ADC1->CTLR2 |= ADC_ADON | ADC_EXTSEL;	// turn on ADC and set rule group to sw trig
+	// turn on ADC and set rule group to sw trig
+	#if defined(CH32V20x)
+		ADC1->CTLR2 |= ADC_ADON | ADC_EXTSEL | ADC_EXTTRIG;
+	#else
+		ADC1->CTLR2 |= ADC_ADON | ADC_EXTSEL;
+	#endif
 
 	// Reset calibration
 	ADC1->CTLR2 |= CTLR2_RSTCAL_Set;
