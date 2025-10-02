@@ -621,13 +621,13 @@ typedef struct
 /* Operational Amplifier and Comparator */
 typedef struct
 {
-  __IO uint32_t CFGR1;
-  __IO uint32_t CTLR1;
-  __IO uint32_t CFGR2;
-  __IO uint32_t CTLR2;
-  __IO uint32_t OPA_KEY;
-  __IO uint32_t CMP_KEY;
-  __IO uint32_t POLL_KEY;
+    __IO uint32_t CFGR1;
+    __IO uint32_t CTLR1;
+    __IO uint32_t CFGR2;
+    __IO uint32_t CTLR2;
+    __IO uint32_t OPA_KEY;
+    __IO uint32_t CMP_KEY;
+    __IO uint32_t POLL_KEY;
 } OPA_TypeDef;
 
 
