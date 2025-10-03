@@ -1,5 +1,24 @@
 # SPI chained network
-Discovered quirks/limitations:
+
+This examples demonstrates how to use two SPI peripherals on a single MCU to make a chained network of similar devices. One SPI works in Master mode and the other in Slave mode. Each node is identical in terms of *network* config (except the node ID) and can be inserted as a link in any part of the chain. Theoretically this gives ability to make a *network* with dynamic topology without reconfiguring individual nodes. The main focus of the code is to show how to configure and use both SPI peripherals to achieve said goals. Rudimentary networking protocol is very basic and needs serious work to become a robust implementation.
+
+## Setup
+
+This example should work on any CH32 MCU that hase 2 SPI peripherals. All of them have the same pinout:
+
+|        | CS  | SCK | MISO | MOSI |
+| :-:    | :-: | :-: | :-:  | :-:  |
+|**SPI1**|PA4  |PA5  |PA6   |PA7   |
+|**SPI2**|PB12 |PB13 |PB14  |PB15  |
+
+By default SPI1 is in Master mode and SPI2 is in Slave. You can change that designation in code by changing ``spi_master`` and ``spi_slave`` pointers.
+
+Nodes should be connected directly to corresponding pins, without crossing MISO and MOSI.
+
+Common GND connection needs to be made between each two nodes.
+
+## Discovered quirks/limitations
+
 - Though both SPIs can use DMA, that only works in Master mode. In slave mode I found the best way is to read bytes in a loop inside EXTI interrupt on CS pin.
 - At least with my setup MISO GPIO of Slave SPI needs to be in 2MHz mode, or it will trash both incoming and outgoing transmissions while sending.
 - 2MHz GPIO mode works for all pins on both SPIs even when working at higher baudrate.
@@ -18,13 +37,28 @@ This protocol is built using 2 separate SPI peripherals - one in Master mode and
 
 Packet = 10 bytes:
 
-| 0             | 1           | 2-3                                         | 4-9               |
-|       -       | -           | -                                           | -                 |
-| [receiver ID] | [sender ID] | [message number + ACK/NAK bit + reply flag] | [6 bytes of data] |
+| 0           | 1             | 2-3                                         | 4-9               |
+|       :-    | :-            | :-                                          | :-                |
+| [sender ID] | [receiver ID] | [message number + ACK/NAK bit + reply flag] | [6 bytes of data] |
 
 Each message has unique ID number so nodes can know what command is data replies to. Also you can make messages of any length by sending multiple packets with the same message number.
+
+Two LSB of message ID are for detecting the type of the message. If the first bit is set it indicates that this is a *new message* in the meaning that it's not a reply and is originated on the sender side. The second bit's meaning depends on first one - if this is a new message ``1`` as a second bit will show that this is a beginning of the message and ``0`` will indicate that is's a continuation of a multi-part message. If the first bit indicates that this is a reply message - ``1`` is ACK and ``0`` is NAK.
+
 Each message has to have sender ID or it will be discarded. Receiver ID can be left blank for broadcast purposes, or when you don't know an ID of nearby nodes, for example during enumeration.
+
 If incoming command can't be processed at the moment (node is processing another command for example) NAK reply should be send. Sender will repeat the command in new message later.
+
 Reply flag is used to indicate that the message is a reply to previously sent message. If receiver has a pending command with this message ID, then it processes the data, otherwise message is discarded.
+
 If received packet has receiver ID that is different from the current node ID, then it copied to OUT buffer of another SPI peripheral to be sent during next transmission. This way messages can be sent from each node to any other node in both up and downstream directions.
 
+### Enumeration
+
+Each SPI struct has an array for nodes map. This array will contain all node IDs that are in a chain after this node. First ([0]) ID is filled when node is start communication. For SPI in Slave mode it will eventually receive a polling message from upstream Master. If this is a polling message, only the first byte will be present and since it represents the sender's ID it will be placed into an array as a first node. For SPI in Master node it will eventually receive a response for its polling messages and it will extract an ID from it. (All messages with empty message number will be discarded and won't be passed further by the chain, so if such message arrives we can be sure it is from a neighbor.)
+
+When first ID is placed into nodes map array the ``enumeration_state`` field of SPI struct is set to ``ENUM_CHANGED`` state. This field will be checked on the next ``process_message`` call and then message with ``CMD_ENUM_UPDATE`` will be sent to both SPIs with current node map from opposite SPIs. Every time new node is detected on either end of the chain it will propagate through the rest of nodes and all nodes will get updated node maps.
+
+### Polling
+
+To get messages from the Slave even when whe don't have anything to send to it we need to make polling transmissions with empty messages. By default we are polling after predetermined delay. If we've received anything from the Slave it means that it's buffer can have more messages, so we poll once more without a delay, until we get empty message, that will indicate that other node doesn't have anything to send at the moment.
