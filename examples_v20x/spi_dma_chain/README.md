@@ -62,3 +62,20 @@ When first ID is placed into nodes map array the ``enumeration_state`` field of 
 ### Polling
 
 To get messages from the Slave even when whe don't have anything to send to it we need to make polling transmissions with empty messages. By default we are polling after predetermined delay. If we've received anything from the Slave it means that it's buffer can have more messages, so we poll once more without a delay, until we get empty message, that will indicate that other node doesn't have anything to send at the moment.
+
+## Using the demo
+
+You need to flash at least two nodes to try this demo. If you want longer than neighbor-to-neighbor communication you need to flash every node with a unique ``NODE_ID``. By default every node will be polling on it's Master (downstream) interface every 1.5s and once it found a neighbor it will send periodical static messages (every 1s). Also a simple LED toggle function is preconfigured. Pressing a button on a node will send ``LED_TOGGLE`` command to the last known node downstream. LED and Button GPIOs are configured according to the ones that are used on *BluePill* WeACT CH32V203 boards.
+
+## WiP
+
+- Message processing could be better
+- Protocol could be better
+- Enumeration logic needs some love
+- Probably there are some bugs in buffer handling (I hope not)
+
+The biggest downside for me is that DMA doesn't work in Slave mode. Resorting to manual buffer processing in an interrupt feels bad.
+
+Bigger/faster setups probably will need a bigger buffer size.
+
+I don't know how fast reliable it can be in real life scenario. Any fixes/additions are welcomed.
