@@ -262,7 +262,7 @@ SECTIONS
 		PROVIDE( _end = _ebss);
 		PROVIDE( end = . );
 
-#if TARGET_MCU_LD == 9
+#if TARGET_MCU_LD == 8 || TARGET_MCU_LD == 9
 		PROVIDE( _eusrstack = ORIGIN(HIGHRAM) + LENGTH(HIGHRAM));
 #else
 		PROVIDE( _eusrstack = ORIGIN(RAM) + LENGTH(RAM));
