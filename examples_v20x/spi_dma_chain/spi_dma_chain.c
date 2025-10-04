@@ -5,15 +5,12 @@
 
 #define DEBUG_SPI 1
 
-#define NODE_ID 0xac
+#define NODE_ID 0xaa
 #define SPI_TRANSMISSION_TIMEOUT 10000
 #define SPI_POLLING_INTERVAL 1500
+#define ENUM_REQUEST_DELAY 3000
 #define SPI_FORCED_SENDING 0 // Send even if we don't know any nodes
-#if NODE_ID != 0xac
 #define SPI_ENABLE_POLLING 1 // Periodically send empty messages on Master to receive any pending data from Slave
-#else
-#define SPI_ENABLE_POLLING 0
-#endif
 
 #if CH32V20x == 1
 #define LED PB2
@@ -42,6 +39,9 @@
 #if (MAX_NODES_N > 255)
 #error "You can have only 255 nodes max"
 #endif
+
+#define reloadTimer(x, y) x = SysTick->CNT + Ticks_from_Ms(y)
+#define checkTimer(x) (int64_t)(SysTick->CNT - x) > 0
 
 #define DMA_BASE_ADDR(n)  (DMA1_Channel1_BASE+(0x14*(n-1)))
 #define DMA1_CH(n) ((DMA_Channel_TypeDef *)DMA_BASE_ADDR(n))
@@ -77,9 +77,15 @@ typedef enum {
 	CMD_LED_OFF = 0x33,
 } command_t;
 
+struct command_struct {
+	command_t type;
+	uint16_t msg_number;
+};
+
 typedef enum {
 	ENUM_EMPTY = 0,
-	ENUM_DONE = 1,
+	ENUM_WAIT = 1,
+	ENUM_DONE = 2,
 	ENUM_INIT,
 	ENUM_CHANGED,
 } enumeration_t;
@@ -108,10 +114,9 @@ typedef struct spi {
 	volatile transfer_t transmission; // Current SPI transmission status
 	volatile enumeration_t enumeration_state;
 	node_map_t nodes;
-	uint16_t out_message_number;
-	uint16_t in_message_number;
-	command_t in_pending_command;
-	command_t out_pending_command;
+	uint16_t message_number;
+	struct command_struct in_pending_command;
+	struct command_struct out_pending_command;
 	volatile uint8_t incoming_message[PACKET_SIZE];
 	uint8_t previous_out_message[PACKET_SIZE]; // Save previous message to be able to repeat it if receiver NAKs
 	volatile int transmission_size; // Number of packets received in last transmission and to be processed
@@ -149,6 +154,7 @@ spi_t* spi_master = &spi1;
 spi_t* spi_slave = &spi2;
 
 uint64_t timer = 0;
+uint64_t enum_timer = 0;
 uint64_t polling_timer = 0;
 uint64_t button_debounce_timer = 0;
 uint64_t button_timer = 0;
@@ -194,8 +200,11 @@ void process_incoming(spi_t * spi) {
 		if (local_pos_in >= BUFFER_SIZE) local_pos_in -= BUFFER_SIZE; // Loop back in buffer
 		if (spi->buffer->in[local_pos_in] == 0) continue; // Skip message if sender field is blank
 		
-		if(spi->nodes.map[0] != spi->buffer->in[local_pos_in]) {
-			spi->nodes.map[0] = spi->buffer->in[local_pos_in]; // But update next node ID
+		// Initialize enumeration or reset the one if node map is already filled
+		// For this we check for messages from a direct neighbor - receiver_id = 0
+		// And also check if sender_id have changed compared to what's in nodes.map
+		if (spi->buffer->in[local_pos_in + 1] == 0 && spi->nodes.map[0] != spi->buffer->in[local_pos_in]) {
+			spi->nodes.map[0] = spi->buffer->in[local_pos_in];
 			spi->enumeration_state = ENUM_INIT;
 			spi->nodes.n_nodes = 1; // We can only be sure about the neighboring node now
 		}
@@ -263,6 +272,8 @@ void spi_nodma_transmission(spi_t * spi, uint8_t * buf, uint32_t len) {
 				// to indicate to master that there is node connected.
 				// Otherwise receiver will read all zeroes and won't know if there is active node here.
 				spi->addr->DATAR = (uint8_t)NODE_ID;
+				ADD_N_NOPS(2);
+				spi->addr->DATAR = 0;
 			} else if (buf == NULL) {
 				spi->addr->DATAR = spi->buffer->out[spi->buffer->sending_pos++];
 				if (spi->buffer->sending_pos >= BUFFER_SIZE) spi->buffer->sending_pos = 0;
@@ -271,7 +282,7 @@ void spi_nodma_transmission(spi_t * spi, uint8_t * buf, uint32_t len) {
 				spi->addr->DATAR = buf[sent];
 				len--;
 			}
-			if (!len) spi->addr->DATAR = 0; // Clear the buffer, or it last value will be sent continuously
+			// if (!len) spi->addr->DATAR = 0; // Clear the buffer, or it last value will be sent continuously
 			timeout = SPI_TRANSMISSION_TIMEOUT; // Reload timeout
 			sent++;
 		}
@@ -282,6 +293,9 @@ void spi_nodma_transmission(spi_t * spi, uint8_t * buf, uint32_t len) {
 			if (spi->buffer->receiving_pos >= BUFFER_SIZE) spi->buffer->receiving_pos = 0;
 			timeout = SPI_TRANSMISSION_TIMEOUT;
 			received++;
+			// If out buffer is already empty, but we now receiving extra packet.
+			// Clear DATAR or we will sent garbage (last byte over an over).
+			if (!len && received == PACKET_SIZE+1) spi->addr->DATAR = 0;
 		}
 
 		if (!spi->master && funDigitalRead(spi->cs_pin)) {
@@ -352,14 +366,14 @@ void setupDMA(uint8_t ch, SPI_TypeDef * spi, uint8_t mode, uint8_t sixteen_bits,
 	DMA1_CH(ch)->MADDR = (uint32_t)buffer;
 	DMA1_CH(ch)->CNTR  = (mode?0:BUFFER_SIZE);
 	DMA1_CH(ch)->CFGR  =
-		DMA_M2M_Disable |		 
+		DMA_M2M_Disable |
 		(mode?DMA_Priority_VeryHigh:DMA_Priority_High) |
 		(sixteen_bits?DMA_MemoryDataSize_Word:DMA_MemoryDataSize_Byte) |
 		(sixteen_bits?DMA_PeripheralDataSize_Word:DMA_PeripheralDataSize_Byte) |
 		DMA_MemoryInc_Enable |
 		(mode?DMA_Mode_Normal:DMA_Mode_Circular) |
 		(mode?DMA_DIR_PeripheralDST:DMA_DIR_PeripheralSRC) |
-		(mode?DMA_IT_TC:0); 
+		(mode?DMA_IT_TC:0);
 
 	if (mode) {
 		NVIC_EnableIRQ( DMA1_IRQ(ch) );
@@ -372,7 +386,7 @@ void setupDMA(uint8_t ch, SPI_TypeDef * spi, uint8_t mode, uint8_t sixteen_bits,
 
 void setup_SPI(spi_t * spi, uint8_t mode, uint8_t sixteen_bits)
 {
-	printf("SPI%d = %08lx\n", (spi->addr == SPI1)?1:2, (uint32_t)spi->addr);
+	printf("SPI%d - %s\n", (spi->addr == SPI1)?1:2, mode?"master":"slave");
 
 	// I've found that GPIO modes other than 2MHz, at least in case of slave SPI MISO doesn't really work that great (if at all).
 	// 2MHz is more stable and I didn't find any downsides.
@@ -394,7 +408,7 @@ void setup_SPI(spi_t * spi, uint8_t mode, uint8_t sixteen_bits)
 		RCC->APB1PCENR |= RCC_APB1Periph_SPI2;
 	}
 
-	// Configure SPI 
+	// Configure SPI
 	spi->addr->CTLR1 = (mode?SPI_NSS_Soft:0) | SPI_CPHA_1Edge | SPI_CPOL_Low | (sixteen_bits?SPI_DataSize_16b:0) | SPI_BaudRatePrescaler_16 | (mode?SPI_Mode_Master:0);
 	// spi->CRCR = 7;
 
@@ -456,9 +470,9 @@ void spi_send_message(spi_t * spi, uint8_t receiver_id, uint16_t message_id, uin
 	spi->buffer->out[spi->buffer->pos_out] = (uint8_t)NODE_ID;
 	spi->buffer->out[spi->buffer->pos_out+1] = receiver_id;
 	if (!message_id) {
-		if (spi->out_message_number++ > 16383) spi->out_message_number = 1;
-		spi->buffer->out[spi->buffer->pos_out+2] = (uint8_t)(spi->out_message_number>>6);
-		spi->buffer->out[spi->buffer->pos_out+3] = (uint8_t)((spi->out_message_number<<2) | 3);
+		if (spi->message_number++ > 16383) spi->message_number = 1;
+		spi->buffer->out[spi->buffer->pos_out+2] = (uint8_t)(spi->message_number>>6);
+		spi->buffer->out[spi->buffer->pos_out+3] = (uint8_t)((spi->message_number<<2) | 3);
 	} else {
 		spi->buffer->out[spi->buffer->pos_out+2] = (uint8_t)(message_id>>6);
 		spi->buffer->out[spi->buffer->pos_out+3] = (uint8_t)(message_id);
@@ -512,17 +526,18 @@ void enumerate(spi_t * spi, command_t cmd) {
 	if (cmd == CMD_ENUM_UPDATE && spi->another->nodes.n_nodes && spi->nodes.n_nodes) {
 		spi_send_message(spi, spi->nodes.map[0], 0, (uint8_t*)(&(uint8_t[]){CMD_ENUM_UPDATE, spi->another->nodes.map[0], spi->another->nodes.map[1], spi->another->nodes.map[2], spi->another->nodes.map[3], spi->another->nodes.map[4]}), 6);
 		if (spi->another->nodes.n_nodes > 5) {
-			spi_send_message(spi, spi->nodes.map[0], (spi->out_message_number<<2)|1, &spi->another->nodes.map[5], spi->another->nodes.n_nodes - 5);
-			spi_send_message(spi, spi->nodes.map[0], (spi->out_message_number<<2)|1, (uint8_t*)(&(uint8_t[]){0xff}), 1);
+			spi_send_message(spi, spi->nodes.map[0], (spi->message_number<<2)|1, &spi->another->nodes.map[5], spi->another->nodes.n_nodes - 5);
+			spi_send_message(spi, spi->nodes.map[0], (spi->message_number<<2)|1, (uint8_t*)(&(uint8_t[]){0xff}), 1);
 		}
 	} else if (cmd == CMD_ENUM_REQUEST) {
 		spi_send_message(spi, spi->nodes.map[0], 0, (uint8_t[]){CMD_ENUM_REQUEST}, 1);
-		spi->out_pending_command = CMD_ENUM_REQUEST;
+		spi->out_pending_command.type = CMD_ENUM_REQUEST;
+		spi->out_pending_command.msg_number = spi->message_number;
 	} else if (cmd == CMD_ENUM_REPLY) {
 		if (spi->another->nodes.n_nodes) { // Not necessary chack but for clearance
-			spi_send_message(spi, spi->nodes.map[0], (spi->out_message_number<<2)|2, &spi->another->nodes.map[0], spi->another->nodes.n_nodes);
+			spi_send_message(spi, spi->nodes.map[0], (spi->in_pending_command.msg_number<<2)|2, &spi->another->nodes.map[0], spi->another->nodes.n_nodes);
 		}
-		spi_send_message(spi, spi->nodes.map[0], (spi->out_message_number<<2)|2, (uint8_t*)(&(uint8_t[]){0xff}), 1);
+		spi_send_message(spi, spi->nodes.map[0], (spi->in_pending_command.msg_number<<2)|2, (uint8_t*)(&(uint8_t[]){0xff}), 1);
 	}
 }
 
@@ -531,8 +546,14 @@ void process_message(spi_t * spi) {
 		// Send to another part of the chain updated nodes map
 		enumerate(spi->another, CMD_ENUM_UPDATE);
 		// If we found a new neighbour we want to send our known map to it too
-		if (spi->enumeration_state == ENUM_INIT) enumerate(spi, CMD_ENUM_UPDATE);
-		spi->enumeration_state = ENUM_DONE;
+		if (spi->enumeration_state == ENUM_INIT) {
+			enumerate(spi, CMD_ENUM_UPDATE);
+			spi->enumeration_state = ENUM_WAIT;
+			reloadTimer(enum_timer, ENUM_REQUEST_DELAY);
+		} else {
+			spi->enumeration_state = ENUM_DONE;
+		}
+		
 		printf("SPI %s nodes map updated: [%02X", (spi->master?"master":"slave"), spi->nodes.map[0]);
 		for (int i = 1; i < spi->nodes.n_nodes; i++) {
 			printf(", %02X", spi->nodes.map[i]);
@@ -547,9 +568,11 @@ void process_message(spi_t * spi) {
 	}
 
 	uint8_t local_message[PACKET_SIZE];
-	uint32_t old_number = spi->out_message_number;
+	
 	do {
+		// Copying a message to process, so it won't be overwritten by the IRQ in the process
 		memcpy(local_message, &spi->buffer->in[spi->incomming_message_pos], PACKET_SIZE);
+
 #if DEBUG_SPI
 		printf("%s IN ", spi->master?"Master":"Slave");
 		for (int n = 0; n < PACKET_SIZE; n++) {
@@ -557,8 +580,7 @@ void process_message(spi_t * spi) {
 		}
 		printf("\n");
 #endif
-		// Copying a message to process, so it won't be overwritten by the IRQ in the process
-		memcpy(local_message, &spi->buffer->in[spi->incomming_message_pos], PACKET_SIZE);
+		
 		if (spi->incomming_message_pos += PACKET_SIZE >= BUFFER_SIZE) spi->incomming_message_pos = 0;
 		// Check the message number that is located in 3rd and 4th bits
 		uint16_t message_id = (local_message[2]<<8) | local_message[3];
@@ -574,11 +596,11 @@ void process_message(spi_t * spi) {
 		bool message_is_sequel = (message_is_new && !ack);
 
 		// Resend a command/message if NAK received while we waited a proper answer
-		if (message_is_reply && !ack && spi->out_pending_command != CMD_IDLE && message_number == spi->out_message_number) {
+		if (message_is_reply && !ack && spi->out_pending_command.type != CMD_IDLE && spi->out_pending_command.msg_number == message_number) {
 			spi_send_message(spi, spi->previous_out_message[0], 0, spi->previous_out_message, PACKET_SIZE);
 		// If this is a new message and we have no ongoing commands to finish
-		} else if (message_is_new && spi->in_pending_command == CMD_IDLE) {
-			
+		} else if (message_is_new && spi->in_pending_command.type == CMD_IDLE) {
+			spi->in_pending_command.msg_number = message_number;
 			switch (local_message[4]) {
 				case CMD_ENUM_REQUEST:
 					printf("CMD_ENUM_REQUEST\n");
@@ -587,20 +609,13 @@ void process_message(spi_t * spi) {
 					break;
 				case CMD_ENUM_UPDATE:
 					printf("CMD_ENUM_UPDATE\n");
-					spi->in_pending_command = CMD_ENUM_UPDATE;
+					spi->in_pending_command.type = CMD_ENUM_UPDATE;
 					spi->nodes.n_nodes = 1; // Rewrite any old nodes in map
 					for (int i = 5; i < PACKET_SIZE; i++) {
 						if (local_message[i] == 0xff || local_message[i] == 0) {
-							spi->in_pending_command = CMD_IDLE;
+							spi->in_pending_command.type = CMD_IDLE;
 							// Send nodes map update if there is actually anything
-							if (spi->nodes.n_nodes > 1) {
-								enumerate(spi->another, CMD_ENUM_UPDATE);
-								printf("SPI %s nodes map updated: [%02X", (spi->master?"master":"slave"), spi->nodes.map[0]);
-								for (int i = 1; i < spi->nodes.n_nodes; i++) {
-									printf(", %02X", spi->nodes.map[i]);
-								}
-								printf("]\n");
-							}
+							if (spi->nodes.n_nodes > 1) spi->enumeration_state = ENUM_CHANGED;
 							break;
 						}
 						spi->nodes.map[spi->nodes.n_nodes++] = local_message[i];
@@ -611,46 +626,42 @@ void process_message(spi_t * spi) {
 					// Turn LED on/off
 					// Ack
 					funDigitalWrite(LED, !funDigitalRead(LED));
-					spi_send_control(spi, local_message[1], message_number<<2, 1);
+					spi_send_control(spi, local_message[0], message_number<<2, 1);
 					break;
 				case CMD_LED_OFF:
 					printf("CMD_LED_OFF\n");
 					funDigitalWrite(LED, !LED_ON);
-					spi_send_control(spi, local_message[1], message_number<<2, 1);
+					spi_send_control(spi, local_message[0], message_number<<2, 1);
 					break;
 				case CMD_LED_ON:
 					printf("CMD_LED_ON\n");
 					funDigitalWrite(LED, LED_ON);
-					spi_send_control(spi, local_message[1], message_number<<2, 1);
+					spi_send_control(spi, local_message[0], message_number<<2, 1);
 					break;
 				case CMD_READ_SENSOR:
 					printf("CMD_READ_SENSOR\n");
 					// read_sensor_local();
-					spi->in_pending_command = local_message[4];
+					// spi->in_pending_command.type = local_message[4];
 					// Or send cashed data if we do it frequently
 					break;
 				default:
-					// printf("Incomming message: ");
-					// for (int n = 0; n < PACKET_SIZE; n++) {
-					//   printf("%02x ", local_message[n]);
-					// }
-					// printf("\n");
 					break;
 			}
 		// If this is a new message, but we are still finishing replying to previous
-		} else if (spi->in_pending_command != CMD_IDLE) {
-			if (spi->in_message_number != message_number || !message_is_sequel) {
-				printf("Unanswer message is pending: %d. Incomming message skipped.\n", spi->in_pending_command);
+		} else if (spi->in_pending_command.type != CMD_IDLE) {
+			// TODO: Make a timeout for pending messages. Otherwise it can break if node doesn't reply.
+			if (spi->in_pending_command.msg_number != message_number || !message_is_sequel) {
+				printf("Unanswer message is pending: %d. Incomming message skipped.\n", spi->in_pending_command.type);
 				// Maybe NAK here so the sender can repeat request later
-				spi_send_control(spi, local_message[1], message_number, 0);
+				spi_send_control(spi, local_message[0], message_number, 0);
 				continue; // Don't synchronize message number, skip to next message 
 			}
-			switch (spi->in_pending_command) {
+			switch (spi->in_pending_command.type) {
 				case CMD_ENUM_UPDATE:
 					printf("CMD_ENUM_UPDATE SEQ\n");
 					for (int i = 4; i < PACKET_SIZE; i++) {
 						if (local_message[i] == 0xff || local_message[i] == 0) {
-							spi->out_pending_command = CMD_IDLE;
+							spi->out_pending_command.type = CMD_IDLE;
 							if (spi->nodes.n_nodes > 1) spi->enumeration_state = ENUM_CHANGED;
 							break;
 						}
@@ -659,15 +670,15 @@ void process_message(spi_t * spi) {
 					break;
 			}
 		// If this is a reply and we are waiting for one
-		} else if (!message_is_new && spi->out_pending_command != CMD_IDLE) {
+		} else if (!message_is_new && spi->out_pending_command.type != CMD_IDLE) {
 			// And if this is a reply to a correct message
-			if ((message_number >> 2) == old_number) {
-				switch (spi->out_pending_command) {
+			if (message_number == spi->out_pending_command.msg_number) {
+				switch (spi->out_pending_command.type) {
 					case CMD_ENUM_REQUEST:
 					case CMD_ENUM_UPDATE:
 						for (int i = 4; i < PACKET_SIZE; i++) {
 							if (local_message[i] == 0xff || local_message[i] == 0) {
-								spi->out_pending_command = CMD_IDLE;
+								spi->out_pending_command.type = CMD_IDLE;
 								if (spi->nodes.n_nodes > 1)  spi->enumeration_state = ENUM_CHANGED;
 								break;
 							}
@@ -675,33 +686,32 @@ void process_message(spi_t * spi) {
 						}
 						break;
 					case CMD_LED_TOGGLE:
-						spi->out_pending_command = CMD_IDLE;
+						spi->out_pending_command.type = CMD_IDLE;
 						break;
 					case CMD_READ_SENSOR:
 						// Process incomming sensor data, just printing for now
-						printf("Sensor data from [0x%02x]:%02x-%02x-%02x-%02x-%02x-%02x\n", local_message[1], local_message[4], local_message[5], local_message[6], local_message[7], local_message[8], local_message[9]);
-						spi->out_pending_command = CMD_IDLE;
+						printf("Sensor data from [%02X]:%02x-%02x-%02x-%02x-%02x-%02x\n", local_message[1], local_message[4], local_message[5], local_message[6], local_message[7], local_message[8], local_message[9]);
+						spi->out_pending_command.type = CMD_IDLE;
 						break;
 				}
 			} else {
 				// This shouldn't happen? A reply with a different number, where would it come from?
-				printf("Unexpected message number: %d", message_number);
+				printf("Unexpected message number: %d, expected: %d. ID %04x\n", message_number, spi->out_pending_command.msg_number, message_id);
 				continue;
 			}
-		// If this is a reply but we didn't request anythig - act confused but do nothing
+		// If this is a reply but we didn't request anything - act confused but do nothing
 		} else if (!message_is_new) {
-			printf("Message number %04x, %d, type: %s Incomming message:\n", message_id, message_number, (message_is_new)?"new":"reply");
+			printf("Unexpected reply. Number: %d, ID: %04x. ", message_id, message_number);
 			for (uint8_t i = 0; i < PACKET_SIZE; i++) {
 				printf("%02x ", local_message[i]);
 			}
 			printf("\n");
-			// Probably still synchronize message number
 		}
 		// Syncronize message number?
 		// Can potentially cause problem if incomming message with a different number from not neighboring node
-		if (spi->out_message_number == old_number) {
-			spi->out_message_number = message_number;
-		}
+		// if (spi->message_number == old_number) {
+		// 	spi->message_number = message_number;
+		// }
 	} while ((spi->transmission_size -= PACKET_SIZE) > 0);
 	spi->transmission_size = 0;
 	spi->incomming_message_pos = -1;
@@ -760,6 +770,8 @@ int main()
 	NVIC->CFGR = NVIC_KEY1|1;
 #endif
 
+	printf("Node ID - %02X\n\n-------\n\n", (uint8_t)NODE_ID);
+
 	funDigitalWrite(LED, !LED_ON);
 
 #if NODE_ID == 0xab
@@ -771,29 +783,38 @@ int main()
 
 	while(1)
 	{
-		if ((int64_t)(SysTick->CNT - button_debounce_timer) > 0 && READ_BUTTON != last_button_state) {
+		if (checkTimer(button_debounce_timer) && READ_BUTTON != last_button_state) {
 			last_button_state = READ_BUTTON;
-			button_debounce_timer = SysTick->CNT + Ticks_from_Ms(50);
+			reloadTimer(button_debounce_timer, 50);
 			funDigitalWrite(LED, last_button_state);
 			if (last_button_state == BUTTON_POLARITY) {
-				if (spi_master->nodes.n_nodes && (int64_t)(SysTick->CNT - button_timer) > 0) {
-					printf("LED toggle to [%02x]\n", spi_master->nodes.map[spi_master->nodes.n_nodes-1]);
+				if (spi_master->nodes.n_nodes && checkTimer(button_timer)) {
+					printf("LED toggle to [%02X]\n", spi_master->nodes.map[spi_master->nodes.n_nodes-1]);
 					spi_send_message(spi_master, spi_master->nodes.map[spi_master->nodes.n_nodes-1], 0, (uint8_t[]){CMD_LED_TOGGLE}, 1);
-					button_debounce_timer = SysTick->CNT + Ticks_from_Ms(BUTTON_SEND_DELAY);
+					reloadTimer(button_timer, BUTTON_SEND_DELAY);
 				}
 			}
 		}
 
-		if ((int64_t)(SysTick->CNT - timer) > 0) {
+		if (checkTimer(timer)) {
 			spi_send_message(spi_master, 0, 0, message, PACKET_SIZE - 4);
 			spi_send_message(spi_slave, 0, 0, message_slave, PACKET_SIZE - 4);
-			timer = SysTick->CNT + Ticks_from_Ms(1000);
+			reloadTimer(timer, 1000);
 		}
 		
-		if ((int64_t)(SysTick->CNT - polling_timer) > 0 && spi_master->transmission == SPI_IDLE) {
-			
+		if (checkTimer(polling_timer) && spi_master->transmission == SPI_IDLE) {
 			spi_poll();
-			polling_timer = SysTick->CNT + Ticks_from_Ms(SPI_POLLING_INTERVAL);
+			reloadTimer(polling_timer, SPI_POLLING_INTERVAL);
+		}
+
+		if (enum_timer && checkTimer(enum_timer)) {
+			enum_timer = 0;
+			if (spi_master->enumeration_state == ENUM_WAIT) {
+				enumerate(spi_master, CMD_ENUM_REQUEST);	
+			}
+			if (spi_slave->enumeration_state == ENUM_WAIT) {
+				enumerate(spi_slave, CMD_ENUM_REQUEST);	
+			}
 		}
 
 		if (!(spi_master->addr->STATR & SPI_I2S_FLAG_BSY) && spi_master->transmission != SPI_IDLE) {
@@ -805,11 +826,11 @@ int main()
 			process_incoming(spi_master);
 			
 			if (spi_master->buffer->sending_pos != spi_master->buffer->pos_out) {
-#if DEBUG_SPI        
-				printf("There is something to send %ld - %ld\n", spi_master->buffer->sending_pos, spi_master->buffer->pos_out);
+#if DEBUG_SPI
+				printf("Master has something to send %ld - %ld\n", spi_master->buffer->sending_pos, spi_master->buffer->pos_out);
 #endif
 				spi_send(spi_master, 0);
-			// In case we received any messages during last transmission, poll to see if there is anything in qeue 
+			// In case we received any messages during last transmission, poll to see if there is anything in qeue
 			} else if (spi_master->incomming_message_pos >= 0) {
 				spi_poll();
 			}

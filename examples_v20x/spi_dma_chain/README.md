@@ -4,7 +4,7 @@ This examples demonstrates how to use two SPI peripherals on a single MCU to mak
 
 ## Setup
 
-This example should work on any CH32 MCU that hase 2 SPI peripherals. All of them have the same pinout:
+This example should work on any CH32 MCU that has 2 SPI peripherals. All of them have the same pinout:
 
 |        | CS  | SCK | MISO | MOSI |
 | :-:    | :-: | :-: | :-:  | :-:  |
@@ -24,6 +24,8 @@ Common GND connection needs to be made between each two nodes.
 - 2MHz GPIO mode works for all pins on both SPIs even when working at higher baudrate.
 - Processor couldn't keep up sending data in time at speeds > 18MHz.
 - Slave SPI needs a delay on Master side between pulling CS low and starting a transmission to be able to write data to DATAR register in time.
+- DATAR isn't cleared when bits are shifted out. The same data will be shifted on next byte transfer unless you clear it manually.
+- If you *clear* DATAR manually, but after transmission is done, ``0`` will be sent as a first byte on the next transmission.
 - I'm using HW CS pink on Slave side and toggling CS in software on Master side. This makes the most sense.
 - You can modify the code to use 16 bit transmission mode. This will work at the same speed with double data rate. But then you'd need to pack uint8_t to uint16_t and vice versa.
 - In this setup SPI works in Full Duplex mode. This means that it's transmitting and receiving at the same time synchronously. Pro is that it fast and *convenient*. Con is that it's *inconvenient* because if you want to receive something on Master from Slave you need to send something, all zeroes for example. And if you want to send something from Slave to Master, you need for Master to initiate the transmission first. There is a way to make signalling from Slave back to Master to trigger the transmission, but for now I think polling periodically is the best solution.
@@ -45,7 +47,7 @@ Each message has unique ID number so nodes can know what command is data replies
 
 Two LSB of message ID are for detecting the type of the message. If the first bit is set it indicates that this is a *new message* in the meaning that it's not a reply and is originated on the sender side. The second bit's meaning depends on first one - if this is a new message ``1`` as a second bit will show that this is a beginning of the message and ``0`` will indicate that is's a continuation of a multi-part message. If the first bit indicates that this is a reply message - ``1`` is ACK and ``0`` is NAK.
 
-Each message has to have sender ID or it will be discarded. Receiver ID can be left blank for broadcast purposes, or when you don't know an ID of nearby nodes, for example during enumeration.
+Each message has to have *sender ID* or it will be discarded. *Receiver ID* can be left blank for sending messages to a neighbor node. Also initial enumeration will be triggered only on a messages from neighbors - with *receiver ID* set to ``0``.
 
 If incoming command can't be processed at the moment (node is processing another command for example) NAK reply should be send. Sender will repeat the command in new message later.
 
@@ -65,7 +67,9 @@ To get messages from the Slave even when whe don't have anything to send to it w
 
 ## Using the demo
 
-You need to flash at least two nodes to try this demo. If you want longer than neighbor-to-neighbor communication you need to flash every node with a unique ``NODE_ID``. By default every node will be polling on it's Master (downstream) interface every 1.5s and once it found a neighbor it will send periodical static messages (every 1s). Also a simple LED toggle function is preconfigured. Pressing a button on a node will send ``LED_TOGGLE`` command to the last known node downstream. LED and Button GPIOs are configured according to the ones that are used on *BluePill* WeACT CH32V203 boards.
+You need to flash at least two nodes to try this demo. If you want longer than neighbor-to-neighbor communication you need to flash every node with a unique ``NODE_ID``. By default every node will be polling on it's Master (downstream) interface every 1.5s and once it found a neighbor it will send periodical static messages (every 1s). Also a simple LED toggle function is preconfigured. Pressing a button on a node will send ``LED_TOGGLE`` command to the last known node downstream.
+
+LED and Button GPIOs are configured according to the ones that are used on *BluePill* WeACT CH32V203 boards or cheap CH32V307VCT6 devboard. You can use any other, simply adjust the defines.
 
 ## WiP
 
