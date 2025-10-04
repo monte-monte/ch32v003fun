@@ -3,9 +3,9 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define DEBUG_SPI 1
+#define DEBUG_LEVEL 1
 
-#define NODE_ID 0xaa
+#define NODE_ID 0xac
 #define SPI_TRANSMISSION_TIMEOUT 10000
 #define SPI_POLLING_INTERVAL 1500
 #define ENUM_REQUEST_DELAY 3000
@@ -16,16 +16,18 @@
 #define LED PB2
 #define BUTTON PA0
 #define BUTTON_POLARITY 1
+#define LED_ON 1
 #elif CH32V30x == 1
 #define LED PA15
 #define BUTTON PB3
 #define BUTTON_POLARITY 0
+#define LED_ON 1
 #else
 #define LED PC8
 #define BUTTON PC0
 #define BUTTON_POLARITY 1
+#define LED_ON 0
 #endif
-#define LED_ON 1
 
 #if BUTTON_POLARITY
 #define READ_BUTTON funDigitalRead(BUTTON)
@@ -120,7 +122,7 @@ typedef struct spi {
 	volatile uint8_t incoming_message[PACKET_SIZE];
 	uint8_t previous_out_message[PACKET_SIZE]; // Save previous message to be able to repeat it if receiver NAKs
 	volatile int transmission_size; // Number of packets received in last transmission and to be processed
-	int16_t incomming_message_pos;
+	int16_t incoming_message_pos;
 	uint8_t master;
 } spi_t;
 
@@ -194,8 +196,12 @@ void process_incoming(spi_t * spi) {
 
 	for (int i = 0; i < transfer_size; i += PACKET_SIZE) {
 		if (i) local_pos_in += PACKET_SIZE;
-#if DEBUG_SPI
-		printf("Processing incoming on %s: [%ld] %02x %02x %02x %02x %02x %02x %02x %02x\n", (spi->master?"master":"slave"), local_pos_in, spi->buffer->in[local_pos_in], spi->buffer->in[local_pos_in + 1], spi->buffer->in[local_pos_in + 2], spi->buffer->in[local_pos_in + 3], spi->buffer->in[local_pos_in + 4], spi->buffer->in[local_pos_in + 5], spi->buffer->in[local_pos_in + 6], spi->buffer->in[local_pos_in + 7]);
+#if DEBUG_LEVEL > 1
+		printf("Processing %s: [%ld] %02x %02x %02x %02x %02x %02x %02x %02x\n", (spi->master?"Master":"Slave"), local_pos_in);
+		for (int n = 0; n < PACKET_SIZE; n++) {
+			printf("%02x ", spi->buffer->in[local_pos_in+n]);
+		}
+		printf("\n");
 #endif
 		if (local_pos_in >= BUFFER_SIZE) local_pos_in -= BUFFER_SIZE; // Loop back in buffer
 		if (spi->buffer->in[local_pos_in] == 0) continue; // Skip message if sender field is blank
@@ -216,8 +222,8 @@ void process_incoming(spi_t * spi) {
 		uint8_t inc_id = spi->buffer->in[local_pos_in + 1];
 		// If this message is intended for this node, or is a broadcast
 		if (inc_id == NODE_ID || inc_id == 0 || inc_id == 0xff) {
-			if (spi->incomming_message_pos < 0) {
-				spi->incomming_message_pos = local_pos_in;
+			if (spi->incoming_message_pos < 0) {
+				spi->incoming_message_pos = local_pos_in;
 			}
 		// Else pass message further
 		} 
@@ -409,7 +415,7 @@ void setup_SPI(spi_t * spi, uint8_t mode, uint8_t sixteen_bits)
 	}
 
 	// Configure SPI
-	spi->addr->CTLR1 = (mode?SPI_NSS_Soft:0) | SPI_CPHA_1Edge | SPI_CPOL_Low | (sixteen_bits?SPI_DataSize_16b:0) | SPI_BaudRatePrescaler_16 | (mode?SPI_Mode_Master:0);
+	spi->addr->CTLR1 = (mode?SPI_NSS_Soft:0) | SPI_CPHA_1Edge | SPI_CPOL_Low | (sixteen_bits?SPI_DataSize_16b:0) | SPI_BaudRatePrescaler_64 | (mode?SPI_Mode_Master:0);
 	// spi->CRCR = 7;
 
 	// DMA only works in Master mode for some reason. Need to use interrupts in Slave mode.
@@ -431,9 +437,12 @@ void setup_SPI(spi_t * spi, uint8_t mode, uint8_t sixteen_bits)
 }
 
 void spi_send(spi_t * spi, uint8_t n_packets) {
-#if DEBUG_SPI
-	printf("%s OUT ", (spi->master?"Master":"Slave"));
-	printf("[%ld] %02x %02x %02x %02x %02x %02x %02x %02x\n", spi->buffer->pos_out, spi->buffer->out[spi->buffer->pos_out], spi->buffer->out[spi->buffer->pos_out+1], spi->buffer->out[spi->buffer->pos_out+2], spi->buffer->out[spi->buffer->pos_out+3], spi->buffer->out[spi->buffer->pos_out+4], spi->buffer->out[spi->buffer->pos_out+5], spi->buffer->out[spi->buffer->pos_out+6], spi->buffer->out[spi->buffer->pos_out+7]);
+#if DEBUG_LEVEL
+	printf("%s OUT [%ld] ", (spi->master?"Master":"Slave"), spi->buffer->pos_out);
+	for (int n = 0; n < PACKET_SIZE; n++) {
+		printf("%02x ", spi->buffer->out[spi->buffer->pos_out+n]);
+	}
+	printf("\n");
 #endif
 	// Update position in buffer for next data
 	// Loop the buffer if needed
@@ -457,7 +466,7 @@ void spi_send(spi_t * spi, uint8_t n_packets) {
 		spi->transmission = SPI_IN_PROGRESS;
 		Delay_Ms(2); // Let slave to react
 		spi->dma_out->CFGR |= DMA_CFGR1_EN;
-		polling_timer = SysTick->CNT + Ticks_from_Ms(SPI_POLLING_INTERVAL);
+		reloadTimer(polling_timer, SPI_POLLING_INTERVAL);
 	}
 }
 
@@ -507,7 +516,7 @@ void spi_send_control(spi_t * spi, uint8_t receiver_id, uint16_t message_id, uin
 
 void spi_poll() {
 #if SPI_ENABLE_POLLING
-#if DEBUG_SPI
+#if DEBUG_LEVEL
 	printf("Polling...\n");
 #endif
 	// Slave will ignore empty message, but will send any data it has to send
@@ -520,7 +529,7 @@ void spi_poll() {
 }
 
 void enumerate(spi_t * spi, command_t cmd) {
-#if DEBUG_SPI
+#if DEBUG_LEVEL
 	printf("%s ENUM OUT %d\n", spi->master?"Master":"Slave", cmd);
 #endif
 	if (cmd == CMD_ENUM_UPDATE && spi->another->nodes.n_nodes && spi->nodes.n_nodes) {
@@ -561,9 +570,9 @@ void process_message(spi_t * spi) {
 		printf("]\n");
 	}
 
-	if (spi->incomming_message_pos < 0 || spi->transmission_size == 0) {
+	if (spi->incoming_message_pos < 0 || spi->transmission_size == 0) {
 		// spi->transmission_packets_n = 0;
-		// spi->incomming_message_pos = -1;
+		// spi->incoming_message_pos = -1;
 		return;
 	}
 
@@ -571,17 +580,17 @@ void process_message(spi_t * spi) {
 	
 	do {
 		// Copying a message to process, so it won't be overwritten by the IRQ in the process
-		memcpy(local_message, &spi->buffer->in[spi->incomming_message_pos], PACKET_SIZE);
+		memcpy(local_message, &spi->buffer->in[spi->incoming_message_pos], PACKET_SIZE);
 
-#if DEBUG_SPI
-		printf("%s IN ", spi->master?"Master":"Slave");
+#if DEBUG_LEVEL
+		printf("%s IN [%d] ", spi->master?"Master":"Slave", spi->incoming_message_pos);
 		for (int n = 0; n < PACKET_SIZE; n++) {
 			printf("%02x ", local_message[n]);
 		}
 		printf("\n");
 #endif
 		
-		if (spi->incomming_message_pos += PACKET_SIZE >= BUFFER_SIZE) spi->incomming_message_pos = 0;
+		if (spi->incoming_message_pos += PACKET_SIZE >= BUFFER_SIZE) spi->incoming_message_pos = 0;
 		// Check the message number that is located in 3rd and 4th bits
 		uint16_t message_id = (local_message[2]<<8) | local_message[3];
 		// Valid message always has to have a number
@@ -714,7 +723,7 @@ void process_message(spi_t * spi) {
 		// }
 	} while ((spi->transmission_size -= PACKET_SIZE) > 0);
 	spi->transmission_size = 0;
-	spi->incomming_message_pos = -1;
+	spi->incoming_message_pos = -1;
 }
 
 void read_sensor_local() {
@@ -759,7 +768,7 @@ int main()
 
 	setup_SPI(spi_master, SPI_Master, 0);
 	funDigitalWrite(spi_master->cs_pin, 1);
-	spi_master->incomming_message_pos = -1;
+	spi_master->incoming_message_pos = -1;
 
 	setup_SPI(spi_slave, SPI_Slave, 0);
 	funDigitalWrite(spi_slave->cs_pin, 0);
@@ -786,13 +795,15 @@ int main()
 		if (checkTimer(button_debounce_timer) && READ_BUTTON != last_button_state) {
 			last_button_state = READ_BUTTON;
 			reloadTimer(button_debounce_timer, 50);
-			funDigitalWrite(LED, last_button_state);
-			if (last_button_state == BUTTON_POLARITY) {
+			if (last_button_state == true) {
+				funDigitalWrite(LED, LED_ON);
 				if (spi_master->nodes.n_nodes && checkTimer(button_timer)) {
 					printf("LED toggle to [%02X]\n", spi_master->nodes.map[spi_master->nodes.n_nodes-1]);
 					spi_send_message(spi_master, spi_master->nodes.map[spi_master->nodes.n_nodes-1], 0, (uint8_t[]){CMD_LED_TOGGLE}, 1);
 					reloadTimer(button_timer, BUTTON_SEND_DELAY);
 				}
+			} else {
+				funDigitalWrite(LED, !LED_ON);
 			}
 		}
 
@@ -826,12 +837,12 @@ int main()
 			process_incoming(spi_master);
 			
 			if (spi_master->buffer->sending_pos != spi_master->buffer->pos_out) {
-#if DEBUG_SPI
+#if DEBUG_LEVEL
 				printf("Master has something to send %ld - %ld\n", spi_master->buffer->sending_pos, spi_master->buffer->pos_out);
 #endif
 				spi_send(spi_master, 0);
 			// In case we received any messages during last transmission, poll to see if there is anything in qeue
-			} else if (spi_master->incomming_message_pos >= 0) {
+			} else if (spi_master->incoming_message_pos >= 0) {
 				spi_poll();
 			}
 		}

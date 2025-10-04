@@ -29,7 +29,8 @@ Common GND connection needs to be made between each two nodes.
 - I'm using HW CS pink on Slave side and toggling CS in software on Master side. This makes the most sense.
 - You can modify the code to use 16 bit transmission mode. This will work at the same speed with double data rate. But then you'd need to pack uint8_t to uint16_t and vice versa.
 - In this setup SPI works in Full Duplex mode. This means that it's transmitting and receiving at the same time synchronously. Pro is that it fast and *convenient*. Con is that it's *inconvenient* because if you want to receive something on Master from Slave you need to send something, all zeroes for example. And if you want to send something from Slave to Master, you need for Master to initiate the transmission first. There is a way to make signalling from Slave back to Master to trigger the transmission, but for now I think polling periodically is the best solution.
-- Interrupts are strange, I don't think I was able to make nesting priority work, so I decided to use DMA Transmission Complete interrupt only to disable DMA Out channel and set flag. And then do all the work in main loop. Slave SPI has to do everything in interrupt, because it is very time sensitive procedure
+- Interrupts are strange, I don't think I was able to make nesting priority work, so I decided to use DMA Transmission Complete interrupt only to disable DMA Out channel and set flag. And then do all the work in main loop. Slave SPI has to do everything in interrupt, because it is very time sensitive procedure.
+- Baudrate can be varied along the *network*. You can chose different SPI frequency on per link basis. Just pick the frequency on the Master side that Slave can keep up with.
 
 ## Protocol
 
