@@ -353,7 +353,9 @@ int ISPWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t blob_size,
 	stream[1] = 56 + 5; // packet length, 56 byte chunk + 5 byte header
 	stream[2] = '\x00';
 
-	for(int i = 0; i < ((blob_size / 56) +1); i++) {
+	uint32_t write_size = (blob_size%256)?(((blob_size/256) + 1) * 256):blob_size;
+
+	for(int i = 0; i < ((write_size / 56) +1); i++) {
 		for(int j = 0; j < 7; j++) { // xor key length means 7 blocks per 56 byte chunk
 			for(int k = 0; k < WCH_XOR_KEY_LEN_8; k++) { // i,j,k for loop I feel like I'm back in Java 101
 				uint32_t blob_idx = (i*56) + (j*8) + k;
