@@ -975,8 +975,6 @@ keep_going:
 				
 			case 'y':
 			{
-				// MCF.HaltMode( dev, HALT_MODE_HALT_BUT_NO_RESET );
-				// readCSR( dev, 0x7b0 );
 				readCSR( dev, 0x300 );
 				break;
 			}
@@ -1365,7 +1363,6 @@ static int DefaultDetermineChipType( void * dev )
 					{
 						iss->target_chip = &ch32v103;
 						read_protection = 1;
-						// fprintf( stderr, "Found CH32V103, but it's read protected, just so you know.\n");
 					}
 				}
 				else
@@ -2734,11 +2731,6 @@ int DefaultReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t r
 		if( ret ) return ret;
 	}
 	if( iss->current_area == 0 ) DetectMemoryArea( dev, address_to_read_from );
-	// if( iss->target_chip->protocol == PROTOCOL_CH5xx &&
-	// 	(iss->current_area != PROGRAM_AREA && iss->current_area != RAM_AREA))
-	// {
-	// 	return CH5xxReadBinaryBlob( dev,  address_to_read_from, read_size, blob );
-	// }
 
 	uint32_t rpos = address_to_read_from;
 	uint32_t rend = address_to_read_from + read_size;
@@ -2948,7 +2940,6 @@ static int DefaultHaltMode( void * dev, int mode )
 	iss->processor_in_mode = mode;
 
 	// In case processor halt process needs to complete, i.e. if it was in the middle of a flash op.
-	// MCF.DelayUS( dev, 3000 );
   DefaultDelayUS( dev, 10000 );
 
 	return 0;
@@ -3520,7 +3511,6 @@ static int DefaultRebootIntoBootloader( void * dev )
 		{
 			fprintf( stderr, "\nError: Could not read DMSTATUS from programmers (%d)\n", r );
 			continue;
-			// return -99;
 		}
 		MCF.FlushLLCommands( dev );
 		if( ds != 0xffffffff && ds != 0x00000000 ) break;
@@ -3529,7 +3519,6 @@ static int DefaultRebootIntoBootloader( void * dev )
 	fprintf(stderr, "\n" );
 	MCF.SetupInterface(dev);
 	fprintf(stderr, "Connected\n" );
-	// DefaultSetupInterface(dev);
 	if( iss->target_chip->protocol == PROTOCOL_CH5xx )
 	{
 		uint8_t info_reg = 0;
