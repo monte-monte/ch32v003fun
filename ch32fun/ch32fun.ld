@@ -72,10 +72,12 @@ MEMORY
 	/* CH582/3/4/5 */
 	#if MCU_PACKAGE == 2 || MCU_PACKAGE == 3
 		FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 448K
-		RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 32K
+		RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 30K
+		HIGHRAM (xrw) : ORIGIN = 0x20007800, LENGTH = 2K
 	#elif MCU_PACKAGE == 4 || MCU_PACKAGE == 5
 		FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 448K
-		RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 128K
+		RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 96K
+		HIGHRAM (xrw) : ORIGIN = 0x20018000, LENGTH = 32K
 	#else
 		#error "Unknown MCU package"
 	#endif
@@ -120,7 +122,7 @@ SECTIONS
 			_einit = .;
 		} >FLASH AT>FLASH
 
-#if TARGET_MCU_LD == 9 || (TARGET_MCU_LD == 10 && MCU_PACKAGE == 3)
+#if TARGET_MCU_LD == 8 || TARGET_MCU_LD == 9 || (TARGET_MCU_LD == 10 && MCU_PACKAGE == 3)
 		.highcodelalign : 
 		{       
 			. = ALIGN(4);
@@ -260,7 +262,7 @@ SECTIONS
 		PROVIDE( _end = _ebss);
 		PROVIDE( end = . );
 
-#if TARGET_MCU_LD == 9
+#if TARGET_MCU_LD == 8 || TARGET_MCU_LD == 9
 		PROVIDE( _eusrstack = ORIGIN(HIGHRAM) + LENGTH(HIGHRAM));
 #else
 		PROVIDE( _eusrstack = ORIGIN(RAM) + LENGTH(RAM));
