@@ -65,12 +65,12 @@ void HandleHidUserReportOutComplete( struct _USBState * ctx )
 
 int HandleInRequest( struct _USBState * ctx, int endp, uint8_t * data, int len )
 {
-  return 0;
+	return 0;
 }
 
 int HandleSetupCustom( struct _USBState * ctx, int setup_code)
 {
-  return 0;
+	return 0;
 }
 
 void HandleDataOut( struct _USBState * ctx, int endp, uint8_t * data, int len )
@@ -88,8 +88,8 @@ void HandleDataOut( struct _USBState * ctx, int endp, uint8_t * data, int len )
 __HIGH_CODE
 static __attribute__((noreturn)) void processLoop()
 {
-  int tickcount = 0;
-  while(1)
+	int tickcount = 0;
+	while(1)
 	{
 		//printf( "%lu %08lx %lu %d %d\n", USBDEBUG0, USBDEBUG1, USBDEBUG2, 0, 0 );
 
@@ -139,16 +139,16 @@ int main()
 
 	funGpioInitAll();
 
-  funPinMode( LED, GPIO_CFGLR_OUT_10Mhz_PP );
-  funDigitalWrite( LED, !LED_ON );
+	funPinMode( LED, GPIO_CFGLR_OUT_10Mhz_PP );
+	funDigitalWrite( LED, !LED_ON );
 
-  printf("USBHS starting...");
+	printf("USBHS starting...");
 
 	USBHSSetup();
 
-  printf("ok\n");
+	printf("ok\n");
 
-  funDigitalWrite( LED, LED_ON );
+	funDigitalWrite( LED, LED_ON );
 
 	// Override EP5 buffer
 	UEP_DMA_RX(5) = (uintptr_t)scratchpad;
