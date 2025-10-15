@@ -574,7 +574,7 @@ void USBFS_IRQHandler()
 					len = ( USBFS_SetupReqLen > DEF_USBD_UEP0_SIZE )? DEF_USBD_UEP0_SIZE : USBFS_SetupReqLen;
 					USBFS_SetupReqLen -= len;
 					UEP_CTRL_LEN(0) = len;
-					UEP_CTRL_TX(0) = CHECK_USBFS_UEP_T_AUTO_TOG | USBFS_UEP_T_RES_ACK;
+					UEP_CTRL_TX(0) = USBFS_UEP_T_RES_ACK;
 					// R8_UEP0_CTRL = (R8_UEP0_CTRL & ~MASK_UEP_T_RES) | UEP_T_RES_ACK;
 				}
 				else
@@ -582,7 +582,7 @@ void USBFS_IRQHandler()
 					if( USBFS_SetupReqLen == 0 )
 					{
 						UEP_CTRL_LEN(0) = 0;
-						UEP_CTRL_TX(0) = CHECK_USBFS_UEP_T_AUTO_TOG | USBFS_UEP_T_RES_ACK | USBFS_UEP_T_TOG;
+						UEP_CTRL_TX(0) = USBFS_UEP_T_RES_ACK | USBFS_UEP_T_TOG;
 						// R8_UEP0_CTRL = (R8_UEP0_CTRL & ~MASK_UEP_T_RES) | UEP_T_RES_ACK;
 					}
 					else
@@ -674,43 +674,43 @@ void USBFS_IRQHandler()
 void USBFS_InternalFinishSetup()
 {
 
-#if USBFS_EP1_MODE
-	USBFSCTX.endpoint_mode[1] = USBFS_EP1_MODE;
-#if USBFS_EP1_MODE > 0 
+#if FUSB_EP1_MODE
+	USBFSCTX.endpoint_mode[1] = FUSB_EP1_MODE;
+#if FUSB_EP1_MODE > 0 
 	USBFS->UEP4_1_MOD = USBFS_UEP1_TX_EN;
 #else
 	USBFS->UEP4_1_MOD = USBFS_UEP1_RX_EN;
 #endif
 #endif
-#if USBFS_EP4_MODE
-	USBFSCTX.endpoint_mode[4] = USBFS_EP4_MODE;
-#if USBFS_EP4_MODE > 0 
+#if FUSB_EP4_MODE
+	USBFSCTX.endpoint_mode[4] = FUSB_EP4_MODE;
+#if FUSB_EP4_MODE > 0 
 	USBFS->UEP4_1_MOD |= USBFS_UEP4_TX_EN;
 #else
 	USBFS->UEP4_1_MOD |= USBFS_UEP4_RX_EN;
 #endif
 #endif
 
-#if USBFS_EP2_MODE
-	USBFSCTX.endpoint_mode[2] = USBFS_EP2_MODE;
-#if USBFS_EP2_MODE > 0 
+#if FUSB_EP2_MODE
+	USBFSCTX.endpoint_mode[2] = FUSB_EP2_MODE;
+#if FUSB_EP2_MODE > 0 
 	USBFS->UEP2_3_MOD = USBFS_UEP2_TX_EN;
 #else
 	USBFS->UEP2_3_MOD = USBFS_UEP2_RX_EN;
 #endif
 #endif
-#if USBFS_EP3_MODE
-	USBFSCTX.endpoint_mode[3] = USBFS_EP3_MODE;
-#if USBFS_EP3_MODE > 0 
+#if FUSB_EP3_MODE
+	USBFSCTX.endpoint_mode[3] = FUSB_EP3_MODE;
+#if FUSB_EP3_MODE > 0 
 	USBFS->UEP2_3_MOD |= USBFS_UEP3_TX_EN;
 #else
 	USBFS->UEP2_3_MOD |= USBFS_UEP3_RX_EN;
 #endif
 #endif
 
-#if USBFS_EP5_MODE
-	USBFSCTX.endpoint_mode[5] = USBFS_EP5_MODE;
-#if USBFS_EP5_MODE > 0
+#if FUSB_EP5_MODE
+	USBFSCTX.endpoint_mode[5] = FUSB_EP5_MODE;
+#if FUSB_EP5_MODE > 0
 #if defined (CH5xx) || defined (CH32X03x)
 	USBFS->UEP567_MOD = USBFS_UEP5_TX_EN;
 #else
@@ -724,9 +724,9 @@ void USBFS_InternalFinishSetup()
 #endif
 #endif
 #endif
-#if USBFS_EP6_MODE
-	USBFSCTX.endpoint_mode[6] = USBFS_EP6_MODE;
-#if USBFS_EP6_MODE > 0 
+#if FUSB_EP6_MODE
+	USBFSCTX.endpoint_mode[6] = FUSB_EP6_MODE;
+#if FUSB_EP6_MODE > 0 
 #if defined (CH5xx) || defined (CH32X03x)
 	USBFS->UEP567_MOD = USBFS_UEP6_TX_EN;
 #else
@@ -741,9 +741,9 @@ void USBFS_InternalFinishSetup()
 #endif
 #endif
 
-#if USBFS_EP7_MODE
-	USBFSCTX.endpoint_mode[7] = USBFS_EP7_MODE;
-#if USBFS_EP7_MODE > 0
+#if FUSB_EP7_MODE
+	USBFSCTX.endpoint_mode[7] = FUSB_EP7_MODE;
+#if FUSB_EP7_MODE > 0
 #if defined (CH5xx) || defined (CH32X03x)
 	USBFS->UEP567_MOD |= USBFS_UEP7_TX_EN;
 #else
