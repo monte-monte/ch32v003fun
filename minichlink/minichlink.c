@@ -3012,7 +3012,7 @@ int DefaultUnbrick( void * dev )
 	printf( "Connection starting\n" );
 
 	int timeout = 0;
-	int max_timeout = 500; // An absurdly long time.
+	int max_timeout = 50000; // An absurdly long time.
 	uint32_t ds = 0;
 	for( timeout = 0; timeout < max_timeout; timeout++ )
 	{
