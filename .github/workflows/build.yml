@@ -25,7 +25,7 @@ jobs:
                 echo "============================"
                 echo "Building example: $dir"
                 echo "============================"
-                (cd "$dir" && make V=1 -j3 "$(basename "$dir").elf" && riscv64-unknown-elf-size "$(basename "$dir").elf")
+                (cd "$dir" && make V=1 -j3 "$(basename "$dir").elf" 2>&1 && riscv64-unknown-elf-size "$(basename "$dir").elf")
             '
   build-all-windows:
     runs-on: windows-latest
