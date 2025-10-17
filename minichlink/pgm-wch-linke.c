@@ -19,7 +19,7 @@ struct LinkEProgrammerStruct
 	libusb_device_handle * devh;
 	int lasthaltmode; // For non-003 chips
 };
-
+#if !FORCE_EXTERNAL_CHIP_DETECTION
 static int checkChip(enum RiscVChip chip) {
 	switch(chip) {
 		case CHIP_UNKNOWN:
@@ -44,11 +44,14 @@ static int checkChip(enum RiscVChip chip) {
 			return -1; // Not supported yet
 	}
 }
+#endif // !FORCE_EXTERNAL_CHIP_DETECTION
 
 // For non-ch32v003 chips.
+#if !FORCE_EXTERNAL_CHIP_DETECTION
 //static int LEReadBinaryBlob( void * d, uint32_t offset, uint32_t amount, uint8_t * readbuff );
 static int InternalLinkEHaltMode( void * d, int mode );
 static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len, const uint8_t * blob );
+#endif // !FORCE_EXTERNAL_CHIP_DETECTION
 
 #define WCHTIMEOUT 5000
 #define WCHCHECK(x) if( (status = x) ) { fprintf( stderr, "Bad USB Operation on " __FILE__ ":%d (%d)\n", __LINE__, status ); exit( status ); }
@@ -954,6 +957,7 @@ struct BootloaderBlob * GetFlashLoader( enum RiscVChip chip )
 	}
 }
 
+#if !FORCE_EXTERNAL_CHIP_DETECTION
 static int InternalLinkEHaltMode( void * d, int mode )
 {
 	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
@@ -1061,3 +1065,4 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 
 	return 0;
 }
+#endif // !FORCE_EXTERNAL_CHIP_DETECTION
