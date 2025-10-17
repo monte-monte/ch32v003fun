@@ -271,6 +271,7 @@ SECTIONS
 		PROVIDE( _eusrstack = ORIGIN(RAM) + LENGTH(RAM));
 #endif
 
+#if TARGET_MCU_LD == 2 /* v20x */
 		.storage :
 		{
 			. = ALIGN(4);
@@ -280,6 +281,7 @@ SECTIONS
 			*(.external.*)
 			. = ALIGN(4);
 		} >EXT AT>EXT
+#endif
 
 
 		/DISCARD/ : {

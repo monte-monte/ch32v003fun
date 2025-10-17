@@ -147,7 +147,6 @@ else ifeq ($(findstring CH32V20,$(TARGET_MCU)),CH32V20) # CH32V203
 
 	# MCU Flash/RAM split
 
-
 	# Package
 	ifeq ($(findstring 203RB, $(TARGET_MCU_PACKAGE)), 203RB)
 		CFLAGS+=-DCH32V20x_D8
@@ -180,6 +179,15 @@ else ifeq ($(findstring CH32V20,$(TARGET_MCU)),CH32V20) # CH32V203
 		MCU_PACKAGE:=3
 	else
 		CFLAGS+=-DCH32V20x_D6
+	endif
+
+	# MCU EXT Flash
+	ifeq ($MCU_PACKAGE,1)
+		EXT_ORIGIN:=0x08010000
+	else ifeq ($MCU_PACKAGE,2)
+		EXT_ORIGIN:=0x08008000
+	else ifeq ($MCU_PACKAGE,3)
+		EXT_ORIGIN:=0x08020000
 	endif
 
 	TARGET_MCU_LD:=2
@@ -358,6 +366,7 @@ clangd_clean :
 	rm -rf .cache
 
 FLASH_COMMAND?=$(MINICHLINK)/minichlink -w $< $(WRITE_SECTION) -b
+FLASH_EXT_COMMAND?=$(MINICHLINK)/minichlink -w $< $(EXT_ORIGIN) -b
 
 .PHONY : $(GENERATED_LD_FILE)
 $(GENERATED_LD_FILE) :
@@ -375,7 +384,11 @@ cv_flash : $(TARGET).bin
 	make -C $(MINICHLINK) all
 	$(FLASH_COMMAND)
 
+cv_flash_ext : $(TARGET)_ext.bin
+	make -C $(MINICHLINK) all
+	$(FLASH_EXT_COMMAND)
+
 cv_clean :
-	rm -rf $(TARGET).elf $(TARGET).bin $(TARGET).hex $(TARGET).lst $(TARGET).map $(TARGET).hex $(GENERATED_LD_FILE) || true
+	rm -rf $(TARGET).elf $(TARGET).bin $(TARGET)_ext.bin $(TARGET).hex $(TARGET).lst $(TARGET).map $(TARGET).hex $(GENERATED_LD_FILE) || true
 
 build : $(TARGET).bin
