@@ -26,16 +26,14 @@ void SPI_Configure() {
 	// reset control register
 	SPI1->CTLR1 = 0;
 
-	// Enable GPIO Port C and SPI peripheral
-	RCC->APB2PCENR |= RCC_APB2Periph_GPIOC | RCC_APB2Periph_SPI1;
+	// Enable SPI peripheral
+	RCC->APB2PCENR |= RCC_APB2Periph_SPI1;
 
 	// PC5 is SCLK
-	GPIOC->CFGLR &= ~(0xf << (4*5));
-	GPIOC->CFGLR |= (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF) << (4*5);
+	funPinMode(  PC5, GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF );
 
 	// PC6 is MOSI
-	GPIOC->CFGLR &= ~(0xf << (4*6));
-	GPIOC->CFGLR |= (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF) << (4*6);
+	funPinMode(  PC6, GPIO_Speed_50MHz | GPIO_CNF_OUT_PP_AF );
 
 	// Configure SPI
 	SPI1->CTLR1 |= SPI_CPHA_1Edge | SPI_CPOL_Low
