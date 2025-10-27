@@ -2155,23 +2155,23 @@ typedef enum
 #define RB_EP15_EN                  0x8000
 
 #define R16_U2EP_RX_EN              (*((vu16*)0x40009012))   // RW, USB_high_speed end point receive enableregister
-#define  USBHS_UEP_RX_EN            0xFFFF
+#define USBHS_UEP_RX_EN_MASK        0xFFFF
 #define R16_U2EP_T_TOG_AUTO         (*((vu16*)0x40009014))   // RW, USB_high_speed end point transmit auto toggle enable register
-#define  USBHS_UEP_T_TOG_AUTO       0xFF
+#define USBHS_UEP_T_TOG_AUTO_MASK   0xFF
 #define R16_U2EP_R_TOG_AUTO         (*((vu16*)0x40009016))   // RW, USB_high_speed end point receive auto toggle enable register
-#define  USBHS_UEP_R_TOG_AUTO       0xFF
+#define USBHS_UEP_R_TOG_AUTO_MASK   0xFF
 #define R8_U2EP_T_BURST             (*((vu8*)0x40009018))    // RW, USB_high_speed end point transmit burst register
-#define  USBHS_UEP_T_BURST_EN       0xFF
+#define USBHS_UEP_T_BURST_EN_MASK       0xFF
 #define R8_U2EP_T_BURST_MODE        (*((vu8*)0x40009019))    // RW, USB_high_speed end point transmit burst mode register
-#define  USBHS_UEP_T_BURST_MODE     0xFF
+#define USBHS_UEP_T_BURST_MODE_MASK 0xFF
 #define R8_U2EP_R_BURST             (*((vu8*)0x4000901A))    // RW, USB_high_speed end point receive burst register
-#define  USBHS_UEP_R_BURST_EN       0xFF
+#define USBHS_UEP_R_BURST_EN_MASK   0xFF
 #define R8_U2EP_R_RES_MODE          (*((vu8*)0x4000901B))    // RW, USB_high_speed end point transmit reply mode register
-#define  USBHS_UEP_R_RES_MODE       0xFF
+#define USBHS_UEP_R_RES_MODE_MASK   0xFF
 #define R32_U2EP_AF_MODE            (*((vu32*)0x4000901C))   // RW, USB_high_speed end point multiplexing register
-#define  USBHS_UEP_T_AF             0xFE
+#define USBHS_UEP_T_AF_MASK         0xFE
 #define R32_U2EP0_DMA               (*((vu32*)0x40009020))   // RW, USB_high_speed end point0 begin adress of DMA buffer register
-#define  UEPn_DMA                   0x01FFFF
+#define UEPn_DMA_MASK               0x01FFFF
 #define R32_U2EP1_RX_DMA            (*((vu32*)0x40009024))   // RW, USB_high_speed end point1 begin adress of DMA receive buffer register
 #define R32_U2EP2_RX_DMA            (*((vu32*)0x40009028))   // RW, USB_high_speed end point2 begin adress of DMA receive buffer register
 #define R32_U2EP3_RX_DMA            (*((vu32*)0x4000902C))   // RW, USB_high_speed end point3 begin adress of DMA receive buffer register
@@ -2179,7 +2179,7 @@ typedef enum
 #define R32_U2EP5_RX_DMA            (*((vu32*)0x40009034))   // RW, USB_high_speed end point5 begin adress of DMA receive buffer register
 #define R32_U2EP6_RX_DMA            (*((vu32*)0x40009038))   // RW, USB_high_speed end point6 begin adress of DMA receive buffer register
 #define R32_U2EP7_RX_DMA            (*((vu32*)0x4000903C))   // RW, USB_high_speed end point7 begin adress of DMA receive buffer register
-#define  UEPn_RX_DMA                0x01FFFF
+#define UEPn_RX_DMA_MASK            0x01FFFF
 #define R32_U2EP1_TX_DMA            (*((vu32*)0x40009040))   // RW, USB_high_speed end point1 begin adress of DMA transmit buffer register
 #define R32_U2EP2_TX_DMA            (*((vu32*)0x40009044))   // RW, USB_high_speed end point2 begin adress of DMA transmit buffer register
 #define R32_U2EP3_TX_DMA            (*((vu32*)0x40009048))   // RW, USB_high_speed end point3 begin adress of DMA transmit buffer register
@@ -2187,7 +2187,7 @@ typedef enum
 #define R32_U2EP5_TX_DMA            (*((vu32*)0x40009050))   // RW, USB_high_speed end point5 begin adress of DMA transmit buffer register
 #define R32_U2EP6_TX_DMA            (*((vu32*)0x40009054))   // RW, USB_high_speed end point6 begin adress of DMA transmit buffer register
 #define R32_U2EP7_TX_DMA            (*((vu32*)0x40009058))   // RW, USB_high_speed end point7 begin adress of DMA transmit buffer register
-#define  UEPn_TX_DMA                0x01FFFF
+#define UEPn_TX_DMA_MASK            0x01FFFF
 #define R32_U2EP0_MAX_LEN           (*((vu32*)0x4000905C))   // RW, USB_high_speed end point0 max length package register
 #define R32_U2EP1_MAX_LEN           (*((vu32*)0x40009060))   // RW, USB_high_speed end point1 max length package register
 #define R32_U2EP2_MAX_LEN           (*((vu32*)0x40009064))   // RW, USB_high_speed end point2 max length package register
@@ -2196,9 +2196,9 @@ typedef enum
 #define R32_U2EP5_MAX_LEN           (*((vu32*)0x40009070))   // RW, USB_high_speed end point5 max length package register
 #define R32_U2EP6_MAX_LEN           (*((vu32*)0x40009074))   // RW, USB_high_speed end point6 max length package register
 #define R32_U2EP7_MAX_LEN           (*((vu32*)0x40009078))   // RW, USB_high_speed end point7 max length package register
-#define  UEPn_MAX_LEN               0x007F
+#define UEPn_MAX_LEN_MASK           0x007F
 #define R16_U2EP0_RX_LEN            (*((vu16*)0x4000907C))   // RW, USB_high_speed end point0 length of receive register
-#define  UEP0_RX_LEN                0x007F
+#define UEP0_RX_LEN_MASK            0x007F
 #define R16_U2EP1_RX_LEN            (*((vu16*)0x40009080))   // RW, USB_high_speed end point1 single received length register
 #define R16_U2EP1_R_SIZE            (*((vu16*)0x40009082))   // RW, USB_high_speed end point1 total received length register
 #define R16_U2EP2_RX_LEN            (*((vu16*)0x40009084))   // RW, USB_high_speed end point2 single received length register
@@ -2213,10 +2213,10 @@ typedef enum
 #define R16_U2EP6_R_SIZE            (*((vu16*)0x40009096))   // RW, USB_high_speed end point6 total received length register
 #define R16_U2EP7_RX_LEN            (*((vu16*)0x40009098))   // RW, USB_high_speed end point7 single received length register
 #define R16_U2EP7_R_SIZE            (*((vu16*)0x4000909A))   // RW, USB_high_speed end point7 total received length register
-#define  UEPn_RX_LEN                0xFFFF
-#define  UEPn_R_SIZE                0xFFFF
+#define UEPn_RX_LEN_MASK            0xFFFF
+#define UEPn_R_SIZE_MASK            0xFFFF
 #define R16_U2EP0_T_LEN             (*((vu16*)0x4000909C))   // RW, USB_high_speed end point0 length of transmission register
-#define  UEP0_T_LEN                 0x7F
+#define UEP0_T_LEN_MASK             0x7F
 #define R8_U2EP0_TX_CTRL            (*((vu8*)0x4000909E))    // RW, USB_high_speed end point0 transmit control register
 #define R8_U2EP0_RX_CTRL            (*((vu8*)0x4000909F))    // RW, USB_high_speed end point0 receive control register
 #define R16_U2EP1_T_LEN             (*((vu16*)0x400090A0))   // RW, USB_high_speed end point1 length of transmission register

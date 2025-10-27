@@ -19,13 +19,13 @@ jobs:
       - name: Build all examples (max 10 in parallel)
         run: |
           set -e
-          find examples* -maxdepth 2 -name Makefile \
+          find examples* -maxdepth 3 -name funconfig.h \
             | parallel -j 10 '
                 dir=$(dirname {});
                 echo "============================"
                 echo "Building example: $dir"
                 echo "============================"
-                (cd "$dir" && make V=1 -j3 "$(basename "$dir").elf" && riscv64-unknown-elf-size "$(basename "$dir").elf")
+                (cd "$dir" && make V=1 -j3 "$(basename "$dir").elf" 2>&1 && riscv64-unknown-elf-size "$(basename "$dir").elf")
             '
   build-all-windows:
     runs-on: windows-latest
