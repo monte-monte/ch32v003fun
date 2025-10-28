@@ -1,6 +1,6 @@
 all : flash
 
-TARGET:=uartdemo
+TARGET:=uart_send_receive
 TARGET_MCU:=CH582
 # TARGET_MCU_PACKAGE:=CH570D
 
