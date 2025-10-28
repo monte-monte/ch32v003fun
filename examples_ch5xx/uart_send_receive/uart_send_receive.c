@@ -13,10 +13,9 @@
 int main() {
 	SystemInit();
 	systick_init();		//! REQUIRES for millis()
-	funGpioInitAll(); // no-op on ch5xx
+	funGpioInitAll();
 
-	printf("~CH5xx UART test~\r\n"); // test long string
-
+	printf("~CH5xx UART test~\r\n");
 	uart_init_ch5xx(TARGET_UART, FUNCONF_UART_PRINTF_BAUD);
 
 	u8 i = 0;

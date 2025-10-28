@@ -10,7 +10,7 @@
 #define GET_REG16(base, offset) (*(vu16 *)((vu32)base + offset))
 
 void uart_init_ch5xx(vu32 *uart_ctrl, int baudrate) {
-	//# Configure GPIOs
+	//# Configure GPIOs for CH582
     if (uart_ctrl == &R32_UART0_CTRL) {
         funPinMode(PB4, GPIO_CFGLR_IN_PU);           // RX0 (PB4)
         funPinMode(PB7, GPIO_CFGLR_OUT_2Mhz_PP);     // TX0 (PB7)
