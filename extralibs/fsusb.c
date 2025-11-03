@@ -44,7 +44,11 @@ static inline void copyBufferComplete() { while( DMA1_Channel7->CNTR ); }
 void USBFS_IRQHandler() __attribute__((section(".text.vector_handler")))  __attribute((interrupt));
 // void USBHD_IRQHandler() __attribute__((section(".text.vector_handler")))  __attribute((naked));
 #else
-void USBFS_IRQHandler() __attribute__((section(".text.vector_handler")))  __attribute((interrupt));
+#if defined(FUSB_FROM_RAM) && (FUSB_FROM_RAM)
+void USBFS_IRQHandler() __USBFS_FUN_ATTRIBUTE __attribute((interrupt));
+#else
+void USBFS_IRQHandler() __attribute__((section(".text.vector_handler"))) __attribute((interrupt));
+#endif
 #endif
 
 void USBFS_InternalFinishSetup();

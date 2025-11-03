@@ -3,7 +3,9 @@
 
 #include "ch32fun.h"
 
+#ifndef CH5xx
 #define CH5xx
+#endif
 #if defined(CH57x) && (MCU_PACKAGE == 0 || MCU_PACKAGE == 2)
 #define CH570_CH572
 #elif defined(CH57x) && (MCU_PACKAGE == 1 || MCU_PACKAGE == 3)
