@@ -134,7 +134,7 @@ static __attribute__((noreturn)) void processLoop()
 				USBHS_SendEndpoint( i, (i==1)?8:4 );
 			}
 		}
-#if (FUSB_SOF_HSITRIM)
+#if defined(FUSB_SOF_HSITRIM) && (FUSB_SOF_HSITRIM)
 		if (last_trim != RCC->CTLR) {
 			last_trim = RCC->CTLR;
 			printf("New HSITRIM value = %ld\n", (last_trim&RCC_HSITRIM)>>3);
@@ -163,7 +163,7 @@ int main()
 	// Override EP5 buffer
 	UEP_DMA_RX(5) = (uintptr_t)scratchpad;
 
-#if (FUSB_SOF_HSITRIM)
+#if defined(FUSB_SOF_HSITRIM) && (FUSB_SOF_HSITRIM)
 	last_trim = RCC->CTLR;
 	printf("HSITRIM value = %ld\n", (last_trim&RCC_HSITRIM)>>3);
 #endif

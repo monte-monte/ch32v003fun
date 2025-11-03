@@ -19,7 +19,7 @@
 #define FUSB_EP5_SIZE         1024
 #define FUSB_SPEED            USB_SPEED_HIGH
 #define FUSB_USER_HANDLERS    0 // To enable HandleDataOut
-#define FUSB_SOF_HSITRIM      1 // If using HSI on CH32V30x as clock source you probably want to enable this
+// #define FUSB_SOF_HSITRIM      1 // If using HSI on CH32V30x as clock source you probably want to enable this
 
 #include "usb_defines.h"
 
