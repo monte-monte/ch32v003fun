@@ -19,21 +19,19 @@
 
 #include "ch32fun.h"
 #include <stdio.h>
-#include "util.h"
-
+#include "debug_utilities.h"
 
 void configure_PVD(u8 threshold) {
 	// Enable PWR clock
 	RCC->APB1PCENR |= RCC_APB1Periph_PWR;
 
 	if (threshold > 3) threshold = 3;
-	printf("=== PWR_CTLR Debug ===\n");
-	printf("Before write: 0x%04X\n", PWR->CTLR);
-
+	printf("\n");
+	printf("Before write:\n");
 	UTIL_PRINT_REG16(PWR->CTLR, "PWR_CTLR");
+
 	PWR->CTLR |= (threshold << 5);
-	printf("After setting threshold: 0x%04X\n", PWR->CTLR);
-	
+	printf("After setting:\n");
 	UTIL_PRINT_REG16(PWR->CTLR, "PWR_CTLR");
 	printf("\n");
 }
@@ -55,7 +53,7 @@ int main() {
 	SystemInit();
 	funGpioInitAll(); // Enable GPIOs
 
-	printf("\n\r~PVD Voltage Detector Example~\r\n");
+	printf("\n~PVD Voltage Detector Example~\n");
 	printf("Chip ID: %08lX\r\n", ESIG->UID0);
 	printf("Chip Capacity: %d KB\r\n",ESIG->CAP);
 	configure_PVD(2);
