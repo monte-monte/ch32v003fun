@@ -273,7 +273,7 @@ SECTIONS
 		To avoid unnecessary padding, this should be the last segment.
 	*/
 
-	/* Force this to be the lower of 0x20004000 and end of previous */
+	/* Force this to be the higher of 0x20004000 and end of previous */
 	/* Mark it NOLOAD so it doesn't occupy any flash space */
 		.dma (NOLOAD) :
 		{
