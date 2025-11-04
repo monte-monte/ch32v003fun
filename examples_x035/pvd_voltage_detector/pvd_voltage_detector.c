@@ -1,4 +1,5 @@
-// This example demonstrates how to use the PVD to monitor the main power supply voltage. The PVD triggers an alert when the supply voltage drops below a configurable threshold.
+// This example demonstrates how to use the PVD to monitor the main power supply voltage.
+//The PVD triggers an alert when the supply voltage drops below a configurable threshold.
 
 // Testing Methods:
 // Method 1: Using a Potentiometer
@@ -20,8 +21,6 @@
 #include <stdio.h>
 #include "util.h"
 
-// use defines to make more meaningful names for our GPIO pins
-#define PIN_1 PA9
 
 void configure_PVD(u8 threshold) {
 	// Enable PWR clock
