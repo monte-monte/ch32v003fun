@@ -142,6 +142,9 @@ typedef enum IRQn
 
 #define __HIGH_CODE __attribute__((section(".highcode"), used))
 #define __INTERRUPT __attribute__((interrupt))
+#ifdef CH571_CH573
+#define __DMA_SAFE __attribute__((section(".dma_safe")))  // Use with every buffer/array that will be passed to DMA on CH573
+#endif
 
 
 /* memory mapped structure for SysTick */

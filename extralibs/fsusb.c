@@ -2,6 +2,12 @@
 #include "ch32fun.h"
 #include <string.h>
 
+#ifdef __DMA_SAFE
+// CH573 needs all buffers that will touch DMA be allocated at specific memory location
+// Since we have EP buffers inside the context struct we put it all there.
+// If you want to use your own external buffers, be sure to use this macro before their definitions.
+__DMA_SAFE
+#endif
 struct _USBState USBFSCTX;
 volatile uint8_t usb_debug = 0;
 
@@ -852,8 +858,10 @@ int USBFSSetup()
 #endif
 
 #if defined (CH5xx)
-#if defined (CH57x)
+#if defined (CH570_CH572)
 	R16_PIN_ALTERNATE |= RB_PIN_USB_EN | RB_UDP_PU_EN;
+#elif defined (CH584_CH585)
+  R16_PIN_CONFIG |= RB_PIN_USB_EN | RB_UDP_PU_EN;
 #else
 	R16_PIN_ANALOG_IE |= RB_PIN_USB_IE | RB_PIN_USB_DP_PU;
 #endif
