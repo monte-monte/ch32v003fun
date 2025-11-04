@@ -261,7 +261,7 @@ SECTIONS
 			*(COMMON*)
 			. = ALIGN(4);
 			PROVIDE( _ebss = .);
-		} >RAM AT>FLASH
+		} >RAM
 
 #if TARGET_MCU_LD == 10 && (MCU_PACKAGE == 1 || MCU_PACKAGE == 3)
 	/* CH571/CH573 DMA quirk
