@@ -269,19 +269,19 @@ SECTIONS
 		The high 18 bits are assumed to be 0x20004000,
 		yet RAM spans 0x20003800 - 0x20007FFF (18 kB)
 		Thus the lower 2K of RAM are not accessible to the DMA peripherals
-		Here we create a special .dma segement guaranteed to be above 0x20004000.
+		Here we create a special .dma_safe segement guaranteed to be above 0x20004000.
 		To avoid unnecessary padding, this should be the last segment.
 	*/
 
 	/* Force this to be the higher of 0x20004000 and end of previous */
 	/* Mark it NOLOAD so it doesn't occupy any flash space */
-		.dma (NOLOAD) :
+		.dma_safe (NOLOAD) :
 		{
 			. = MAX(ORIGIN(RAM) + 0x800, ALIGN(4));
-			PROVIDE( _sdma = .);
-			*(.dma*)
+			PROVIDE( _sdma_safe = .);
+			*(.dma_safe*)
 			. = ALIGN(4);
-			PROVIDE( _edma = .);
+			PROVIDE( _edma_safe = .);
 		} >RAM
 
 		PROVIDE( _end = _edma);
@@ -290,18 +290,6 @@ SECTIONS
 #endif
 
 		PROVIDE( end = . );
-
-#if TARGET_MCU_LD == 10 && (MCU_PACKAGE == 1 || MCU_PACKAGE == 3)
-    .dma_safe :
-    {
-      . = ( . < (ORIGIN(RAM) + 0x800) ) ? (ORIGIN(RAM) + 0x800) : .;
-      . = ALIGN(4);
-      PROVIDE(_dma_vma_start = .);
-			*(.dma_safe)
-			. = ALIGN(4);
-			PROVIDE(_dma_vma_end = .);
-    } >RAM
-#endif
 
 		PROVIDE( _eusrstack = ORIGIN(RAM) + LENGTH(RAM));
 

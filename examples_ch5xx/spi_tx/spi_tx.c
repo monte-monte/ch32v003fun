@@ -10,12 +10,12 @@
 #define BUF_LEN 8
 
 // The DMA peripherals on the CH571/CH573 cannot access the low 2k of RAM
-// ch32fun defines a dma section for the CH571/CH573 guaranteed to be valid
+// ch32fun defines a dma_safe section for the CH571/CH573 guaranteed to be valid
 // Note: this section is completely uninitalized at start
 // We make it huge to demonstrate it will occupy no space in flash
 // Observe the flash usage is less than the buffer size but the RAM usage is large
 #ifdef CH571_CH573
-__attribute__((section(".dma"))) 
+__attribute__((section(".dma_safe"))) 
 #endif
 uint8_t dma_buf[4096];
 
