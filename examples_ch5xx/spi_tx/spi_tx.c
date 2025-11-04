@@ -11,10 +11,15 @@
 
 // The DMA peripherals on the CH571/CH573 cannot access the low 2k of RAM
 // ch32fun defines a dma section for the CH571/CH573 guaranteed to be valid
+// Note: this section is completely uninitalized at start
+// We make it huge to demonstrate it will occupy no space in flash
+// Observe the flash usage is less than the buffer size but the RAM usage is large
 #ifdef CH571_CH573
 __attribute__((section(".dma"))) 
 #endif
-uint8_t dma_buf[BUF_LEN] = {0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48};
+uint8_t dma_buf[4096];
+
+const uint8_t spi_data[BUF_LEN] = {0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48};
 
 int main()
 {
@@ -41,6 +46,9 @@ int main()
 	R32_SPI0_DMA_END = BUF_LEN + (uint32_t) &dma_buf;
 
 	R8_SPI0_CTRL_CFG |= RB_SPI_DMA_LOOP | RB_SPI_DMA_ENABLE;
+
+	// Initalize the DMA buffer with our payload
+	memcpy(dma_buf, spi_data, BUF_LEN);
 
 	printf("Using DMA buffer at 0x%08lx\n", (uint32_t) dma_buf);
 

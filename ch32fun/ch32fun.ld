@@ -274,26 +274,15 @@ SECTIONS
 	*/
 
 	/* Force this to be the lower of 0x20004000 and end of previous */
-		.dmavalign :
+	/* Mark it NOLOAD so it doesn't occupy any flash space */
+		.dma (NOLOAD) :
 		{
 			. = MAX(ORIGIN(RAM) + 0x800, ALIGN(4));
-			PROVIDE(_dma_vma = .);
-		} >RAM AT>FLASH  
-
-		.dmalalign :
-		{
-			. = ALIGN(4);
-			PROVIDE(_dma_lma = .);
-		} >FLASH AT>FLASH
-
-		.dma :
-		{
-			. = ALIGN(4);
 			PROVIDE( _sdma = .);
 			*(.dma*)
 			. = ALIGN(4);
 			PROVIDE( _edma = .);
-		} >RAM AT>FLASH  
+		} >RAM
 
 		PROVIDE( _end = _edma);
 #else 
