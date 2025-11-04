@@ -10,12 +10,12 @@
 #define FUSB_EP3_MODE         1 // TX
 #define FUSB_SUPPORTS_SLEEP   0
 #define FUSB_HID_INTERFACES   2
-#define FUSB_CURSED_TURBO_DMA 1 // Hacky, but seems fine, shaves 2.5us off filling 64-byte buffers.
+#define FUSB_CURSED_TURBO_DMA 0 // Hacky, but seems fine, shaves 2.5us off filling 64-byte buffers.
 #define FUSB_HID_USER_REPORTS 1
 #define FUSB_IO_PROFILE       0
 #define FUSB_USE_HPE          FUNCONF_ENABLE_HPE
 #define FUSB_USER_HANDLERS    0
-#define FUSB_USE_DMA7_COPY    1
+#define FUSB_USE_DMA7_COPY    0
 #define FUSB_VDD_5V           FUNCONF_USE_5V_VDD
 #define FUSB_FROM_RAM         0
 
@@ -160,11 +160,11 @@ static const uint8_t config_descriptor[ ] =
     /* HID Descriptor (HIDAPI) */
     0x09,                                                   // bLength
     0x21,                                                   // bDescriptorType
-    0x00, 0x02,                                             // bcdHID
+    0x10, 0x01,                                             // bcdHID
     0x00,                                                   // bCountryCode
     0x01,                                                   // bNumDescriptors
     0x22,                                                   // bDescriptorType
-    sizeof(HIDAPIRepDesc), 0x00,                             // wDescriptorLength
+    sizeof(HIDAPIRepDesc), 0x00,                            // wDescriptorLength
 
     /* Endpoint Descriptor (HIDAPI) */
     0x07,                                                   // bLength
@@ -172,7 +172,7 @@ static const uint8_t config_descriptor[ ] =
     0x83,                                                   // bEndpointAddress: IN Endpoint 2
     0x03,                                                   // bmAttributes
     0x40, 0x00,                                             // wMaxPacketSize
-    0x01,                                                   // bInterval: 1mS
+    0x01,                                                   // bInterval: 255mS
 
     /* Interface Descriptor (Keyboard) */
     0x09,                                                   // bLength
@@ -188,7 +188,7 @@ static const uint8_t config_descriptor[ ] =
     /* HID Descriptor (Keyboard) */
     0x09,                                                   // bLength
     0x21,                                                   // bDescriptorType
-    0x11, 0x01,                                             // bcdHID
+    0x10, 0x01,                                             // bcdHID
     0x00,                                                   // bCountryCode
     0x01,                                                   // bNumDescriptors
     0x22,                                                   // bDescriptorType
@@ -200,7 +200,11 @@ static const uint8_t config_descriptor[ ] =
     0x81,                                                   // bEndpointAddress: IN Endpoint 1
     0x03,                                                   // bmAttributes
     0x08, 0x00,                                             // wMaxPacketSize
+#if defined(CH32V20x) && !defined(CH32V20x_D8W)
+    0xff,                                                   // bInterval: 255mS
+#else
     0x01,                                                   // bInterval: 1mS
+#endif
 
     /* Interface Descriptor (Mouse) */
     0x09,                                                   // bLength
@@ -228,7 +232,11 @@ static const uint8_t config_descriptor[ ] =
     0x82,                                                   // bEndpointAddress: IN Endpoint 2
     0x03,                                                   // bmAttributes
     0x08, 0x00,                                             // wMaxPacketSize
+#if defined(CH32V20x) && !defined(CH32V20x_D8W)
+    0xff,                                                   // bInterval: 255mS
+#else
     0x01,                                                   // bInterval: 1mS
+#endif
 };
 
 struct usb_string_descriptor_struct {

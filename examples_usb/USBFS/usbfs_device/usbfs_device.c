@@ -16,8 +16,8 @@
 #define LED PB12
 #define LED_ON 0
 #else
-#define LED PB8
-#define LED_ON 0
+#define LED PB2
+#define LED_ON 1
 #endif
 
 uint32_t count;
