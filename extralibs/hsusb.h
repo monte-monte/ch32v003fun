@@ -405,8 +405,8 @@ typedef enum
 typedef enum
 {
 	USBHS_EP_OFF = 0,
-	USBHS_EP_IN  = -1,
-	USBHS_EP_OUT = 1,
+	USBHS_EP_RX  = -1,
+	USBHS_EP_TX = 1,
 } USBHS_EP_mode;
 
 #ifndef FUSB_EP1_MODE

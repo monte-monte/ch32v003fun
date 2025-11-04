@@ -354,8 +354,8 @@ __USBFS_FUN_ATTRIBUTE int HandleSetupCustom( struct _USBState * ctx, int setup_c
 typedef enum
 {
 	USBFS_EP_OFF = 0,
-	USBFS_EP_IN  = -1,
-	USBFS_EP_OUT = 1,
+	USBFS_EP_RX  = -1,
+	USBFS_EP_TX = 1,
 } USBFS_EP_mode;
 
 #ifndef FUSB_EP1_MODE
@@ -379,6 +379,7 @@ typedef enum
 #ifndef FUSB_EP7_MODE
 #define FUSB_EP7_MODE  0
 #endif
+
 
 struct _USBState
 {
