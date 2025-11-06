@@ -35,11 +35,24 @@ void adc_touchKey_init(u8 sampling_time) {
 		ADC1->SAMPTR1 |= sampling_time << (3 * i);
 	}
 
-	UTIL_PRINT_BIT_RANGE(ADC1->SAMPTR2, {"\nSMP0", 0, 2}, {"\nSMP1", 3, 5}, {"\nSMP2", 6, 8});
+	printf("\nPrint Bit Ranges:\n");
+	UTIL_PRINT_BIT_RANGE(ADC1->SAMPTR2, {"SMP0", 0, 2}, {"\nSMP1", 3, 5}, {"\nSMP2", 6, 8});
 
 	// Enable TKEY module
 	ADC1->CTLR1 |= (1 << 24);
-	UTIL_PRINT_REG32(ADC1->CTLR1, "\nCTLR1");
+	printf("\nPrint Regs:\n");
+	UTIL_PRINT_REG32(ADC1->CTLR1, "CTLR1");
+
+	printf("\nPrint bits (default): \n");
+	UTIL_PRINT_BITS32(ADC1->CTLR1);
+
+	printf("\nPrint bits (custom separator): \n");
+	UTIL_PRINT_BITS32(ADC1->CTLR1, "-");
+
+	printf("\nPrint bits (custom separator and divider_len): \n");
+	UTIL_PRINT_BITS32(ADC1->CTLR1, "\n", 16);
+
+	printf("\nPrint bit pairs:");
 	UTIL_PRINT_BIT_PAIRS(ADC1->CTLR1, {"\nTKEYEN", 24}, {"EOCIE", 5});
 
 	// Turn on ADC
