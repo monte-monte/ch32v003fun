@@ -1,74 +1,72 @@
+// Simple example to show how to use Timer2 in One Pulse Mode
+// You can use this to indicate a respond to a specific event by causing it to
+// generate a pulse after a delay.
+
+// Setup:
+// Connect a led to T2 Ch1 (PA0) for PWM output
+// Connect a button from T2 Ch2 (PA1) to GND for trigger input
+
+// Behavior:
+// When the button is pressed (PA1 goes LOW), T2 will wait for 900ms (off time)
+// then generate a 100ms pulse on PA0 (T2 CH1 PWM output)
+// you can adjust the off time by changing the CH1CVR value
+// Or adjust the pulse time by changing the ATRLR value
+// equation: pulse_time = period - off_time
+// when CH1CVR == ATRLR, there will be no pulse output because period == off_time
+
 #include "ch32fun.h"
 #include <stdio.h>
-
-// T1C1: PB9
-// T1C2: PB10
-// T1C3: PB11
-// T1C4: PC16/PC11
 
 // T2C1: PA0
 // T2C2: PA1
 // T2C3: PA2
 // T2C4: PA3
 
-#define INPUT_PIN PA1		// CH2
-#define PWM_PIN PA0			// CH1
-
-u16 period = 1000;
+#define PWM_PIN PA0			// T2 CH1
+#define INPUT_PIN PA1		// T2 CH2
 
 void TIM2_single_pulse_init() {
-	// Enable TIM2 clock
+	//# Enable TIM2 clock
 	RCC->APB1PCENR |= RCC_APB1Periph_TIM2;
 	
-	//# Timer base configuration
-	// TIM2->CTLR1 &= ~(TIM_DIR | TIM_CMS | TIM_CTLR1_CKD);
-	// TIM2->CTLR1 |= TIM_CounterMode_Up | TIM_CKD_DIV1;
-	// TIM2->PSC = 48000-1;			// Prescaler
-	// TIM2->ATRLR = 200;			// PWM period
+	//# TIM2 basic setup
+	TIM2->CTLR1 &= ~(TIM_DIR | TIM_OPM);
+	TIM2->CTLR1 |= TIM_CounterMode_Up;
+	TIM2->CTLR1 |= TIM_OPMode_Single;		//! REQUIRED One Pulse Mode
+	TIM2->PSC = 48000-1;					// 1KHz frequency
+	TIM2->ATRLR = 1000-1;					// PWM period
+	
+	//# CompareCaptureValue:
+	TIM2->CH1CVR = 900;		// offtime = 900ms, pulse time = period - off time
 
-	TIM2->CHCTLR1 &= ~(TIM_CC1S | TIM_OC1M);
-	TIM2->CHCTLR1 |= TIM_OCMode_PWM2;
-    TIM2->PSC = 48000-1;
-	TIM2->ATRLR = 200;
+	// 	1) Setting the CC2S field to 01b to map TI2FP2 to TI2; 
+	// setting the CC2P bit to 0b to set TI2FP2 as rising edge detection; 
+	// setting the TS field to 110b to set TI2FP2 as trigger source; setting the SMS 
+	// field to 110b to set TI2FP2 to be used to start the counter. 
 
-	TIM2->SWEVGR = TIM_UG;
+	// 2) Tdelay is determined by the value of the CompareCaptureReg, and Tpulse is
+	// determined by the value of the Auto Reload Value Register and the CompareCaptureReg.
 
-	//# TIM2 OC1 configuration
-	TIM2->CHCTLR1 &= ~(TIM_CC1S | TIM_OC1M);
-	TIM2->CHCTLR1 |= TIM_OCMode_PWM2;
-	TIM2->CH1CVR = 100;
-	TIM2->CCER &= ~(TIM_CC1P | TIM_CC1E | TIM_CC1NP | TIM_CC1NE);
-	TIM2->CCER |= TIM_OCPolarity_High | TIM_OutputState_Enable;
+	//# SlaveModeConfigReg: Slave Trigger Mode, Configure TIM2 to be triggered by TI2 input
+	TIM2->SMCFGR &= ~(TIM_SMS | TIM_TS);
+	TIM2->SMCFGR |= TIM_SlaveMode_Trigger | TIM_TS_TI2FP2;
+
+	//# CaptureCompareControlReg1: Compare Channel1 PWM output
+	// Set 110b or 111b in the OCxM field to use PWM mode 1 or mode 2
+	TIM2->CHCTLR1 &= ~(TIM_OC1M);
+	TIM2->CHCTLR1 |= TIM_OCMode_PWM2;			// bit [6:4] PWM Mode
+	TIM2->CCER &= ~(TIM_CC1P | TIM_CC1E);		// Clear CC1P and CC1E
+	TIM2->CCER |= TIM_CC1E;						// Enable CampareCapture CH1 output
+
+	//# CaptureCompareControlReg1: Capture Channel2 as input
+	TIM2->CHCTLR1 &= ~(TIM_CC2S);							// Clear CC2S bits [9:8]
+	TIM2->CHCTLR1 |= (TIM_ICSelection_DirectTI << 8);		// CC2S = 01 (configured as input on TI2)
+	TIM2->CCER &= ~(TIM_CC2P | TIM_CC2E);					// Clear CC2E and CC2P
+	TIM2->CCER |= (TIM_ICPolarity_Falling << 4) | TIM_CC2E;
 
 	TIM2->BDTR |= TIM_MOE;
-
-	//# TIM2 config
-	TIM2->CHCTLR1 &= ~(TIM_CC2S | TIM_IC2F);
-	TIM2->CHCTLR1 |= 0x00 << 12;
-	TIM2->CHCTLR1 |= TIM_ICSelection_DirectTI << 8;
-    TIM2->CCER &= ~(TIM_CC2P | TIM_CC2E);
-	TIM2->CCER |= TIM_CC2E | (TIM_ICPolarity_Falling << 4);
-
-	//# TIM2 prescaler
-	TIM2->CHCTLR1 &= ~(TIM_IC2PSC);
-	TIM2->CHCTLR1 |= TIM_ICPSC_DIV1 << 8;
-
-	//# Configure TIM2 for One Pulse Mode
-	TIM2->CTLR1 &= ~TIM_OPM;
-	TIM2->CTLR1 |= TIM_OPMode_Single;
-
-	//# Configure TIM2 to be triggered by TI2 input
-	TIM2->SMCFGR &= ~(TIM_TS);
-	TIM2->SMCFGR |= TIM_TS_TI2FP2;
-
-	//# Select Slave Mode: Trigger Mode
-	TIM2->SMCFGR &= ~(TIM_SMS);
-	TIM2->SMCFGR |= TIM_SlaveMode_Trigger;
-
-	//# Main output enable and update
-	TIM2->CTLR1 |= TIM_CEN;			// Start timer
+	TIM2->SWEVGR = TIM_UG;
 }
-
 
 int main() {
 	SystemInit();
@@ -78,41 +76,13 @@ int main() {
 	printf("Chip ID: %08lX\n", ESIG->UID0);
 	printf("Chip Capacity: %d KB\n", ESIG->CAP);
 
-	// TIM2 CH4 output
-	funPinMode(PWM_PIN, GPIO_CFGLR_OUT_50Mhz_AF_PP);
+	// TIM2 CH1 output
+	funPinMode(PWM_PIN, GPIO_CFGLR_OUT_10Mhz_AF_PP);
 	funPinMode(INPUT_PIN, GPIO_CFGLR_IN_PUPD);
+	funDigitalWrite(INPUT_PIN, 1); //! REQUIRED Pull-up
 	TIM2_single_pulse_init();
 
-
-	printf("\nCFGLR: 0x%08X\n", GPIOA->CFGLR);
-	printf("CFGHR: 0x%08X\n", GPIOA->CFGHR);
-	printf("CFGXR: 0x%08X\n", GPIOA->CFGXR);
-
-	// TIM_TimeBaseInit
-	// printf("CTLR1: 0x%04X\n", TIM2->CTLR1);
-	printf("\nATRLR: 0x%04X\n", TIM2->ATRLR);
-	printf("PSC: 0x%04X\n", TIM2->PSC);
-	printf("SWEVGR: 0x%04X\n", TIM2->SWEVGR);
-
-	// TIM_OC1Init
-	printf("\nCTLR2: 0x%08X\n", TIM2->CTLR2);
-	// printf("CHCTLR1: 0x%04X\n", TIM2->CHCTLR1);
-	printf("CH1CVR: 0x%04X\n", TIM2->CH1CVR);
-	// printf("CCER: 0x%04X\n", TIM2->CCER);
-
-	printf("BDTR: 0x%04X\n", TIM2->BDTR);
-
-	// TIM_ICInit
-	printf("\nCHCTLR1: 0x%04X\n", TIM2->CHCTLR1);
-	printf("CCER: 0x%04X\n", TIM2->CCER);
-
-	printf("CTLR1: 0x%08X\n", TIM2->CTLR1);
-	printf("SMCFGR: 0x%04X\n", TIM2->SMCFGR);
-
-
-	// fade blocking loop
 	while(1) {
-		// printf("read: %u\n", funDigitalRead(INPUT_PIN));
 		// Delay_Ms(1000);
 	}
 }
