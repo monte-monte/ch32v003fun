@@ -34,7 +34,13 @@ void UTIL_PRINT_BITS(u32 val, u8 len, const char* format, ...) {
 //! PRINT BITS VALUES
 //! ####################################
 
-// eg: UTIL_PRINT_BITS_VALUES(reg, "a", 0, "b", 1, "c", 2, "d", 3);
+// eg: UTIL_PRINT_BITS_VALUES(
+//	reg, 
+//	"a", 0,
+//	"b", 1,
+//	"c", 2,
+// );
+
 void UTIL_PRINT_BITS_VALUES(u32 reg, ...) {
 	struct BitPair { const char* name;  int pos; };
 	va_list args;
@@ -73,7 +79,14 @@ void UTIL_PRINT_BITS_VALUES(u32 reg, ...) {
 //! PRINT BITS RANGE
 //! ####################################
 
-// eg: UTIL_PRINT_BIT_RANGE(reg, "FIELD1", 0, 0, "FIELD2", 1, 2, "FIELD3", 3, 5, NULL);
+// eg: UTIL_PRINT_BIT_RANGE(
+//	reg,
+//	"FIELD1", 0, 0,
+//	"FIELD2", 1, 2,
+//	"FIELD3", 3, 5,
+//	NULL
+// );
+
 // NOTE: NULL terminated REQUIRED
 void UTIL_PRINT_BIT_RANGE(u32 reg, ...) {
 	// Define the struct
