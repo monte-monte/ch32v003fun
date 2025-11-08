@@ -5429,15 +5429,6 @@ extern "C" {
 
 
 /* eth_driver.h -----------------------------------------------------------*/
-/* definition for Ethernet frame */
-#define ETH_MAX_PACKET_SIZE    1536    /* ETH_HEADER + VLAN_TAG + MAX_ETH_PAYLOAD + ETH_CRC */
-#define ETH_HEADER               14    /* 6 byte Dest addr, 6 byte Src addr, 2 byte length/type */
-#define ETH_CRC                   4    /* Ethernet CRC */
-#define ETH_EXTRA                 2    /* Extra bytes in some cases */
-#define VLAN_TAG                  4    /* optional 802.1q VLAN Tag */
-#define MIN_ETH_PAYLOAD          46    /* Minimum Ethernet payload size */
-#define MAX_ETH_PAYLOAD        1500    /* Maximum Ethernet payload size */
-
 /**
    DMA Tx Desciptor
   -----------------------------------------------------------------------------------------------
