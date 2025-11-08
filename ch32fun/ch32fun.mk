@@ -234,7 +234,8 @@ else ifeq ($(findstring CH57,$(TARGET_MCU)),CH57) # CH570 1 2 3
 	TARGET_MCU_PACKAGE?=CH570E
 	CFLAGS_ARCH+=-march=rv32imac \
 		-mabi=ilp32 \
-		-DCH57x=1
+		-DCH57x=1 \
+		-DCH5xx
 
 	# MCU Flash/RAM split
 	ifeq ($(findstring 570, $(TARGET_MCU_PACKAGE)), 570)
@@ -260,11 +261,13 @@ else ifeq ($(findstring CH57,$(TARGET_MCU)),CH57) # CH570 1 2 3
 	endif
 
 	TARGET_MCU_LD:=10
+	IS_CH5XX:=1
 else ifeq ($(findstring CH58,$(TARGET_MCU)),CH58) # CH582/3/4/5
 	TARGET_MCU_PACKAGE?=CH582F
 	CFLAGS_ARCH+=-march=rv32imac \
 		-mabi=ilp32 \
-		-DCH58x=1
+		-DCH58x=1 \
+		-DCH5xx
 
 	# MCU Flash/RAM split
 	ifeq ($(findstring 582, $(TARGET_MCU_PACKAGE)), 582)
@@ -288,11 +291,13 @@ else ifeq ($(findstring CH58,$(TARGET_MCU)),CH58) # CH582/3/4/5
 	endif
 
 	TARGET_MCU_LD:=8
+	IS_CH5XX:=1
 else ifeq ($(findstring CH59,$(TARGET_MCU)),CH59) # CH592 1
 	TARGET_MCU_PACKAGE?=CH592F
 	CFLAGS_ARCH+=-march=rv32imac \
 		-mabi=ilp32 \
-		-DCH59x=1
+		-DCH59x=1 \
+		-DCH5xx
 
 	# MCU Flash/RAM split
 	ifeq ($(findstring 591, $(TARGET_MCU_PACKAGE)), 591)
@@ -310,9 +315,20 @@ else ifeq ($(findstring CH59,$(TARGET_MCU)),CH59) # CH592 1
 	endif
 
 	TARGET_MCU_LD:=9
+	IS_CH5XX:=1
 else
 	ERROR:=$(error Unknown MCU $(TARGET_MCU))
 endif
+
+ifeq ($(IS_CH5XX),1)
+5xx_enable_swd :
+	echo "Press and hold the download button when applying power and plug into the USB port before executing."
+	$(MINICHLINK)/minichlink -N
+5xx_unbrick :
+	echo "Press and hold the download button when applying power and plug into the USB port before executing."
+	$(MINICHLINK)/minichlink -E
+endif
+
 
 LDFLAGS+=-lgcc
 GENERATED_LD_FILE:=$(CH32FUN)/generated_$(TARGET_MCU_PACKAGE)_$(TARGET_MCU_MEMORY_SPLIT).ld

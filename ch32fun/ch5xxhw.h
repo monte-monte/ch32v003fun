@@ -3,7 +3,9 @@
 
 #include "ch32fun.h"
 
+#ifndef CH5xx
 #define CH5xx
+#endif
 #if defined(CH57x) && (MCU_PACKAGE == 0 || MCU_PACKAGE == 2)
 #define CH570_CH572
 #elif defined(CH57x) && (MCU_PACKAGE == 1 || MCU_PACKAGE == 3)
@@ -140,6 +142,9 @@ typedef enum IRQn
 
 #define __HIGH_CODE __attribute__((section(".highcode"), used))
 #define __INTERRUPT __attribute__((interrupt))
+#ifdef CH571_CH573
+#define __DMA_SAFE __attribute__((section(".dma_safe")))  // Use with every buffer/array that will be passed to DMA on CH573
+#endif
 
 
 /* memory mapped structure for SysTick */
@@ -1039,7 +1044,11 @@ typedef enum
 
 /* System: Flash ROM control register */
 #define R32_FLASH_DATA      (*((vu32*)0x40001800))    // RO/WO, flash ROM data
+
+// bit 24..26 flash wait states
+// bit 12 = flash very slow.
 #define R32_FLASH_CONTROL   (*((vu32*)0x40001804))    // RW, flash ROM control, byte1 and byte3 need RWA
+
 #define R8_FLASH_DATA       (*((vu8*)0x40001804))     // RO/WO, flash ROM data buffer
 #define R8_FLASH_SCK        (*((vu8*)0x40001805))     // RW, flash ROM sck time config
 #define R8_FLASH_CTRL       (*((vu8*)0x40001806))     // RW, flash ROM access control

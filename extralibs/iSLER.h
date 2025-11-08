@@ -24,6 +24,7 @@
 #define LL_STATUS_TX       0x20000
 #define CTRL_CFG_START_TX  0x1000000
 #elif defined(CH571_CH573)
+#define TXBUF 		       DMA4
 #define ACCESSADDRESS1     BB2
 #define CTRL_TX            BB11
 #define TMR                LL24
@@ -727,7 +728,12 @@ void Frame_TX(uint8_t adv[], size_t len, uint8_t channel, uint8_t phy_mode) {
 	ADV_BUF[0] = 0x02; // PDU 0x00, 0x02, 0x06 seem to work, with only 0x02 showing up on the phone
 	ADV_BUF[1] = len ;
 	memcpy(&ADV_BUF[2], adv, len);
+
+#if defined(CH571_CH573)
+	DMA->TXBUF = (uint32_t)ADV_BUF;
+#else
 	LL->FRAME_BUF = (uint32_t)ADV_BUF;
+#endif
 
 	// Wait for tuning bit to clear.
 	for( int timeout = 3000; !(RF->RF26 & 0x1000000) && timeout >= 0; timeout-- );
@@ -740,6 +746,8 @@ void Frame_TX(uint8_t adv[], size_t len, uint8_t channel, uint8_t phy_mode) {
 	if(phy_mode > PHY_2M) { // coded phy
 		BB->CTRL_CFG = (BB->CTRL_CFG & 0xffff3fff) | ((phy_mode == PHY_S2) ? 0x4000 : 0);
 	}
+#elif defined(CH571_CH573)
+	BB->CTRL_CFG = CTRL_CFG_PHY_1M; // no 2M PHY on ch571/3
 #else
 	BB->CTRL_CFG = (phy_mode == PHY_2M) ? CTRL_CFG_PHY_2M:
 										  CTRL_CFG_PHY_1M; // default 1M for now
@@ -793,6 +801,8 @@ void Frame_RX(uint8_t frame_info[], uint8_t channel, uint8_t phy_mode) {
 	if(phy_mode > PHY_2M) { // coded phy
 		BB->CTRL_CFG = (BB->CTRL_CFG & 0xffff3fff) | ((phy_mode == PHY_S2) ? 0x4000 : 0);
 	}
+#elif defined(CH571_CH573)
+	BB->CTRL_CFG = CTRL_CFG_PHY_1M; // no 2M PHY on ch571/3
 #else
 	BB->CTRL_CFG = (phy_mode == PHY_2M) ? CTRL_CFG_PHY_2M:
 										  CTRL_CFG_PHY_1M; // default 1M for now
