@@ -4492,18 +4492,29 @@ typedef struct{
 #define RCC_PLLMULL18                           ((uint32_t)0x003C0000) /* PLL input clock*18 */
 
 
-#define RCC_USBPRE                              ((uint32_t)0x00400000) /* USB Device prescaler */
+#define RCC_USBPRE                              ((uint32_t)0x00C00000) /* USBPRE[1:0] bits (USB prescaler) */
+#define RCC_USBPRE_0                            ((uint32_t)0x00400000) /* Bit 0 */
+#define RCC_USBPRE_1                            ((uint32_t)0x00800000) /* Bit 1 */
+#define RCC_USBPRE_DIV1                         ((uint32_t)0x00000000) /* PLL clock not divided (PLLCLK = 48MHz) */
+#define RCC_USBPRE_DIV2                         ((uint32_t)0x00400000) /* PLL clock divided by 2 (PLLCLK = 96MHz) */
+#define RCC_USBPRE_DIV3                         ((uint32_t)0x00800000) /* PLL clock divided by 3 (PLLCLK = 144MHz) */
+#define RCC_USBPRE_DIV5                         ((uint32_t)0x00C00000) /* PLL clock divided by 5, PLL source is HSE/2 (PLLCLK = 240MHz) */
 
 #define RCC_CFGR0_MCO                           ((uint32_t)0x07000000) /* MCO[2:0] bits (Microcontroller Clock Output) */
 #define RCC_MCO_0                               ((uint32_t)0x01000000) /* Bit 0 */
 #define RCC_MCO_1                               ((uint32_t)0x02000000) /* Bit 1 */
 #define RCC_MCO_2                               ((uint32_t)0x04000000) /* Bit 2 */
+#define RCC_MCO_3                               ((uint32_t)0x08000000) /* Bit 3 */
 
 #define RCC_MCO_NOCLOCK                         ((uint32_t)0x00000000) /* No clock */
 #define RCC_CFGR0_MCO_SYSCLK                    ((uint32_t)0x04000000) /* System clock selected as MCO source */
 #define RCC_CFGR0_MCO_HSI                       ((uint32_t)0x05000000) /* HSI clock selected as MCO source */
 #define RCC_CFGR0_MCO_HSE                       ((uint32_t)0x06000000) /* HSE clock selected as MCO source  */
 #define RCC_CFGR0_MCO_PLL                       ((uint32_t)0x07000000) /* PLL clock divided by 2 selected as MCO source */
+
+#define RCC_ADCDUTY                             ((uint32_t)0x80000000) /* ADC clock duty cycle adjustment */
+#define RCC_ADC_DUTY_SEL                        ((uint32_t)0x40000000) /* ADC clock duty cycle selection */
+#define RCC_ETHPRE                              ((uint32_t)0x10000000) /* Ethernet clock prescaler */
 
 /*******************  Bit definition for RCC_CFGR2 register  *******************/
 
@@ -5254,9 +5265,15 @@ typedef struct{
 #define  RB_ETH_ECON2_RX        0x0E                  /* 011b must be written */
 #define  RB_ETH_ECON2_TX        0x01
 #define  RB_ETH_ECON2_MUST      0x06                  /* 011b must be written */
-#define ECON2_MUST_WRITE_MASK   (0x07 << 1)
-#define ECON2_MUST_WRITE_VAL    (0x06 << 1)
-#define ECON2_TX_ENERGY_SAVING  (1 << 0) 		  	  /* Transmitter energy-saving driver control 1: Rated driver 0: Energy-saving driver */
+
+/* Bits [3:1] - Reserved, must write 110b per reference manual */
+#define RB_ETH_ECON2_RX_MASK        (0x07 << 1)             /* Mask for bits [3:1]: 0x0E */
+#define RB_ETH_ECON2_RX_MUST        (0x06 << 1)             /* Required value: 110b = 0x0C */
+/* Bit [0] - TX Driver control */
+#define RB_ETH_ECON2_TX_RATED       0x00                    /* 0: Rated driver (default) */
+#define RB_ETH_ECON2_TX_ENERGYSAVE  0x01                    /* 1: Energy-saving driver */
+#define RB_ETH_ECON2_DEFAULT        (RB_ETH_ECON2_RX_MUST | RB_ETH_ECON2_TX_RATED)  /* 0x0C */
+
 #define R8_ETH_ECON1            (*((volatile uint8_t *)(0x40028000+7))) /* Transceiver Control Register */
 #define  RB_ETH_ECON1_TXRST     0x80                  /* RW Send module reset */
 #define  RB_ETH_ECON1_RXRST     0x40                  /* RW Receiver module reset */
@@ -5315,6 +5332,8 @@ then stop sending, 10=send pause frame periodically, 01=send pause frame once, t
 #define R16_ETH_MIRD            (*((volatile uint16_t *)(0x40028000+0x20))) /* RW MII read data register */
 
 #define R32_ETH_MIWR            (*((volatile uint32_t *)(0x40028000+0x24)))
+#define  RB_ETH_MIWR_MIIWR      (1 << 8)                                   /* Write operation flag (bit 8) */
+#define  RB_ETH_MIWR_DATA_SHIFT 16                                         /* Data field position (bits [31:16]) */
 #define R8_ETH_MIREGADR         (*((volatile uint8_t *)(0x40028000+0x24))) /* MII address register*/
 #define  RB_ETH_MIREGADR_MASK   0x1F                  /* RW PHY register address mask */
 #define R8_ETH_MISTAT           (*((volatile uint8_t *)(0x40028000+0x25))) /* RW PHY register address mask */
