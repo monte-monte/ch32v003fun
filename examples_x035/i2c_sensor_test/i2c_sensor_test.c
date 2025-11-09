@@ -31,6 +31,8 @@ void print_ch32_readings() {
 			if (!err) {
 				read = i2c_readByte(target_i2cAddr);
 				printf("\nRead cmd 0x%02X: 0x%02X\n", 0x01, read);
+			} else {
+				printf("\nError 0x%02X\n", err);
 			}
 			break;
 
@@ -45,6 +47,8 @@ void print_ch32_readings() {
 					printf("0x%02X ", rx_buf[i]);
 				}
 				printf("\n");	
+			} else {
+				printf("\nError 0x%02X\n", err);
 			}
 
 			break;
@@ -60,6 +64,8 @@ void print_ch32_readings() {
 					printf("0x%02X ", rx_buf[i]);
 				}
 				printf("\n");	
+			} else {
+				printf("\nError 0x%02X\n", err);
 			}
 			break;
 		default:
