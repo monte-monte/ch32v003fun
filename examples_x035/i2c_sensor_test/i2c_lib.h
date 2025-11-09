@@ -197,23 +197,6 @@ void i2c_slave_init(u16 self_addr, u32 systemClock_Hz, u32 i2cSpeed_Hz) {
 
 	// Enable ACK
 	I2C1->CTLR1 |= I2C_CTLR1_ACK;
-
-
-    // I2C1->CTLR1 &= ~I2C_CTLR1_PE;
-
-	// // Enable Event and Error Interrupts
-	// I2C1->CTLR2 |= I2C_CTLR2_ITEVTEN | I2C_CTLR2_ITERREN | I2C_CTLR2_ITBUFEN;
-	// NVIC_EnableIRQ(I2C1_EV_IRQn); // Event interrupt
-	// NVIC_SetPriority(I2C1_EV_IRQn, 2 << 4);
-	// NVIC_EnableIRQ(I2C1_ER_IRQn); // Error interrupt
-	// NVIC_SetPriority(I2C1_ER_IRQn, 2 << 4);
-
-    // I2C1->CTLR2 = systemClock_Hz / 1000000;
-    // I2C1->CKCFGR = systemClock_Hz / (i2cSpeed_Hz << 1);	// SystemClockHz / (100KHz * 2)
-    // I2C1->OADDR1 = (self_addr << 1);
-
-    // I2C1->CTLR1 |= I2C_CTLR1_PE;
-    // I2C1->CTLR1 |= I2C_CTLR1_ACK;
 }
 
 void I2C1_ER_IRQHandler(void) __attribute__((interrupt));
@@ -237,67 +220,4 @@ void I2C1_ER_IRQHandler(void) {
 		printf("I2C Acknowledge Failure\r\n");
 		I2C1->STAR1 &= ~(I2C_STAR1_AF);
 	}
-}
-
-
-#define FLAG_Mask          ((uint32_t)0x00FFFFFF)
-#define  I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED        ((uint32_t)0x00070082)  /* BUSY, MSL, ADDR, TXE and TRA flags */
-#define I2C_EVENT_MASTER_BYTE_TRANSMITTING                 ((uint32_t)0x00070080) /* TRA, BUSY, MSL, TXE flags */
-#define  I2C_EVENT_MASTER_BYTE_TRANSMITTED                 ((uint32_t)0x00070084)  /* TRA, BUSY, MSL, TXE and BTF flags */
-#define  I2C_EVENT_MASTER_MODE_SELECT                      ((uint32_t)0x00030001)  /* BUSY, MSL and SB flag */
-
-FlagStatus I2C_GetFlagStatus(I2C_TypeDef *I2Cx, uint32_t I2C_FLAG) {
-    FlagStatus    bitstatus = RESET;
-    __IO uint32_t i2creg = 0, i2cxbase = 0;
-
-    i2cxbase = (uint32_t)I2Cx;
-    i2creg = I2C_FLAG >> 28;
-    I2C_FLAG &= FLAG_Mask;
-
-    if(i2creg != 0) {
-        i2cxbase += 0x14;
-    }
-    else {
-        I2C_FLAG = (uint32_t)(I2C_FLAG >> 16);
-        i2cxbase += 0x18;
-    }
-
-    if(((*(__IO uint32_t *)i2cxbase) & I2C_FLAG) != (uint32_t)RESET) {
-        bitstatus = SET;
-    }
-    else {
-        bitstatus = RESET;
-    }
-
-    return bitstatus;
-}
-
-ErrorStatus I2C_CheckEventA(uint32_t I2C_EVENT) {
-    uint32_t    lastevent = 0;
-    uint32_t    flag1 = 0, flag2 = 0;
-    ErrorStatus status = NoREADY;
-
-    flag1 = I2C1->STAR1;
-    flag2 = I2C1->STAR2;
-    flag2 = flag2 << 16;
-
-    lastevent = (flag1 | flag2) & FLAG_Mask;
-
-    if((lastevent & I2C_EVENT) == I2C_EVENT) {
-        status = READY;
-    }
-    else {
-        status = NoREADY;
-    }
-
-    return status;
-}
-
-u8 I2C_CheckEvent(uint32_t I2C_EVENT) {
-    uint32_t flag1 = I2C1->STAR1;
-    uint32_t flag2 = I2C1->STAR2;
-    flag2 = flag2 << 16;
-
-    uint32_t lastevent = (flag1 | flag2) & FLAG_Mask;
-    return (lastevent & I2C_EVENT) == I2C_EVENT;
 }

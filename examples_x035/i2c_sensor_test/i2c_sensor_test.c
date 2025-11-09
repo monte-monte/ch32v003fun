@@ -18,23 +18,29 @@ u8 TxData[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 };
 
 u8 target_i2cAddr = 0x02;
 
+u8 my_val = 0;
+
 void print_ch32_readings() {
 	u8 rx_buf[8];
-	u8 read;
+	u8 read, err;
 
-	// read command 0x01
-	u8 err = i2c_sendByte(target_i2cAddr, 0x01);
-	if (!err) {
-		read = i2c_readByte(target_i2cAddr);
-		printf("\nRead cmd 0x%02X: 0x%02X\n", 0x01, read);
+	if (my_val == 0) {
+		// read command 0x01
+		u8 err = i2c_sendByte(target_i2cAddr, 0x01);
+		if (!err) {
+			read = i2c_readByte(target_i2cAddr);
+			printf("\nRead cmd 0x%02X: 0x%02X\n", 0x01, read);
+		}
+	} else {
+		// read command 0x23
+		err = i2c_sendByte(target_i2cAddr, 0x23);
+		if (!err) {
+			read = i2c_readByte(target_i2cAddr);
+			printf("Read cmd 0x%02X: 0x%02X\n", 0x23, read);
+		}
 	}
 
-	// read command 0x23
-	err = i2c_sendByte(target_i2cAddr, 0x23);
-	if (!err) {
-		read = i2c_readByte(target_i2cAddr);
-		printf("Read cmd 0x%02X: 0x%02X\n", 0x23, read);
-	}
+	my_val = !my_val;
 
 	// // read command 0x10
 	// err = i2c_sendByte(target_i2cAddr, 0x10);

@@ -143,6 +143,7 @@ void I2C1_EV_IRQHandler(void) {
     
 	//# Master request address, slave address match
     if(I2C1->STAR1 & I2C_STAR1_ADDR) {
+		// printf("\n****SLAVE ADDR MATCH\n");
 		(void)I2C1->STAR1;
 		(void)I2C1->STAR2;
 
@@ -161,6 +162,7 @@ void I2C1_EV_IRQHandler(void) {
 	//# Master sends data, slave is ready to receive
     if(I2C1->STAR1 & I2C_STAR1_RXNE) {
         u8 received_byte = I2C1->DATAR;
+		printf("****SLAVE RXNE: 0x%02X, index: %d\n", received_byte, slave_rx_index);
 
 		if (slave_rx_index == 0) {
 			switch (received_byte) {
@@ -182,9 +184,11 @@ void I2C1_EV_IRQHandler(void) {
 
 		switch(slave_buffer[0]) {
 			case 0x01:
+				printf("IM HERE 0x01\n");
 				I2C1->DATAR = slave_buffer[1];
 				break;
 			case 0x23:
+				printf("IM HERE 0x23\n");
 				I2C1->DATAR = slave_buffer[2];
 				break;
 			case 0x10:
@@ -204,105 +208,12 @@ void I2C1_EV_IRQHandler(void) {
         (void)I2C1->STAR1;
         I2C1->CTLR1 |= 0;
 
-		printf("\nStop Condition. received data: ");
-		for (int i = 0; i < slave_rx_index; i++) {
-			printf("0x%02X ", slave_buffer[i]);
-		}
-		printf("\n");
+		// printf("\nStop Condition. received data: ");
+		// for (int i = 0; i < slave_rx_index; i++) {
+		// 	printf("0x%02X ", slave_buffer[i]);
+		// }
+		// printf("\n");
 
-        // Reset state
-        slave_rx_index = 0;
-        slave_tx_index = 0;
-        is_transmitter = 0;
-    }
-}
-
-// void I2C1_EV_IRQHandler(void) __attribute__((interrupt));
-void I2C1_EV_IRQHandler2(void) {
-    // Address matched (slave selected)
-    if(I2C1->STAR1 & I2C_STAR1_ADDR) {
-        printf("Address Matched\r\n");
-		// Read both status registers to clear ADDR flag
-		(void)I2C1->STAR1;
-		(void)I2C1->STAR2;
-
-		// Read the address that was matched
-        u32 star2 = I2C1->STAR2;
-        printf("SLAVE: STAR2=0x%04X, GENCALL=%d, DUALF=%d\n", 
-				star2, (star2 & I2C_STAR2_GENCALL) ? 1 : 0, 
-				(star2 & I2C_STAR2_DUALF) ? 1 : 0);
-        
-        u32 star1 = I2C1->STAR1;
-        u32 star2_clear = I2C1->STAR2;  // Clear ADDR
-        
-        printf("SLAVE: ADDR cleared, ACK should be sent\n");
-
-        // Check if we're in transmitter or receiver mode
-        is_transmitter = (I2C1->STAR2 & I2C_STAR2_TRA) ? 1 : 0;
-        
-        if(is_transmitter) {
-			printf("IM HERE 1\r\n");
-            // Master wants to read from us - prepare first data byte
-            slave_tx_index = 0;
-            // I2C_PrepareResponse(slave_command);
-        } else {
-			printf("IM HERE 2\r\n");
-            // Master wants to write - reset receive buffer
-            slave_rx_index = 0;
-        }
-    }
-    
-
-	printf("IM HERE 3\r\n");
-    // Byte received (slave receiver mode)
-    if(I2C1->STAR1 & I2C_STAR1_RXNE) {
-        printf("Received byte: 0x%02X\r\n", I2C1->DATAR);
-        u8 received_byte = I2C1->DATAR;
-        
-        if(slave_rx_index == 0) {
-            // First byte is the command
-            slave_command = received_byte;
-        } else {
-            // Additional data bytes (if any)
-            slave_buffer[slave_rx_index - 1] = received_byte;
-        }
-        slave_rx_index++;
-    }
-    
-    // Byte transmission complete (slave transmitter mode)
-    if(I2C1->STAR1 & I2C_STAR1_TXE) {
-        printf("Slave send next byte\r\n");
-        if(is_transmitter) {
-            // Send next data byte
-			// Determine how many bytes to send based on command
-			u8 total_bytes = 1;  // Default: 1 byte
-			
-			switch(slave_command) {
-				case CMD_READ_DATA:
-					total_bytes = 4;
-					break;
-				// Other commands send 1 byte
-			}
-			
-			if(slave_tx_index < total_bytes) {
-				printf("Sending byte %d: 0x%02X\r\n", slave_tx_index, slave_buffer[slave_tx_index]);
-				// Send next byte
-				I2C1->DATAR = slave_buffer[slave_tx_index++];
-			} else {
-				// No more data - send 0xFF or keep last byte
-				printf("No more data to send, sending 0xFF\r\n");
-				I2C1->DATAR = 0xFF;
-			}
-        }
-    }
-    
-    // Stop condition detected
-    if(I2C1->STAR1 & I2C_STAR1_STOPF) {
-        printf("Stop condition detected\r\n");
-        // Clear STOPF flag by reading SR1 and writing CR1
-        (void)I2C1->STAR1;
-        I2C1->CTLR1 |= 0;  // Dummy write to clear
-        
         // Reset state
         slave_rx_index = 0;
         slave_tx_index = 0;
