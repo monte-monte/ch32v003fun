@@ -24,47 +24,50 @@ void print_ch32_readings() {
 	u8 rx_buf[8];
 	u8 read, err;
 
-	if (my_val == 0) {
-		// read command 0x01
-		u8 err = i2c_sendByte(target_i2cAddr, 0x01);
-		if (!err) {
-			read = i2c_readByte(target_i2cAddr);
-			printf("\nRead cmd 0x%02X: 0x%02X\n", 0x01, read);
-		}
-	} else {
-		// read command 0x23
-		err = i2c_sendByte(target_i2cAddr, 0x23);
-		if (!err) {
-			read = i2c_readByte(target_i2cAddr);
-			printf("Read cmd 0x%02X: 0x%02X\n", 0x23, read);
-		}
+	switch (my_val) {
+		case 0:
+			// read command 0x01
+			err = i2c_sendByte(target_i2cAddr, 0x01);
+			if (!err) {
+				read = i2c_readByte(target_i2cAddr);
+				printf("\nRead cmd 0x%02X: 0x%02X\n", 0x01, read);
+			}
+			break;
+
+		case 1:
+			// read command 0x10
+			err = i2c_sendByte(target_i2cAddr, 0x10);
+			if (!err) {
+				i2c_readBytes(target_i2cAddr, rx_buf, 2);
+			
+				printf("Read cmd 0x%02X: ", 0x10);
+				for (int i = 0; i < 2; i++) {
+					printf("0x%02X ", rx_buf[i]);
+				}
+				printf("\n");	
+			}
+
+			break;
+		case 2:
+			// read command 0x11
+			i2c_sendByte(target_i2cAddr, 0x11);
+
+			if (!err) {
+				i2c_readBytes(target_i2cAddr, rx_buf, 4);
+			
+				printf("Read cmd 0x%02X: ", 0x11);
+				for (int i = 0; i < 4; i++) {
+					printf("0x%02X ", rx_buf[i]);
+				}
+				printf("\n");	
+			}
+			break;
+		default:
+			break;
 	}
 
-	my_val = !my_val;
-
-	// // read command 0x10
-	// err = i2c_sendByte(target_i2cAddr, 0x10);
-	// if (!err) {
-	// 	i2c_readBytes(target_i2cAddr, rx_buf, 2);
-	
-	// 	printf("Read cmd 0x%02X: ", 0x10);
-	// 	for (int i = 0; i < 2; i++) {
-	// 		printf("0x%02X ", 0x10 + i, rx_buf[i]);
-	// 	}
-	// 	printf("\n");	
-	// }
-
-	// // read command 0x11
-	// i2c_sendByte(target_i2cAddr, 0x11);
-	// i2c_readBytes(target_i2cAddr, rx_buf, 4);
-	
-	// printf("Read cmd 0x%02X: \n", 0x11);
-	// for (int i = 0; i < 4; i++) {
-	// 	printf("0x%02X ", 0x11 + i, rx_buf[i]);
-	// }
-	// printf("\n");
-
-	
+	my_val++;
+	if (my_val > 2) my_val = 0;
 
 	// u8 err = i2c_sendBytes(0x02, &TxData, 6);
 
