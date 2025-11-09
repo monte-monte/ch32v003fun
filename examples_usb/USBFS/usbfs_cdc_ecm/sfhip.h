@@ -307,7 +307,7 @@ hipbe16 internet_checksum( uint8_t * data, int length );
 
 #ifdef SFHIP_IMPLEMENTATION
 
-hipmac sfhip_mac_broadcast = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+hipmac sfhip_mac_broadcast = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }};
 
 int sfhip_mac_reply( sfhip * hip, sfhip_phy_packet * data, int length )
 {

@@ -66,7 +66,7 @@ static sfhip hip = {
 	.ip = HIPIP( 192, 168, 14, 1 ),
 	.mask = HIPIP( 255, 255, 255, 0 ),
 	.gateway = HIPIP( 192, 168, 14, 1 ),
-	.self_mac = { 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55 },
+	.self_mac = {{ 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55 }},
 #if SFHIP_DHCP_CLIENT
 	.hostname = "ch32v_ecm",
 #endif
@@ -283,9 +283,6 @@ sfhip_length_or_tcp_code sfhip_tcp_send_event(
 	max_ip_payload = SFHIP_MTU - sizeof( sfhip_mac_header ) - sizeof( sfhip_ip_header ) - sizeof( sfhip_tcp_header );
 #endif
 
-	int r = 0;
-	char *resp = NULL;
-
 	// Phase two - send a TCP reply.
 	switch ( h->state )
 	{
@@ -314,22 +311,14 @@ sfhip_length_or_tcp_code sfhip_tcp_send_event(
 
 void sfhip_tcp_socket_closed( sfhip *hip, int sockno )
 {
-	if ( debugger ) printf( "Socket Closed\n" );
+	if ( debugger ) printf( "Socket %d Closed\n", sockno );
 }
+
 int HandleInRequest( struct _USBState *ctx, int endp, uint8_t *data, int len )
 {
 	usb_stats.in[endp]++;
 
-	int ret = USB_NAK; // Just NAK
-	switch ( endp )
-	{
-		case EP_NOTIFY:
-			// ret = USB_ACK; // Just ACK
-			break;
-		case EP_SEND:
-			// ret = USB_ACK; // ACK, without it RX was stuck in some cases, leaving for now as a reminder
-			break;
-	}
+	int ret = USB_NAK; // Just NAK, we will send data async
 	return ret;
 }
 
@@ -343,19 +332,18 @@ void HandleDataOut( struct _USBState *ctx, int endp, uint8_t *data, int len )
 	}
 	if ( endp == EP_RECV )
 	{
-		// TODO: NAK doesn't work????
 		if ( busy )
 		{
 			// still processing previous packet
-			// printf( "RECV busy, dropping packet %d\n", len );
-			// USBFS_SendNAK( EP_RECV, 0 );
+			USBFS_SendNAK( EP_RECV, 0 );
 			return;
 		}
 
 		if ( ( buff_len + len ) > sizeof( buff ) )
 		{
+			// Overflowing buffer
 			buff_len = 0;
-			// USBFS_SendNAK( EP_RECV, 0 );
+			USBFS_SendNAK( EP_RECV, 0 );
 			return;
 		}
 
