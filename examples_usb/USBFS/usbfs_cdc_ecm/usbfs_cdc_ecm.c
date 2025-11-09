@@ -75,17 +75,11 @@ static sfhip hip = {
 typedef enum
 {
 	HTP_START,
-	HTP_URL,
-	HTP_POSTURL,
-	HTP_BACKNEXP,
-	HTP_LINEFIRST,
-	HTP_LINE,
-	HTP_BACKNEXPEND,
 	HTP_REQUEST_STATUS,
 	HTP_REQUEST_DATA,
 	HTP_DATA_SENT,
 	HTP_ERROR,
-	HTP_TESTING_END,
+	HTP_DONE,
 } httpparsestate;
 
 typedef struct
@@ -257,6 +251,12 @@ sfhip_length_or_tcp_code sfhip_tcp_got_data(
 	}
 	h->state = s;
 
+	if ( s == HTP_ERROR || s == HTP_DONE )
+	{
+		// closed connection, maybe should be 500
+		return SFHIP_TCP_OUTPUT_FIN;
+	}
+
 	return sfhip_tcp_send_event( hip, sockno, ip_payload, max_ip_payload, 0 );
 }
 
@@ -270,14 +270,18 @@ sfhip_length_or_tcp_code sfhip_tcp_send_event(
 	{
 		switch ( h->state )
 		{
-			case HTP_REQUEST_STATUS: h->state = HTP_TESTING_END; break;
+			case HTP_REQUEST_STATUS: h->state = HTP_DONE; break;
 			case HTP_REQUEST_DATA: h->state = HTP_DATA_SENT; break;
 			default: break;
 		}
 	}
 
+#if 0 // some bug with acks
 	// If for some reason we cannot send a message now, abort before sending.
 	if ( !max_ip_payload ) return 0;
+#else
+	max_ip_payload = SFHIP_MTU - sizeof( sfhip_mac_header ) - sizeof( sfhip_ip_header ) - sizeof( sfhip_tcp_header );
+#endif
 
 	int r = 0;
 	char *resp = NULL;
@@ -295,14 +299,14 @@ sfhip_length_or_tcp_code sfhip_tcp_send_event(
 		case HTP_REQUEST_DATA:
 			if ( h->sent >= h->data_len )
 			{
-				h->state = HTP_TESTING_END;
+				h->state = HTP_DONE;
 				return SFHIP_TCP_OUTPUT_FIN;
 			}
 			size_t len = h->data_len - h->sent;
 			if ( len > (size_t)max_ip_payload ) len = (size_t)max_ip_payload;
 			memcpy( ip_payload, &h->data[h->sent], len );
 			return len;
-		case HTP_TESTING_END: return SFHIP_TCP_OUTPUT_FIN;
+		case HTP_DONE: return SFHIP_TCP_OUTPUT_FIN;
 		default: return 0;
 	}
 	return 0;
