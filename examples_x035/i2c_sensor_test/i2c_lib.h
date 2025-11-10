@@ -21,8 +21,6 @@ void i2c_init(u32 systemClock_Hz, u32 i2cSpeed_Hz) {
 
 	// Disable I2C before configuration
 	I2C1->CTLR1 &= ~I2C_CTLR1_PE;
-
-	// Set clock frequency (assuming 8MHz system clock)
 	I2C1->CTLR2 = systemClock_Hz / 1000000;
 	I2C1->CKCFGR = systemClock_Hz / (i2cSpeed_Hz << 1);	// SystemClockHz / (100KHz * 2)
 	
