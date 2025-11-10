@@ -6,66 +6,51 @@
 
 #define SYSTEM_CLOCK_HZ 48000000
 
-u16 get_sensor_reading(u8 i2cAddress) {
-	u8 data[2];
-	// i2c_readReg_buffer(i2cAddress, 0x13, data, 2);	// get Reading
-	u16 raw = (data[0] << 8) | data[1];
-	return raw * 12 / 10;  // Convert to lux
-}
+// #define I2C_ADDRESS 0x23
+#define I2C_ADDRESS 0x66
 
+u8 my_val = 0;
 
-u8 target_i2cAddr = 0x02;
-u8 TxData[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06 };
-
-u8 my_val = 3;
-
-void print_ch32_readings() {
+void print_ch32_readings(u8 i2_addr) {
 	u8 rx_buf[8];
 	u8 read, err;
 
 	switch (my_val) {
 		case 0:
 			// read command 0x01: return 1 byte
-			err = i2c_sendByte(target_i2cAddr, 0x01);
+			err = i2c_readReg_buffer(i2_addr, 0x01, rx_buf, 1);
 			if (!err) {
-				read = i2c_readByte(target_i2cAddr);
-				printf("\nRead cmd 0x%02X: 0x%02X\n", 0x01, read);
+				printf("\nRead 1 byte (cmd 0x01): 0x%02X", rx_buf[0]);
 			} else {
-				printf("\nError 0x%02X\n", err);
+				printf("\nError 0x%02X", err);
 			}
 			break;
 
 		case 1:
 			// read command 0x10: return 2 bytes
-			err = i2c_sendByte(target_i2cAddr, 0x10);
+			err = i2c_readReg_buffer(i2_addr, 0x13, rx_buf, 2);
 			if (!err) {
-				i2c_readBytes(target_i2cAddr, rx_buf, 2);
-			
-				printf("Read cmd 0x%02X: ", 0x10);
+				printf("\nRead 2 bytes (cmd 0x13): ");
 				for (int i = 0; i < 2; i++) {
 					printf("0x%02X ", rx_buf[i]);
 				}
-				printf("\n");	
 			} else {
-				printf("\nError 0x%02X\n", err);
+				printf("\nError 0x%02X", err);
 			}
 
 			break;
 
 		case 2:
 			// read command 0x11: return 4 bytes
-			err = i2c_sendByte(target_i2cAddr, 0x11);
+			err = i2c_readReg_buffer(i2_addr, 0x14, rx_buf, 4);
 
 			if (!err) {
-				i2c_readBytes(target_i2cAddr, rx_buf, 4);
-			
-				printf("Read cmd 0x%02X: ", 0x11);
+				printf("\nRead 4 bytes (cmd 0x14): ");
 				for (int i = 0; i < 4; i++) {
 					printf("0x%02X ", rx_buf[i]);
 				}
-				printf("\n");	
 			} else {
-				printf("\nError 0x%02X\n", err);
+				printf("\nError 0x%02X", err);
 			}
 			break;
 
@@ -73,14 +58,13 @@ void print_ch32_readings() {
 			{
 				// write command 0x31. write buffer
 				u8 write_request[] = { 0x31, 29, 0xAA, 0xBB, 0xCC, 0xDD };
-				err = i2c_sendBytes(target_i2cAddr, &write_request, sizeof(write_request));
+				err = i2c_sendBytes(i2_addr, &write_request, sizeof(write_request));
 
 				if (!err) {
-					printf("\nwrite cmd 0x%02X successful\n", 0x31);
+					printf("\nwrite buffer (cmd 0x%02X): successful", 0x31);
 				}
 				if (err) {
-					printf("Write cmd 0x%02X: ", 0x31);
-					printf("\nError 0x%02X\n", err);
+					printf("\nError 0x%02X", err);
 				}
 				break;
 			}
@@ -89,17 +73,17 @@ void print_ch32_readings() {
 			{
 				// read command 0x30: read buffer
 				u8 read_request[] = { 0x30, 29 };
-				err = i2c_readReg_buffer(target_i2cAddr, &read_request, sizeof(read_request), &rx_buf, 5);
+				err = i2c_readRegTx_buffer(i2_addr, &read_request, sizeof(read_request), &rx_buf, 5);
 
 				if (!err) {
-					printf("Read cmd 0x%02X: ", 0x30);
+					printf("\nRead buffer (cmd 0x30): ");
 					for (int i = 0; i < 5; i++) {
 						printf("0x%02X ", rx_buf[i]);
 					}
-					printf("\n");	
 				} else {
-					printf("\nError 0x%02X\n", err);
+					printf("\nError 0x%02X", err);
 				}
+				printf("\n");
 				break;
 			}
 
@@ -108,8 +92,16 @@ void print_ch32_readings() {
 	}
 
 	my_val++;
-	if (my_val > 4) my_val = 3;
+	if (my_val > 4) my_val = 0;
 }
+
+u16 get_bh1750_readings(u8 i2cAddress) {
+	u8 data[2];
+	i2c_readReg_buffer(i2cAddress, 0x13, data, 2);	// get Reading
+	u16 raw = (data[0] << 8) | data[1];
+	return raw * 12 / 10;  // Convert to lux
+}
+
 
 int main() {
 	SystemInit();
@@ -123,19 +115,21 @@ int main() {
 	funPinMode(PA11, GPIO_CFGLR_OUT_50Mhz_AF_PP);  // I2C1 SDA
 
 	i2c_init(SYSTEM_CLOCK_HZ, 100000);
-
 	printf("\nCTLR1: 0x%04X\n", I2C1->CTLR1);	
 	printf("CTLR2: 0x%04X\n", I2C1->CTLR2);	
 	printf("CKCFGR: 0x%04X\n", I2C1->CKCFGR);
 
-	// u8 bh1750_address = 0x23;
-	// i2c_sendByte(bh1750_address, 0x01); // Power on
-	// i2c_sendByte(bh1750_address, 0x23); // resolution
+	i2c_sendByte(I2C_ADDRESS, 0x01); // Power on
+	i2c_sendByte(I2C_ADDRESS, 0x23); // resolution
 
 	while(1) {
-		print_ch32_readings();
-		// u16 lux = get_sensor_reading(bh1750_address);
-		// printf("BH1750 Reading: %d lx\n", lux);
+		#if I2C_ADDRESS == 0x23
+			u16 lux = get_bh1750_readings(I2C_ADDRESS);
+			printf("BH1750 Reading: %d lx\n", lux);
+		#else
+			print_ch32_readings(I2C_ADDRESS);
+		#endif
+
 		Delay_Ms(1000);
 	}
 }

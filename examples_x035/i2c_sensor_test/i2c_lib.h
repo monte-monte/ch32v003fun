@@ -1,3 +1,6 @@
+// MIT License
+// Copyright (c) 2025 UniTheCat
+
 #define I2C_TIMEOUT 100000
 
 // return 0 on timeout = failed
@@ -29,7 +32,6 @@ void i2c_init(u32 systemClock_Hz, u32 i2cSpeed_Hz) {
 	// Enable ACK
 	I2C1->CTLR1 |= I2C_CTLR1_ACK;
 }
-
 
 u8 i2c_start(u8 i2cAddress, u8 isRead) {
 	//# Wait while BUSY, when BUSY is set to 0 then continue
@@ -133,18 +135,16 @@ u8 i2c_readByte(u8 i2cAddress) {
 	return output;
 }
 
-// Write to register and then do read data
-u8 i2c_readReg_buffer(u8 i2cAddress, u8 *tx_buf, u8 tx_len, u8 *rx_buf, u8 rx_len) {
+// Write to register and then do read data, no stop inbetween
+u8 i2c_readRegTx_buffer(u8 i2cAddress, u8 *tx_buf, u8 tx_len, u8 *rx_buf, u8 rx_len) {
 	u8 err = i2c_sendBytes_noStop(i2cAddress, tx_buf, tx_len);	// Send register address
 	if (err) return err;
 	err = i2c_readBytes(i2cAddress, rx_buf, rx_len); 	// Read data
 	return err;
 }
 
-u8 i2c_readReg_byte(u8 i2cAddress, u8 reg) {
-	u8 data = 0xFF;
-	i2c_readReg_buffer(i2cAddress, &reg, 1, &data, 1);
-	return data;
+u8 i2c_readReg_buffer(u8 i2cAddress, u8 reg, u8 *rx_buf, u8 rx_len) {
+	return i2c_readRegTx_buffer(i2cAddress, &reg, 1, rx_buf, rx_len);
 }
 
 //! ####################################

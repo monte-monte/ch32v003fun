@@ -5,16 +5,11 @@
 #include "../i2c_sensor_test/i2c_lib.h"
 
 #define SYSTEM_CLOCK_HZ 48000000
-#define LED_PIN PA5
+#define I2C_SELF_ADDR 0x66
 
-// Response data
-u8 slave_temperature = 25;
-
-// Mock sensor functions
-u8 ReadTemperatureSensor(void) {
-	slave_temperature++;
-	return slave_temperature;
-}
+#define I2C_WRITABLE_SIZE 32
+volatile u8 writable_buffer[I2C_WRITABLE_SIZE] = { 0 };
+volatile u8 readonly_buffer[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA };
 
 int main() {
 	SystemInit();
@@ -27,30 +22,16 @@ int main() {
 	funPinMode(PA10, GPIO_CFGLR_OUT_50Mhz_AF_PP);	// I2C1 SCL
 	funPinMode(PA11, GPIO_CFGLR_OUT_50Mhz_AF_PP);  // I2C1 SDA
 
-	u8 led_state = 0;
-	funPinMode(LED_PIN, GPIO_CFGLR_OUT_10Mhz_PP);	// LED
-
 	// Initialize I2C as slave
-	i2c_slave_init(0x02, SYSTEM_CLOCK_HZ, 100000);
+	i2c_slave_init(I2C_SELF_ADDR, SYSTEM_CLOCK_HZ, 100000);
 	printf("CTLR1: 0x%04X\n", I2C1->CTLR1);	
 	printf("CTLR2: 0x%04X\n", I2C1->CTLR2);	
 	printf("OADDR1: 0x%04X\n", I2C1->OADDR1);
 	printf("CKCFGR: 0x%04X\n", I2C1->CKCFGR);
 
-	Delay_Ms(2000);
-
-	uint8_t packet_count = 0;
-	uint8_t rx_buffer[6];
-
-	u32 timeout = I2C_TIMEOUT;
-
 	// Update sensor data periodically
 	while(1) {
-		funDigitalWrite(LED_PIN, led_state);
-		led_state = !led_state;
-
-		// Update your sensor data here
-		slave_temperature = ReadTemperatureSensor();   
+		readonly_buffer[5] = readonly_buffer[5] + 1;  
 		Delay_Ms(1000);
 	}
 }
@@ -65,10 +46,6 @@ volatile u8 slave_temp_value = 0xFF;	// 0xFF = invalid
 // if(!(I2C1->STAR2 & I2C_STAR2_MSL)) { return 0; }
 u8 i2c_isTransmitter() { return I2C1->STAR2 & I2C_STAR2_TRA; }
 
-#define I2C_WRITABLE_SIZE 32
-volatile u8 writable_buffer[I2C_WRITABLE_SIZE] = { 0 };
-volatile u8 readonly_buffer[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA };
-
 void I2C1_EV_IRQHandler(void) __attribute__((interrupt));
 void I2C1_EV_IRQHandler(void) {
 	// printf("\nSLAVE ISR: STAR1=0x%04X\n", I2C1->STAR1);
@@ -79,19 +56,12 @@ void I2C1_EV_IRQHandler(void) {
 		(void)I2C1->STAR1;
 		(void)I2C1->STAR2;
 
-		//# check if master request a read or a write
-		// is_transmitter = (I2C1->STAR2 & I2C_STAR2_TRA) ? 1 : 0;
-
-        if (!i2c_isTransmitter()) {
+		if (!i2c_isTransmitter()) {
 			// WRITE mode - reset for new command
 			SLAVE_CMD = 0;
 			slave_rx_idx = 0;
 			slave_tx_idx = 0;  // Also reset tx index for new command
-			
-        } else {
-            // Read mode - reset transmit index but keep command  
-            // slave_tx_idx = 0;
-        }
+		}
 	}
 	
 	//# Master sends data, slave is ready to receive
@@ -101,19 +71,6 @@ void I2C1_EV_IRQHandler(void) {
 
 		if (SLAVE_CMD == 0) {
 			SLAVE_CMD = received_byte;
-
-			switch (SLAVE_CMD) {
-				// slave_temp_value holds the length of the transmitting data
-				case 0x10: slave_temp_value = 2; break;
-				case 0x11: slave_temp_value = 4; break;
-				case 0x30: break;
-				case 0x31: break;
-				default:
-					// reset SLAVE_CMD if not recognized
-					SLAVE_CMD = 0;
-					break;
-			}
-
 			printf(" | SLAVE_CMD: 0x%02X", SLAVE_CMD);
 		}
 		else {
@@ -146,6 +103,7 @@ void I2C1_EV_IRQHandler(void) {
 
 					break;
 				default:
+					SLAVE_CMD = 0;
 					break;
 			}
 		}
@@ -164,8 +122,8 @@ void I2C1_EV_IRQHandler(void) {
 				break;
 
 			// return 2 bytes
-			case 0x10:
-				if ((slave_tx_idx < slave_temp_value) && (slave_temp_value != 0xFF)) {
+			case 0x13:
+				if (slave_tx_idx < 2) {  // Hardcoded length
 					I2C1->DATAR = readonly_buffer[5 + slave_tx_idx++];
 				} else {
 					I2C1->DATAR = 0xFF;
@@ -173,8 +131,8 @@ void I2C1_EV_IRQHandler(void) {
 				break;
 
 			// return 4 bytes
-			case 0x11:
-				if ((slave_tx_idx < slave_temp_value) && (slave_temp_value != 0xFF)) {
+			case 0x14:
+				if (slave_tx_idx < 4) {  // Hardcoded length
 					I2C1->DATAR = readonly_buffer[7 + slave_tx_idx++];
 				} else {
 					I2C1->DATAR = 0xFF;
@@ -184,11 +142,11 @@ void I2C1_EV_IRQHandler(void) {
 			// return writable buffer
 			case 0x30:
 				if (slave_tx_idx < I2C_WRITABLE_SIZE) {
-					printf("\n return writable buffer %d: \n", slave_tx_idx);
-					for (int i = 0; i < I2C_WRITABLE_SIZE; i++) {
-						printf("0x%02X ", writable_buffer[i]);
-					}
-					printf("\n");
+					// printf("\n return writable buffer %d: \n", slave_tx_idx);
+					// for (int i = 0; i < I2C_WRITABLE_SIZE; i++) {
+					// 	printf("0x%02X ", writable_buffer[i]);
+					// }
+					// printf("\n");
 
 					u8 data = writable_buffer[slave_tx_idx++];
 					I2C1->DATAR = data;
