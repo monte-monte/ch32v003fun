@@ -1,21 +1,116 @@
 #ifndef _SFHIP_H
 #define _SFHIP_H
 
-#include <stdint.h>
+/** 
+ General coding considerations:
+  1. Consider something like RISC-V where the first 5 parameters are passed
+     by a0..a4 registers.
+  2. Consider something like RV32E, where you only get 16 total registers, so
+     try to write the code to not register spill.  You can do this by writing
+     the code so at any one point, only a few variables are needed.
+  3. Think about compile-time perf by baking in easy-to-compile optimizations
+     i.e. when checking against a big endian number, take the BE of a 
+     constant instead of converting to host-local.
+  4. Make optimizations easy for the compiler, for instance, pull value out
+     of structs in such a way to use temporary registers.
 
-// General coding considerations:
-//  1. Consider something like RISC-V where the first 5 parameters are passed
-//     by a0..a4 registers.
-//  2. Consider something like RV32E, where you only get 16 total registers, so
-//     try to write the code to not register spill.  You can do this by writing
-//     the code so at any one point, only a few variables are needed.
-//  3. Think about compile-time perf by baking in easy-to-compile optimizations
-//     i.e. when checking against a big endian number, take the BE of a 
-//     constant instead of converting to host-local.
-//
-// Responsibilities:
-//  1. The PHY layer is respoinsible for checking the 32-bit MAC CRC.
-//  2. The PHY layer should pass in packets without the checksum at the end.
+
+ Responsibilities:
+  1. The PHY layer is respoinsible for checking the 32-bit MAC CRC.
+  2. The PHY layer should pass in packets without the checksum at the end.
+
+
+  Implementation details:
+
+YOU MUST HAVE as sfhip object.
+
+  A sfhip object, by default the DHCP client is on, so the IP
+  is just what is used for a DHCP request.
+
+  sfhip hip = {
+    .ip =      HIPIP( 192, 168,  14, 251 ),
+    .mask =    HIPIP( 255, 255, 255, 0   ),
+    .gateway = HIPIP( 192, 168,  14, 1   ),
+    .self_mac = { 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55 },
+    .hostname = "sfhip_test_linux",
+  };
+
+YOU MUST CALL:
+
+  When your PHY Receives Packet, call:
+
+    int sfhip_accept_packet( sfhip * hip, sfhip_phy_packet_mtu * data,
+      int length );
+
+  You can hand this any frame that is able to store at least SFHIP_MTU bytes
+  plus MAC header, plus HIP_PHY_HEADER_LENGTH_BYTES. You can usually re-use DMA
+  blocks note that this must be volatile. Replies are sent back off of this
+  buffer.
+
+  length is the number of received bytes, but you must still make sure sfhip
+  can write back up to the MTU. 
+
+
+  In an idle loop, or periodically:
+
+    int sfhip_tick( sfhip * hip, sfhip_phy_packet_mtu * scratch, int milliseconds );
+
+  milliseconds can be zero, but it must be set to one or greater whenever time
+  actually transpires.
+ 
+
+YOU MUST IMPLEMENT:
+
+  SFHIP wishes to send a packet.  This is called.  Note that data may be (and
+  usually is) the buffer that was passed into accept or tick.
+
+    int sfhip_send_packet( sfhip * hip, sfhip_phy_packet * data, int length );
+
+IF YOU ENABLE SFHIP_DHCP_CLIENT
+
+  SFHIP will call this whenever an IP is leased.
+  void sfhip_got_dhcp_lease( sfhip * hip, sfhip_address addr );
+
+IF YOU HAVE SFHIP_TCP_SOCKETS you must implement:
+
+  A function to accept or reject connections. This will be called and you must
+  return 0 to accept, -1 to abort the connection.
+
+    int sfhip_tcp_accept_connection( sfhip * hip, int sockno, int localport,
+	  hipbe32 remote_host );
+
+  A function for all data events, this is used for:
+    1. Receiving data from the peer (by the tune of ip_payload_length)
+    2. ACKs from the peer if acked is set, you may move on.
+    3. If you can send data, max_out_payload will be nonzero.
+
+  Note that this can be called either from tick, for notifying that data
+  may be able to be sent, or, in response to an incoming packet.
+
+  You may return 0, for no operation, positive to send data, or one of
+    #define SFHIP_TCP_OUTPUT_FIN         -1
+    #define SFHIP_TCP_OUTPUT_SYNACK      -2
+    #define SFHIP_TCP_OUTPUT_RESET       -3
+    #define SFHIP_TCP_OUTPUT_KEEPALIVE   -4
+    #define SFHIP_TCP_OUTPUT_ACK         -5 ***
+
+  to perform a different operation.
+
+  *** = These will be automatically generated when appropriate, the user does
+  not need to worry about it.
+ 
+    sfhip_length_or_tcp_code sfhip_tcp_event( sfhip * hip, int sockno,
+      uint8_t * ip_payload, int ip_payload_length, int max_out_payload,
+      int acked );
+
+  And finally, to get notification of a socket closeure, you will get:
+
+    void sfhip_tcp_socket_closed( sfhip * hip, int sockno );
+
+*/
+
+#include <stdint.h>
+#include <stdbool.h>
 
 #ifndef HIP_PHY_HEADER_LENGTH_BYTES
 #define HIP_PHY_HEADER_LENGTH_BYTES 0
@@ -286,28 +381,26 @@ void sfhip_got_dhcp_lease( sfhip * hip, sfhip_address addr );
 
 #if SFHIP_TCP_SOCKETS
 int sfhip_tcp_accept_connection( sfhip * hip, int sockno, int localport, hipbe32 remote_host ); // return 0 to accept, -1 to abort.
-sfhip_length_or_tcp_code sfhip_tcp_got_data( sfhip * hip, int sockno, uint8_t * ip_payload, int ip_payload_length, int max_ip_payload );
-sfhip_length_or_tcp_code sfhip_tcp_send_event( sfhip * hip, int sockno, uint8_t * ip_payload, int max_ip_payload, int confirmed_last_send );
+
+sfhip_length_or_tcp_code sfhip_tcp_event( sfhip * hip, int sockno, uint8_t * ip_payload, int ip_payload_length, int max_out_payload, int acked );
 void sfhip_tcp_socket_closed( sfhip * hip, int sockno );
 #endif
 
 // Constants
 extern hipmac sfhip_mac_broadcast;
 
-// Available functions
+#ifdef SFHIP_IMPLEMENTATION
+
+// Internal functions
+hipbe16 internet_checksum( uint8_t * data, int length );
 
 // Shortcuts to reply-to-sender.
 int sfhip_mac_reply( sfhip * hip, sfhip_phy_packet * data, int length );
 int sfhip_ip_reply( sfhip * hip, sfhip_phy_packet * data, int length );
 
-hipbe16 internet_checksum( uint8_t * data, int length );
 
 
-
-
-#ifdef SFHIP_IMPLEMENTATION
-
-hipmac sfhip_mac_broadcast = {{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }};
+hipmac sfhip_mac_broadcast = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
 int sfhip_mac_reply( sfhip * hip, sfhip_phy_packet * data, int length )
 {
@@ -934,7 +1027,7 @@ int sfhip_handle_tcp( sfhip * hip, sfhip_phy_packet_mtu * data, int length,
 
 		// Increment seq because we are sending a synack.
 		ts->mode = SFHIP_TCP_MODE_SENT_SYN_ACK;
-		ts->seq_num++;
+		ts->pending_send_size = 1; // syn counts as data.
 
 		goto send_reply_addheader;
 	}
@@ -943,9 +1036,6 @@ int sfhip_handle_tcp( sfhip * hip, sfhip_phy_packet_mtu * data, int length,
 	// Any other wacky situations have been handled above.
 
 	sfhip_make_tcp_packet( hip, data, ts );
-
-	int max_tcp_payload = SFHIP_MTU - sizeof( sfhip_mac_header ) -
-		sizeof( sfhip_ip_header ) - sizeof( sfhip_tcp_header );
 
 	ts->ms1024_since_last_rx_packet = 0;
 	uint32_t seqno = HIPNTOHL( tcp->seqno );
@@ -960,11 +1050,11 @@ int sfhip_handle_tcp( sfhip * hip, sfhip_phy_packet_mtu * data, int length,
 	if( ts->mode == SFHIP_TCP_MODE_SENT_SYN_ACK )
 	{
 		int ackdiff = ackno - ts->seq_num;
-
 		if( ackdiff == 1 )
 		{
 			ts->mode = SFHIP_TCP_MODE_ESTABLISHED;
 			ts->seq_num = ackno;
+			ts->pending_send_size = 0;
 		}
 		else
 		{
@@ -972,29 +1062,11 @@ int sfhip_handle_tcp( sfhip * hip, sfhip_phy_packet_mtu * data, int length,
 		}
 	}
 
+	// Discussion: there is some concern for the most convenient way for a
+	// client to process this data, whether you call-back the ACK first or 
+	// you process the psh.
 
-	if( flags & SFHIP_TCP_SOCKETS_FLAG_PSH )
-	{
-		if( ts->mode != SFHIP_TCP_MODE_ESTABLISHED )
-		{
-			payload_output = SFHIP_TCP_OUTPUT_RESET;
-			goto send_reply;
-		}
-
-		int seqdiff = seqno - ts->ack_num;
-
-		if( seqdiff == 0 )
-		{
-			// We can accept it. It is new data.
-			ts->ack_num += ip_payload_length;
-			payload_output = sfhip_tcp_got_data( hip, sockno,
-				ip_payload, ip_payload_length,
-				( ts->pending_send_size == 0 ) ? max_tcp_payload : 0 );
-		}
-
-		// Tricky: If we get here, we still need to make sure we send an ack.
-		if( !payload_output ) payload_output = SFHIP_TCP_OUTPUT_ACK;
-	}
+	int acked = 0;
 
 	if( flags & SFHIP_TCP_SOCKETS_FLAG_ACK )
 	{
@@ -1016,16 +1088,7 @@ int sfhip_handle_tcp( sfhip * hip, sfhip_phy_packet_mtu * data, int length,
 					ts->pending_send_size = 0;
 					ts->pending_send_time = 0;
 					ts->seq_num = ackno;
-					int tosend = sfhip_tcp_send_event( hip, sockno, ip_payload, payload_output ? 0 : max_tcp_payload, 1 );
-
-					// Don't overwrite output behavior, unless it's going to just be an ack anyway.
-					if( payload_output == 0 || payload_output == SFHIP_TCP_OUTPUT_ACK )
-						payload_output = tosend;
-					else if( tosend )
-					{
-						SFHIP_WARN( "You cannot send from a sfhip_tcp_send_event with max_ip_payload = 0\n" );
-					}
-
+					acked = ackdiff;
 				}
 			}
 		}
@@ -1036,10 +1099,50 @@ int sfhip_handle_tcp( sfhip * hip, sfhip_phy_packet_mtu * data, int length,
 		}
 	}
 
+
+	{
+		int received_payload = 0;
+
+		if( flags & SFHIP_TCP_SOCKETS_FLAG_PSH )
+		{
+			if( ts->mode != SFHIP_TCP_MODE_ESTABLISHED )
+			{
+				payload_output = SFHIP_TCP_OUTPUT_RESET;
+				goto send_reply;
+			}
+
+			int seqdiff = seqno - ts->ack_num;
+
+			if( seqdiff == 0 )
+			{
+				ts->ack_num += ip_payload_length;
+				received_payload = ip_payload_length;
+			}
+		}
+
+
+		int cansend;
+		if( ts->pending_send_size == 0 )
+			cansend = SFHIP_MTU - sizeof( sfhip_mac_header ) -
+				sizeof( sfhip_ip_header ) - sizeof( sfhip_tcp_header );
+		else
+			cansend =0;
+
+		payload_output = sfhip_tcp_event( hip, sockno, ip_payload,
+			received_payload, cansend, acked );
+
+		// Tricky: If we had a PSH, and no reply, we still need to send an ACK
+		if( payload_output == 0 && (flags & SFHIP_TCP_SOCKETS_FLAG_PSH) )
+		{
+			payload_output = SFHIP_TCP_OUTPUT_ACK;
+		}
+	}
+
 	if( flags & SFHIP_TCP_SOCKETS_FLAG_FIN )
 	{
 		ts->ack_num = seqno + 1;
-		ts->seq_num++; // Need to spend a seq on the fin.
+
+		ts->pending_send_size = 1; // FIN counts as size.
 
 		ts->mode = SFHIP_TCP_MODE_CLOSING_WAIT;
 
@@ -1247,21 +1350,39 @@ int sfhip_tick( sfhip * hip, sfhip_phy_packet_mtu * scratch, int dt_ms )
 		{
 			if( ss->remote_address )
 			{
-				// XXX: TODO: Handle when ss->retry_number overflows.
-				// XXX: TODO: Handle keep-alives, and keep-alive probes.
-				// XXX: TODO: Adjust ss->pending_send_time to account for the need for keep-alives.
+				int retry_number = ss->retry_number;
+
+				// TODO: can these be refactored?
+
 				if( ss->mode == SFHIP_TCP_MODE_ESTABLISHED )
 				{
-
 					// Slow standoff, or waiting for someone to send data.
-					if( !ss->pending_send_size || ss->pending_send_time > (ss->retry_number+1)<<8 )
+					if( !ss->pending_send_size ||
+						 ss->pending_send_time > (retry_number+1)<<8 )
 					{
+						// This is called whenever we are free to send, OR, we
+						// have waited a long time for an ACK and yet no ACK is
+						// present.
 						uint8_t * tcp_payload_buffer = (uint8_t*)((sfhip_tcp_header*)(((sfhip_ip_header*)scratch->payload)+1)+1);
 
-						int retry = ss->pending_send_size;
-						if( retry ) ss->retry_number++;
+						int retrying = ss->pending_send_size;
 
-						sent = sfhip_tcp_send_event( hip, socket_number, tcp_payload_buffer, max_tcp_payload, 0 );
+						if( retrying )
+						{
+							retry_number++;
+							ss->retry_number = retry_number;
+						}
+
+						if( retry_number > 15 )
+						{
+							// Kill off connection.
+							sent = SFHIP_TCP_OUTPUT_RESET;
+							ss->remote_address = 0;
+						}
+						else
+						{
+							sent = sfhip_tcp_event( hip, socket_number, tcp_payload_buffer, 0, max_tcp_payload, 0 );
+						}
 
 						if( sent )
 						{
@@ -1273,9 +1394,8 @@ int sfhip_tick( sfhip * hip, sfhip_phy_packet_mtu * scratch, int dt_ms )
 				}
 				else
 				{
-					if( ss->pending_send_time > (ss->retry_number+1)<<8 )
+					if( ss->pending_send_time > (retry_number+1)<<8 )
 					{
-						int retry = ss->retry_number++;
 
 						int sent = 0;
 						if( ss->mode == SFHIP_TCP_MODE_CLOSING_WAIT )
@@ -1287,13 +1407,19 @@ int sfhip_tick( sfhip * hip, sfhip_phy_packet_mtu * scratch, int dt_ms )
 							SFHIP_WARN( "Invalid state recorded inside of sfhip_tick for TCP (%d)\n", ss->mode );
 						}
 
-						sfhip_makeandsend_tcp_packet( hip, scratch, sent, ss );
-
-						if( retry >= 5 )
+						if( retry_number >= 15 )
 						{
 							// Actually kill off connection.
 							ss->remote_address = 0;
 						}
+						else
+						{
+							sfhip_makeandsend_tcp_packet( hip, scratch, sent, ss );
+						}
+
+
+						ss->retry_number = retry_number+1;
+
 						goto done;
 					}
 				}

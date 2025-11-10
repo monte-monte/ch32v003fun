@@ -14,7 +14,7 @@
 // Logs
 #define USBSTATS_ENABLE 0
 #define ETHLOG_ENABLE 0
-#define HEXDUMP_ENABLE ETHLOG_ENABLE > 1
+#define HEXDUMP_ENABLE ( ETHLOG_ENABLE > 1 ) || 1
 
 #define SYSTICK_ONE_MILLISECOND ( (uint32_t)FUNCONF_SYSTEM_CORE_CLOCK / 1000 )
 
@@ -66,7 +66,7 @@ static sfhip hip = {
 	.ip = HIPIP( 192, 168, 14, 1 ),
 	.mask = HIPIP( 255, 255, 255, 0 ),
 	.gateway = HIPIP( 192, 168, 14, 1 ),
-	.self_mac = {{ 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55 }},
+	.self_mac = { { 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55 } },
 #if SFHIP_DHCP_CLIENT
 	.hostname = "ch32v_ecm",
 #endif
@@ -75,7 +75,7 @@ static sfhip hip = {
 typedef enum
 {
 	HTP_START,
-	HTP_REQUEST_STATUS,
+	HTP_REQUEST_DONE,
 	HTP_REQUEST_DATA,
 	HTP_DATA_SENT,
 	HTP_ERROR,
@@ -111,27 +111,6 @@ static void systick_init( void );
 static void hexdump( const void *ptr, size_t len );
 #endif
 
-#define API_HEADER                       \
-	"HTTP/1.0 200 OK\r\n"                \
-	"Server: ch32fun/1.0\r\n"            \
-	"Content-type: application/json\r\n" \
-	"\r\n"
-
-size_t api_handler( const char *endpoint, char *data, size_t max_len )
-{
-	(void)memcpy( data, API_HEADER, sizeof( API_HEADER ) - 1 );
-	data += sizeof( API_HEADER ) - 1;
-	max_len -= sizeof( API_HEADER ) - 1;
-
-	if ( strcmp( endpoint, "status" ) == 0 )
-	{
-		const int ret = snprintf( data, max_len, "{\"uptime_ms\": %lu}\r\n", SysTick_Ms );
-		const size_t len = ( ret > 0 ) ? ret + sizeof( API_HEADER ) - 1 : 0;
-		return len;
-	}
-	return 0;
-}
-
 int main()
 {
 	SystemInit();
@@ -162,18 +141,16 @@ int main()
 			(void)USBFS_SendEndpointNEW( EP_NOTIFY, (uint8_t *)&notify_nc, sizeof( notify_nc ), 0 );
 			send_nc = false;
 		}
-		const size_t len = ethdev_read();
 
+		const size_t len = ethdev_read();
 		if ( len )
 		{
 			sfhip_accept_packet( &hip, &packet_buf, len );
 		}
-		const uint32_t delta_ms = SysTick_Ms - last_ms;
-		if ( delta_ms > 1 )
-		{
-			sfhip_tick( &hip, &packet_buf, (int)delta_ms );
-			last_ms = SysTick_Ms;
-		}
+      const uint32_t now = SysTick_Ms;
+		const uint32_t delta_ms = now - last_ms;
+		last_ms = now;
+		sfhip_tick( &hip, &packet_buf, (int)delta_ms );
 	}
 }
 
@@ -201,106 +178,101 @@ int sfhip_tcp_accept_connection( sfhip *hip, int sockno, int localport, hipbe32 
 	}
 }
 
-sfhip_length_or_tcp_code sfhip_tcp_got_data(
-	sfhip *hip, int sockno, uint8_t *ip_payload, int ip_payload_length, int max_ip_payload )
+sfhip_length_or_tcp_code sfhip_tcp_event(
+	sfhip *hip, int sockno, uint8_t *ip_payload, int ip_payload_length, int max_out_payload, int acked )
 {
 	http *h = https + sockno;
 
-	char *p = (char *)ip_payload;
-	char *end = (char *)p + ip_payload_length;
+	const httpparsestate s = h->state;
 
-	httpparsestate s = h->state;
-
-	if ( p[0] != 'G' || p[1] != 'E' || p[2] != 'T' || p[3] != ' ' )
+	if ( s == HTP_START && ip_payload_length )
 	{
-		s = HTP_ERROR;
-	}
+		char *p = (char *)ip_payload;
+		char *end = (char *)p + ip_payload_length;
 
-	// Simple HTTP parser for GET *
-	for ( p += 4; p < end; ++p )
-	{
-		if ( *p == ' ' || *p == '\r' || *p == '\n' )
+		if ( p[0] != 'G' || p[1] != 'E' || p[2] != 'T' || p[3] != ' ' )
 		{
-			*p = 0;
-			break;
+			if ( debugger ) printf( "HTTP parse error: not a GET\n" );
+			h->state = HTP_ERROR;
+			return SFHIP_TCP_OUTPUT_FIN;
+		}
+
+		// Simple HTTP parser for GET *
+		for ( p += 4; p < end; ++p )
+		{
+			if ( *p == ' ' || *p == '\r' || *p == '\n' )
+			{
+				*p = 0;
+				break;
+			}
+		}
+
+		if ( p == end )
+		{
+			if ( debugger ) printf( "HTTP parse error: no space after URL\n" );
+			h->state = HTP_ERROR;
+			return SFHIP_TCP_OUTPUT_FIN;
+		}
+
+
+		// Check URL
+		const char *const url = (char *)ip_payload + 4;
+
+		if ( debugger ) printf( "HTTP Request for URL: %s\n", url );
+
+		if ( strcmp( url, "/" ) == 0 )
+		{
+			// TODO: lookup file
+			h->state = HTP_REQUEST_DONE;
+			h->data = (char *)index_html;
+			h->data_len = sizeof( index_html ) - 1;
+			h->sent = 0;
+		}
+		else
+		{
+			h->state = HTP_REQUEST_DONE;
+			h->data = (char *)e404_html;
+			h->data_len = sizeof( e404_html ) - 1;
+			h->sent = 0;
 		}
 	}
 
-	// Check URL
-	const char *const url = (char *)ip_payload + 4;
-	if ( strcmp( url, "/status" ) == 0 )
-	{
-		s = HTP_REQUEST_STATUS;
-	}
-	else if ( strcmp( url, "/" ) == 0 )
-	{
-		// TODO: lookup file
-		s = HTP_REQUEST_DATA;
-		h->data = (char *)index_html;
-		h->data_len = sizeof( index_html ) - 1;
-		h->sent = 0;
-	}
-	else
-	{
-		s = HTP_ERROR;
-	}
-
-	if ( s == HTP_REQUEST_STATUS )
-	{
-		if ( debugger ) printf( "\nReceived Request\n" );
-	}
-	h->state = s;
-
-	if ( s == HTP_ERROR || s == HTP_DONE )
+	if ( h->state == HTP_ERROR )
 	{
 		// closed connection, maybe should be 500
-		return SFHIP_TCP_OUTPUT_FIN;
+      h->state = HTP_DONE;
 	}
 
-	return sfhip_tcp_send_event( hip, sockno, ip_payload, max_ip_payload, 0 );
-}
-
-sfhip_length_or_tcp_code sfhip_tcp_send_event(
-	sfhip *hip, int sockno, uint8_t *ip_payload, int max_ip_payload, int confirmed_last_send )
-{
-	http *h = https + sockno;
-
 	// Phase one - if TCP send is confirmed,
-	if ( confirmed_last_send )
+	if ( acked && max_out_payload )
 	{
 		switch ( h->state )
 		{
-			case HTP_REQUEST_STATUS: h->state = HTP_DONE; break;
 			case HTP_REQUEST_DATA: h->state = HTP_DATA_SENT; break;
 			default: break;
 		}
 	}
 
-#if 0 // some bug with acks
-	// If for some reason we cannot send a message now, abort before sending.
-	if ( !max_ip_payload ) return 0;
-#else
-	max_ip_payload = SFHIP_MTU - sizeof( sfhip_mac_header ) - sizeof( sfhip_ip_header ) - sizeof( sfhip_tcp_header );
-#endif
+	// If we can send our message, send it.
+	if ( !max_out_payload ) return 0;
 
 	// Phase two - send a TCP reply.
 	switch ( h->state )
 	{
-		case HTP_REQUEST_STATUS: return api_handler( "status", (char *)ip_payload, max_ip_payload );
 		case HTP_DATA_SENT:
-			if ( confirmed_last_send )
-			{
-				// advance state
-				h->sent += max_ip_payload;
-			}
+			h->sent += max_out_payload;
+			// fallthrough
+		case HTP_REQUEST_DONE:
+			h->state = HTP_REQUEST_DATA;
+			// fallthrough
 		case HTP_REQUEST_DATA:
 			if ( h->sent >= h->data_len )
 			{
 				h->state = HTP_DONE;
-				return SFHIP_TCP_OUTPUT_FIN;
+            break;
 			}
 			size_t len = h->data_len - h->sent;
-			if ( len > (size_t)max_ip_payload ) len = (size_t)max_ip_payload;
+			if ( len > (size_t)max_out_payload ) len = (size_t)max_out_payload;
 			memcpy( ip_payload, &h->data[h->sent], len );
 			return len;
 		case HTP_DONE: return SFHIP_TCP_OUTPUT_FIN;

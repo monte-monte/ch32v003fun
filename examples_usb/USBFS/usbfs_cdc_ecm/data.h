@@ -1,4 +1,18 @@
 
+const char e404_html[] =
+   "HTTP/1.0 404 Not Found\r\n"
+   "Server: ch32fun/1.0\r\n"
+   "Content-type: text/html\r\n"
+   "\r\n"
+   "<!DOCTYPE html>\n"
+   "<html>\n"
+   "<head><title>404 Not Found</title></head>\n"
+   "<body>\n"
+   "<h1>404 Not Found</h1>\n"
+   "<p>The requested resource was not found on this server.</p>\n"
+   "</body>\n"
+   "</html>\n";
+
 const char index_html[] =
 	"HTTP/1.0 200 OK\r\n"
 	"Server: ch32fun/1.0\r\n"
