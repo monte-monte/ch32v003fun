@@ -55,15 +55,19 @@ int main() {
 	}
 }
 
-volatile u8 slave_tx_len = 0;
-volatile u8 slave_tx_index = 0;
-volatile u8 slave_rx_index = 0;
-volatile u8 is_transmitter = 0;
 
+volatile u8 SLAVE_CMD = 0;
+volatile u8 slave_tx_idx = 0;			// to be transmitted
+volatile u8 slave_rx_idx = 0;			// to be received
+volatile u8 slave_temp_value = 0xFF;	// 0xFF = invalid
 
-volatile u8 writable_buffer[] = {0};
+// Not in master/slave mode
+// if(!(I2C1->STAR2 & I2C_STAR2_MSL)) { return 0; }
+u8 i2c_isTransmitter() { return I2C1->STAR2 & I2C_STAR2_TRA; }
+
+#define I2C_WRITABLE_SIZE 32
+volatile u8 writable_buffer[I2C_WRITABLE_SIZE] = { 0 };
 volatile u8 readonly_buffer[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA };
-
 
 void I2C1_EV_IRQHandler(void) __attribute__((interrupt));
 void I2C1_EV_IRQHandler(void) {
@@ -76,55 +80,121 @@ void I2C1_EV_IRQHandler(void) {
 		(void)I2C1->STAR2;
 
 		//# check if master request a read or a write
-		is_transmitter = (I2C1->STAR2 & I2C_STAR2_TRA) ? 1 : 0;
+		// is_transmitter = (I2C1->STAR2 & I2C_STAR2_TRA) ? 1 : 0;
 
-		if (is_transmitter) {
-			// Master request read - prepare to send data
-			slave_tx_index = 0;
-		} else {
-			// Master request write - reset receive buffer
-			slave_rx_index = 0;
-		}
+        if (!i2c_isTransmitter()) {
+			// WRITE mode - reset for new command
+			SLAVE_CMD = 0;
+			slave_rx_idx = 0;
+			slave_tx_idx = 0;  // Also reset tx index for new command
+			
+        } else {
+            // Read mode - reset transmit index but keep command  
+            // slave_tx_idx = 0;
+        }
 	}
 	
 	//# Master sends data, slave is ready to receive
 	if(I2C1->STAR1 & I2C_STAR1_RXNE) {
 		u8 received_byte = I2C1->DATAR;
-		printf("SLAVE Prepred to Receive: 0x%02X, index: %d\n", received_byte, slave_rx_index);
+		printf("Receive [%d]: 0x%02X, cmd: 0x%02X", slave_rx_idx, received_byte, SLAVE_CMD);
 
-		if (slave_rx_index == 0) {
-			switch (received_byte) {
-				case 0x10:
-					slave_tx_len = 2;
+		if (SLAVE_CMD == 0) {
+			SLAVE_CMD = received_byte;
+
+			switch (SLAVE_CMD) {
+				// slave_temp_value holds the length of the transmitting data
+				case 0x10: slave_temp_value = 2; break;
+				case 0x11: slave_temp_value = 4; break;
+				case 0x30: break;
+				case 0x31: break;
+				default:
+					// reset SLAVE_CMD if not recognized
+					SLAVE_CMD = 0;
 					break;
-				case 0x11:
-					slave_tx_len = 4;
+			}
+
+			printf(" | SLAVE_CMD: 0x%02X", SLAVE_CMD);
+		}
+		else {
+			switch (SLAVE_CMD) {
+				case 0x30:
+					// set slave_tx_index to prepare for transfer
+					printf(" | slave_tx_index: %d", received_byte);
+					slave_tx_idx = received_byte;
+					break;
+
+				case 0x31:
+					// save received data
+					if (slave_temp_value == 0xFF) {
+						printf(" | slave_temp_value: 0x%02X", received_byte);
+						// slave_temp_value holds the starting index of the transmitting data
+						slave_temp_value = received_byte;
+					}
+					else {
+						u8 target_index = slave_rx_idx + slave_temp_value;
+
+						if (target_index < I2C_WRITABLE_SIZE) {
+							printf(" | saving 0x%02X", received_byte);
+							writable_buffer[target_index] = received_byte;
+							slave_rx_idx++;
+						} else {
+							// buffer is exceeded, reset SLAVE_CMD
+							SLAVE_CMD = 0;
+						}
+					}
+
+					break;
+				default:
 					break;
 			}
 		}
 
-		writable_buffer[slave_rx_index++] = received_byte;
+		printf("\n");
 	}
 	
 	//# Master requests data, slave is ready to send
-	if(I2C1->STAR1 & I2C_STAR1_TXE && is_transmitter) {
-		printf("SLAVE Prepred to transmit: 0x%02X, tx_idx: %d\n", writable_buffer[0], slave_tx_index);
+	if(I2C1->STAR1 & I2C_STAR1_TXE && i2c_isTransmitter()) {
+		// printf("Prepared to Transmit: cmd 0x%02X, tx_idx: %d\n", SLAVE_CMD, slave_tx_idx);
 
-		switch(writable_buffer[0]) {
+		switch(SLAVE_CMD) {
+			// return 1 byte
 			case 0x01: case 0x23:
 				I2C1->DATAR = readonly_buffer[1];
 				break;
+
+			// return 2 bytes
 			case 0x10:
-				if (slave_tx_index < slave_tx_len) {
-					I2C1->DATAR = readonly_buffer[5 + slave_tx_index++];
+				if ((slave_tx_idx < slave_temp_value) && (slave_temp_value != 0xFF)) {
+					I2C1->DATAR = readonly_buffer[5 + slave_tx_idx++];
 				} else {
 					I2C1->DATAR = 0xFF;
 				}
 				break;
+
+			// return 4 bytes
 			case 0x11:
-				if (slave_tx_index < slave_tx_len) {
-					I2C1->DATAR = readonly_buffer[7 + slave_tx_index++];
+				if ((slave_tx_idx < slave_temp_value) && (slave_temp_value != 0xFF)) {
+					I2C1->DATAR = readonly_buffer[7 + slave_tx_idx++];
 				} else {
+					I2C1->DATAR = 0xFF;
+				}
+				break;
+
+			// return writable buffer
+			case 0x30:
+				if (slave_tx_idx < I2C_WRITABLE_SIZE) {
+					printf("\n return writable buffer %d: \n", slave_tx_idx);
+					for (int i = 0; i < I2C_WRITABLE_SIZE; i++) {
+						printf("0x%02X ", writable_buffer[i]);
+					}
+					printf("\n");
+
+					u8 data = writable_buffer[slave_tx_idx++];
+					I2C1->DATAR = data;
+					printf(" | transmitting 0x%02X\n", data);
+				} else {
+					printf(" | transmitting 0xFF\n");
 					I2C1->DATAR = 0xFF;
 				}
 				break;
@@ -139,16 +209,12 @@ void I2C1_EV_IRQHandler(void) {
 		// Clear STOPF flag by reading SR1 and writing CR1
 		(void)I2C1->STAR1;
 		I2C1->CTLR1 |= 0;
-
-		// printf("\nStop Condition. received data: ");
-		// for (int i = 0; i < slave_rx_index; i++) {
-		// 	printf("0x%02X ", readonly_buffer[i]);
-		// }
-		// printf("\n");
+		printf("\n***STOP DETECTED\n");
 
 		// Reset state
-		slave_rx_index = 0;
-		slave_tx_index = 0;
-		is_transmitter = 0;
+		SLAVE_CMD = 0;
+		slave_rx_idx = 0;
+		slave_tx_idx = 0;
+		slave_temp_value = 0xFF;
 	}
 }

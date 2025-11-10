@@ -65,7 +65,7 @@ u8 i2c_start(u8 i2cAddress, u8 isRead) {
 //! I2C SEND FUNCTION
 //! ####################################
 
-u8 i2c_sendBytes(u8 i2cAddress, u8* data, u8 len) {
+u8 i2c_sendBytes_noStop(u8 i2cAddress, u8* buffer, u8 len) {
 	u8 err = i2c_start(i2cAddress, 0); // Write mode
 	if (err) return err;
 	u32 timeout;
@@ -75,17 +75,22 @@ u8 i2c_sendBytes(u8 i2cAddress, u8* data, u8 len) {
 		timeout = I2C_TIMEOUT;
 		while(!(I2C1->STAR1 & I2C_STAR1_TXE) && timeout--);
 		if (timeout == 0) { I2C1->CTLR1 |= I2C_CTLR1_STOP; return 0x21; }
-		I2C1->DATAR = data[i];		// Send data
+		I2C1->DATAR = buffer[i];		// Send data
 	}
 
 	//# Wait for transmission complete. Wait while BTF is 0, when set to 1 continue
 	timeout = I2C_TIMEOUT;
 	while(!(I2C1->STAR1 & I2C_STAR1_BTF) && timeout--);
 	if (timeout == 0) { I2C1->CTLR1 |= I2C_CTLR1_STOP; return 0x22; }
+	
+	return 0;
+}
 
+u8 i2c_sendBytes(u8 i2cAddress, u8* buffer, u8 len) {
+	u8 err = i2c_sendBytes_noStop(i2cAddress, buffer, len);
 	//# Generate STOP condition
 	I2C1->CTLR1 |= I2C_CTLR1_STOP;
-	return 0;
+	return err;
 }
 
 u8 i2c_sendByte(u8 i2cAddress, u8 data) {
@@ -100,7 +105,7 @@ u8 i2c_sendByte(u8 i2cAddress, u8 data) {
 u8 i2c_readBytes(u8 i2cAddress, u8* buffer, u8 len) {
 	u8 err = i2c_start(i2cAddress, 1); // Read mode
 	if (err) return err;
-	
+
 	//# Enable ACK at the beginning
 	I2C1->CTLR1 |= I2C_CTLR1_ACK;
 
@@ -119,7 +124,7 @@ u8 i2c_readBytes(u8 i2cAddress, u8* buffer, u8 len) {
 	
 	//# Generate STOP condition
 	I2C1->CTLR1 |= I2C_CTLR1_STOP;
-	return 0;
+	return 0;	
 }
 
 u8 i2c_readByte(u8 i2cAddress) {
@@ -129,15 +134,16 @@ u8 i2c_readByte(u8 i2cAddress) {
 }
 
 // Write to register and then do read data
-u8 i2c_readReg_buffer(u8 i2cAddress, u8 reg, u8 *buffer, u8 len) {
-	i2c_sendByte(i2cAddress, reg);			  // Send register address
-	i2c_readBytes(i2cAddress, buffer, len);  // Read data
-	return 1;
+u8 i2c_readReg_buffer(u8 i2cAddress, u8 *tx_buf, u8 tx_len, u8 *rx_buf, u8 rx_len) {
+	u8 err = i2c_sendBytes_noStop(i2cAddress, tx_buf, tx_len);	// Send register address
+	if (err) return err;
+	err = i2c_readBytes(i2cAddress, rx_buf, rx_len); 	// Read data
+	return err;
 }
 
 u8 i2c_readReg_byte(u8 i2cAddress, u8 reg) {
-	u8 data;
-	i2c_readReg_buffer(i2cAddress, reg, &data, 1);
+	u8 data = 0xFF;
+	i2c_readReg_buffer(i2cAddress, &reg, 1, &data, 1);
 	return data;
 }
 
