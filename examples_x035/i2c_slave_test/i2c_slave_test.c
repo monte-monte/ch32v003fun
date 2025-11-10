@@ -35,6 +35,13 @@
 #define SYSTEM_CLOCK_HZ 48000000
 #define I2C_SELF_ADDR 0x66
 
+#define I2C_SLAVE_READ_BYTE_CMD1 0x01
+#define I2C_SLAVE_READ_BYTE_CMD2 0x23
+#define I2C_SLAVE_READ_2BYTES_CMD 0x13
+#define I2C_SLAVE_READ_4BYTES_CMD 0x14
+#define I2C_SLAVE_READ_CMD 0x30
+#define I2C_SLAVE_WRITE_CMD 0x31
+
 #define I2C_WRITABLE_SIZE 32
 volatile u8 writable_buffer[I2C_WRITABLE_SIZE] = { 0 };
 volatile u8 readonly_buffer[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA };
@@ -103,13 +110,13 @@ void I2C1_EV_IRQHandler(void) {
 		}
 		else {
 			switch (SLAVE_CMD) {
-				case 0x30:
+				case I2C_SLAVE_READ_CMD:
 					// set slave_tx_index to prepare for transfer
 					printf(" | slave_tx_index: %d", received_byte);
 					slave_tx_idx = received_byte;
 					break;
 
-				case 0x31:
+				case I2C_SLAVE_WRITE_CMD:
 					// save received data
 					if (slave_temp_value == 0xFF) {
 						printf(" | slave_temp_value: 0x%02X", received_byte);
@@ -145,12 +152,12 @@ void I2C1_EV_IRQHandler(void) {
 
 		switch(SLAVE_CMD) {
 			// return 1 byte
-			case 0x01: case 0x23:
+			case I2C_SLAVE_READ_BYTE_CMD1: case I2C_SLAVE_READ_BYTE_CMD2:
 				I2C1->DATAR = readonly_buffer[1];
 				break;
 
 			// return 2 bytes
-			case 0x13:
+			case I2C_SLAVE_READ_2BYTES_CMD:
 				if (slave_tx_idx < 2) {  // Hardcoded length
 					I2C1->DATAR = readonly_buffer[5 + slave_tx_idx++];
 				} else {
@@ -159,7 +166,7 @@ void I2C1_EV_IRQHandler(void) {
 				break;
 
 			// return 4 bytes
-			case 0x14:
+			case I2C_SLAVE_READ_4BYTES_CMD:
 				if (slave_tx_idx < 4) {  // Hardcoded length
 					I2C1->DATAR = readonly_buffer[7 + slave_tx_idx++];
 				} else {
@@ -168,7 +175,7 @@ void I2C1_EV_IRQHandler(void) {
 				break;
 
 			// return writable buffer
-			case 0x30:
+			case I2C_SLAVE_READ_CMD:
 				if (slave_tx_idx < I2C_WRITABLE_SIZE) {
 					// printf("\n return writable buffer %d: \n", slave_tx_idx);
 					// for (int i = 0; i < I2C_WRITABLE_SIZE; i++) {

@@ -3,14 +3,6 @@
 
 #define I2C_TIMEOUT 100000
 
-// return 0 on timeout = failed
-static inline u32 I2C_AWAIT_WHILE(volatile u32* reg, u32 mask, u8 wait_condition) {
-	u32 timeout = I2C_TIMEOUT;
-	while(((*reg & mask) == wait_condition) && timeout--);
-	if (timeout == 0) I2C1->CTLR1 |= I2C_CTLR1_STOP;	// Generate STOP
-	return timeout;
-}
-
 //! ####################################
 //! I2C INIT FUNCTIONS
 //! ####################################
@@ -125,12 +117,6 @@ u8 i2c_readBytes(u8 i2cAddress, u8* buffer, u8 len) {
 	//# Generate STOP condition
 	I2C1->CTLR1 |= I2C_CTLR1_STOP;
 	return 0;	
-}
-
-u8 i2c_readByte(u8 i2cAddress) {
-	u8 output;
-	i2c_readBytes(i2cAddress, &output, 1);
-	return output;
 }
 
 // Write to register and then do read data, no stop inbetween
