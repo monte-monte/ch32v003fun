@@ -150,7 +150,6 @@ u8 i2c_readReg_buffer(u8 i2cAddress, u8 reg, u8 *rx_buf, u8 rx_len) {
 //! ####################################
 //! I2C SLAVE FUNCTIONS
 //! ####################################
-#define CTLR1_CLEAR_Mask         ((uint16_t)0xFBF5)
 
 void i2c_slave_init(u16 self_addr, u32 systemClock_Hz, u32 i2cSpeed_Hz) {
 	// Enable I2C clock

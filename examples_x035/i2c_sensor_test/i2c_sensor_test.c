@@ -1,4 +1,38 @@
-// Simple example demonstrating I2C communication with a BH1750 light sensor
+/**
+ * I2C Master Communication Example
+ * 
+ * This example demonstrates I2C communication with an I2C slave device.
+ * You can use this with:
+ * - BH1750 light sensor (actual hardware)
+ * - Another CH32X035 running i2c_slave_test firmware
+ * 
+ * Target I2C address: 0x66 for the i2c_slave_test example
+ * 
+ * 0x3x Slave Command Set:
+ * 0x01 - Minick BH1750 Power on command (returns 1 byte)
+ * 0x23 - Minmick BH1750 Resolution command (returns 1 byte) 
+ * 0x13 - Read 2 bytes from slave
+ * 0x14 - Read 4 bytes from slave
+ * 0x30 - Read from slave's writable buffer (32 bytes)
+ * 0x31 - Write to slave's writable buffer (32 bytes)
+ * 
+ * Command 0x30: Read from writable buffer
+ * Format: { 0x30, start_index }
+ * - start_index: Position to start reading from (0-31)
+ * Since buffer size is 32 bytes (0-31), reading from index 29:
+ * - Returns bytes 29, 30, 31 (3 valid bytes)
+ * - Remaining requested bytes return 0xFF (buffer boundary exceeded)
+ * 
+ * Command 0x31: Write to writable buffer  
+ * Format: { 0x31, start_index, data0, data1, ... }
+ * - start_index: Position to start writing to (0-31)
+ * - dataX: Bytes to write (up to buffer boundary)
+ * Since buffer ends at index 31:
+ * - Writes 0xAA to index 29, 0xBB to index 30, 0xCC to index 31
+ * - 0xDD is not written (buffer full)
+ * - Returns success for written bytes only
+ */
+
 
 #include "ch32fun.h"
 #include <stdio.h>
@@ -6,16 +40,16 @@
 
 #define SYSTEM_CLOCK_HZ 48000000
 
-// #define I2C_ADDRESS 0x23
-#define I2C_ADDRESS 0x66
+// #define I2C_ADDRESS 0x23		// use this for BH1750
+#define I2C_ADDRESS 0x66		// use this for i2c_slave_test
 
-u8 my_val = 0;
+u8 read_state = 0;
 
 void print_ch32_readings(u8 i2_addr) {
 	u8 rx_buf[8];
 	u8 read, err;
 
-	switch (my_val) {
+	switch (read_state) {
 		case 0:
 			// read command 0x01: return 1 byte
 			err = i2c_readReg_buffer(i2_addr, 0x01, rx_buf, 1);
@@ -91,8 +125,8 @@ void print_ch32_readings(u8 i2_addr) {
 			break;
 	}
 
-	my_val++;
-	if (my_val > 4) my_val = 0;
+	read_state++;
+	if (read_state > 4) read_state = 0;
 }
 
 u16 get_bh1750_readings(u8 i2cAddress) {
@@ -101,7 +135,6 @@ u16 get_bh1750_readings(u8 i2cAddress) {
 	u16 raw = (data[0] << 8) | data[1];
 	return raw * 12 / 10;  // Convert to lux
 }
-
 
 int main() {
 	SystemInit();
