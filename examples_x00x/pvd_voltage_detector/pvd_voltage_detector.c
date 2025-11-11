@@ -25,11 +25,16 @@ void configure_PVD(u8 threshold) {
 	// Enable PWR clock
 	RCC->APB1PCENR |= RCC_APB1Periph_PWR;
 
+	// Enable PVD
+	PWR->CTLR |= PWR_CTLR_PVDE;
+
 	if (threshold > 3) threshold = 3;
 	printf("\n");
 	printf("Before write:\n");
 	UTIL_PRINT_REG16(PWR->CTLR, "PWR_CTLR");
 
+	// set the PLS[1:0] bits
+	PWR->CTLR &= ~(0b011 << 5);		// clear bits
 	PWR->CTLR |= (threshold << 5);
 	printf("After setting:\n");
 	UTIL_PRINT_REG16(PWR->CTLR, "PWR_CTLR");
@@ -54,12 +59,13 @@ int main() {
 	funGpioInitAll(); // Enable GPIOs
 
 	printf("\n~PVD Voltage Detector Example~\n");
-	printf("Chip ID: %08lX\r\n", ESIG->UID0);
-	printf("Chip Capacity: %d KB\r\n",ESIG->CAP);
-	configure_PVD(2);
+	// printf("Chip ID: %08lX\r\n", ESIG->UID0);
+	// printf("Chip Capacity: %d KB\r\n", ESIG->CAP);
+	configure_PVD(1);
 
 	while(1) {
 		check_PVD_status();
 		Delay_Ms(1000);
+		// printf("IM HERE\n");
 	}
 }
