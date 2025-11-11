@@ -129,10 +129,6 @@
 	#define FUNCONF_DEBUG_HARDFAULT 1
 #endif
 
-#if !defined( FUNCONF_INIT_ANALOG )
-	#define FUNCONF_INIT_ANALOG 1
-#endif
-
 #if defined( CH32X03x ) && FUNCONF_USE_PLL
 	#error No PLL on the X03x
 #endif
