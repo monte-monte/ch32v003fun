@@ -5336,7 +5336,9 @@ then stop sending, 10=send pause frame periodically, 01=send pause frame once, t
 #define  RB_ETH_MIWR_DATA_SHIFT 16                                         /* Data field position (bits [31:16]) */
 #define R8_ETH_MIREGADR         (*((volatile uint8_t *)(0x40028000+0x24))) /* MII address register*/
 #define  RB_ETH_MIREGADR_MASK   0x1F                  /* RW PHY register address mask */
-#define R8_ETH_MISTAT           (*((volatile uint8_t *)(0x40028000+0x25))) /* RW PHY register address mask */
+#define R8_ETH_MISTAT           (*((volatile uint8_t *)(0x40028000+0x25))) /* MII status register */
+/* RO MISTAT[0]: MII register status (0=Read, 1=Write) - purpose unclear, not typically needed */
+#define  RB_ETH_MII_STA         0x01
 //#define  RB_ETH_MIREGADR_MIIWR  0x20                  /* WO MII write command */
 #define R16_ETH_MIWR            (*((volatile uint16_t *)(0x40028000+0x26))) /* WO MII Write Data Register */
 #define R32_ETH_MAADRL          (*((volatile uint32_t *)(0x40028000+0x28))) /* RW MAC 1-4 */
@@ -5348,7 +5350,7 @@ then stop sending, 10=send pause frame periodically, 01=send pause frame once, t
 #define R8_ETH_MAADRL5          (*((volatile uint8_t *)(0x40028000+0x2C))) /* RW MAC 4 */
 #define R8_ETH_MAADRL6          (*((volatile uint8_t *)(0x40028000+0x2D))) /* RW MAC 4 */
 
-//PHY address
+//PHY Register Addresses (use with MIERGADR/MIRD for reads, or with R32_ETH_MIWR for writes)
 #define PHY_BMCR                0x00                                            /* Control Register */
 #define PHY_BMSR                0x01                                            /* Status Register */
 #define PHY_ANAR                0x04                                            /* Auto-Negotiation Advertisement Register */
@@ -5356,6 +5358,19 @@ then stop sending, 10=send pause frame periodically, 01=send pause frame once, t
 #define PHY_ANER                0x06                                            /* Auto-Negotiation Expansion Register */
 #define PHY_PHYSR				0x10											/* Physical Layer Status Register */
 #define PHY_MDIX                0x1e                                            /* Custom MDIX Mode Register */
+
+/* PHY Register Access:
+ * READ:  ETH10M->MIERGADR = PHY_BMSR;
+ *        data = ETH10M->MIRD;
+ *
+ * WRITE (method 1 - 32-bit register):
+ *        R32_ETH_MIWR = (PHY_BMCR & RB_ETH_MIREGADR_MASK) | RB_ETH_MIWR_MIIWR | (value << RB_ETH_MIWR_DATA_SHIFT);
+ *
+ * WRITE (method 2 - separate registers):
+ *        ETH10M->MIERGADR = PHY_BMCR;
+ *        ETH10M->MIWR = value;
+ */
+
 // Basic Control Register (BMCR) @ 0x00
 #define PHY_BMCR_RESET              (1 << 15)   /* RW/SC, 1 = PHY Reset. Self-clearing bit. */
 #define PHY_BMCR_LOOPBACK           (1 << 14)   /* RW, 1 = Enable loopback mode */
