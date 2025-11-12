@@ -1,3 +1,65 @@
+/*
+ * Single-File-Header for the CH32V208 (and CH579?) built-in 10BASE-T MAC/PHY.
+ *
+ * USAGE
+ *
+ * Include once with implementation:
+ *
+ *   #define CH32V208_ETH_IMPLEMENTATION
+ *   #include "ch32v208_eth.h"
+ *
+ * Init:
+ *
+ *   eth_config_t config = {
+ *       .mac_addr = my_mac,          // NULL = use chip default
+ *       .rx_callback = eth_rx_cb,    // NULL if using manual polling
+ *       .link_callback = link_cb,    // optional
+ *       .activity_callback = led_cb, // optional
+ *       .broadcast_filter = true,
+ *   };
+ *   eth_init(&config);
+ *
+ * Main loop:
+ *
+ *   while (1) {
+ *       eth_poll_link();  // call every 50-100ms
+ *       eth_process_rx(); // IF using callback mode
+ *   }
+ *
+ * RECEIVING PACKETS
+ *
+ * Callback mode:
+ *
+ *   void eth_rx_cb(const uint8_t *packet, uint16_t length) {
+ *       // process packet (called from eth_process_rx)
+ *   }
+ *
+ * Manual polling (zero-copy, for lwIP etc):
+ *
+ *   uint16_t length;
+ *   const uint8_t *packet;
+ *   while ((packet = eth_get_rx_packet(&length)) != NULL) {
+ *       // process packet directly from DMA buffer
+ *       eth_release_rx_packet();  // must call when done
+ *   }
+ *
+ * SENDING PACKETS
+ *
+ *   int ret = eth_send_packet(packet, length);
+ *   // ret: 0=success, -1=queue full, -2=invalid length
+ *
+ * CONFIGURATION
+ *
+ * Define before including header to customize:
+ *
+ *   ETH_RX_BUF_COUNT        RX descriptor ring size (default: 4)
+ *   ETH_TX_BUF_COUNT        TX queue depth (default: 2)
+ *   ETH_MAX_PACKET_SIZE     MAC MTU (default: 1536)
+ *   ETH_RX_BUF_SIZE         RX buffer size (default: ETH_MAX_PACKET_SIZE)
+ *   ETH_TX_BUF_SIZE         TX buffer size (default: ETH_MAX_PACKET_SIZE)
+ *   ETH_ENABLE_STATS        Enable eth_get_stats() and eth_reset_stats()
+ */
+
 #ifndef _CH32V208_ETH_H
 #define _CH32V208_ETH_H
 
@@ -12,16 +74,16 @@
 #define ETH_TX_BUF_COUNT 2
 #endif
 
+#ifndef ETH_MAX_PACKET_SIZE
+#define ETH_MAX_PACKET_SIZE 1536
+#endif
+
 #ifndef ETH_RX_BUF_SIZE
-#define ETH_RX_BUF_SIZE 1536
+#define ETH_RX_BUF_SIZE ETH_MAX_PACKET_SIZE
 #endif
 
 #ifndef ETH_TX_BUF_SIZE
-#define ETH_TX_BUF_SIZE 1536
-#endif
-
-#ifndef ETH_MAX_PACKET_SIZE
-#define ETH_MAX_PACKET_SIZE 1536
+#define ETH_TX_BUF_SIZE ETH_MAX_PACKET_SIZE
 #endif
 
 #define ETH_MAC_ADDR_LEN 6
@@ -38,7 +100,7 @@ typedef void ( *eth_activity_callback_t )( void );
 typedef struct
 {
 	uint8_t *mac_addr; // MAC address (can be NULL to use chip default)
-	eth_rx_callback_t rx_callback; // Called when packet received (in interrupt context)
+	eth_rx_callback_t rx_callback; // Called when packet received
 	eth_link_callback_t link_callback; // Called when link status changes
 	eth_activity_callback_t activity_callback; // Called on TX/RX activity, can be used for LED
 	bool promiscuous_mode; // Enable promiscuous mode
@@ -145,7 +207,6 @@ extern "C"
 #ifdef CH32V208_ETH_IMPLEMENTATION
 
 #include "ch32fun.h"
-#include "ch32v20xhw.h"
 #include <string.h>
 
 // DMA descriptor
@@ -454,7 +515,6 @@ int eth_init( const eth_config_t *config )
 	{
 		g_dma_tx_descs[i].Status = 0;
 		g_dma_tx_descs[i].Buffer1Addr = (uint32_t)&g_mac_tx_bufs[i * ETH_TX_BUF_SIZE];
-		g_dma_tx_descs[i].Buffer2NextDescAddr = (uint32_t)&g_dma_tx_descs[( i + 1 ) % ETH_TX_BUF_COUNT];
 	}
 
 	// init RX descriptor ring (DMA reads from these)
