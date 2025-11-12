@@ -1,6 +1,6 @@
 all : flash
 
-TARGET:=eth_ping
+TARGET:=eth_raw_icmp
 TARGET_MCU:=CH32V203
 TARGET_MCU_PACKAGE:=CH32V208WBU6
 

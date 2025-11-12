@@ -30,7 +30,6 @@
 #define ROM_CFG_USERADR_ID 0x1FFFF7E8
 #define ETH_DMARxDesc_FrameLengthShift 16
 
-
 // Ethernet frame structure
 typedef struct
 {
@@ -283,9 +282,9 @@ static void tx_start_if_possible( void )
 	ETH_DMADESCTypeDef *desc = &g_dma_tx_descs[idx];
 	uint16_t len = desc->Status;
 
-	ETH10M->ETXLN = len;
-	ETH10M->ETXST = desc->Buffer1Addr;
-	ETH10M->ECON1 |= RB_ETH_ECON1_TXRTS;
+	ETH10M->ETXLN = len; // set tx packet len
+	ETH10M->ETXST = desc->Buffer1Addr; // set tx buf start address (DMA source)
+	ETH10M->ECON1 |= RB_ETH_ECON1_TXRTS; // set tx req flag to start DMA transmission
 }
 
 int eth_init( const eth_config_t *config )
@@ -313,9 +312,10 @@ int eth_init( const eth_config_t *config )
 	// 	g_eth_state.mac_addr[2], g_eth_state.mac_addr[3], g_eth_state.mac_addr[4], g_eth_state.mac_addr[5] );
 
 	RCC->APB2PCENR |= RCC_APB2Periph_AFIO;
-	RCC->CFGR0 |= RCC_ETHPRE;
-	EXTEN->EXTEN_CTR |= EXTEN_ETH_10M_EN;
+	RCC->CFGR0 |= RCC_ETHPRE; // Ethernet clock prescaler
+	EXTEN->EXTEN_CTR |= EXTEN_ETH_10M_EN; // Extended Control Register, 10M Ethernet enable and clock enable
 
+	// Transmit/Receive module reset
 	ETH10M->ECON1 = RB_ETH_ECON1_TXRST | RB_ETH_ECON1_RXRST;
 	ETH10M->ECON1 = 0;
 
@@ -331,10 +331,12 @@ int eth_init( const eth_config_t *config )
 		// Normal mode: enable filtering and ALWAYS receive unicast to our MAC
 		rx_filter = RB_ETH_ERXFCON_EN | RB_ETH_ERXFCON_UCEN;
 
+		// broadcast packet reception
 		if ( config->broadcast_filter )
 		{
 			rx_filter |= RB_ETH_ERXFCON_BCEN;
 		}
+		// multicast packet reception
 		if ( config->multicast_filter )
 		{
 			rx_filter |= RB_ETH_ERXFCON_MCEN;
@@ -342,12 +344,16 @@ int eth_init( const eth_config_t *config )
 	}
 
 	ETH10M->ERXFCON = rx_filter;
-
-	ETH10M->ERXFCON = rx_filter;
+	// MAC layer receive enable
 	ETH10M->MACON1 = RB_ETH_MACON1_MARXEN;
+
+	// Pad short packets with 0x00 to 60 bytes, then append 4-byte CRC
+	// Hardware pads CRC
 	ETH10M->MACON2 = PADCFG_AUTO_3 | RB_ETH_MACON2_TXCRCEN;
+	// Set maximum frame length (MTU)
 	ETH10M->MAMXFL = ETH_MAX_PACKET_SIZE;
 
+	// MAC is reversed
 	R8_ETH_MAADRL1 = g_eth_state.mac_addr[5];
 	R8_ETH_MAADRL2 = g_eth_state.mac_addr[4];
 	R8_ETH_MAADRL3 = g_eth_state.mac_addr[3];
@@ -355,6 +361,7 @@ int eth_init( const eth_config_t *config )
 	R8_ETH_MAADRL5 = g_eth_state.mac_addr[1];
 	R8_ETH_MAADRL6 = g_eth_state.mac_addr[0];
 
+	// PHY Analog Parameter Setting, default value and "Rated driver"
 	ETH10M->ECON2 = RB_ETH_ECON2_DEFAULT;
 
 	tx_queue_init( &g_eth_state.tx_q );
@@ -376,17 +383,26 @@ int eth_init( const eth_config_t *config )
 		g_dma_rx_descs[i].Buffer2NextDescAddr = (uint32_t)&g_dma_rx_descs[( i + 1 ) % ETH_RX_BUF_COUNT];
 	}
 
+	// start RX
 	ETH10M->ERXST = g_eth_state.rx_desc_head->Buffer1Addr;
 	ETH10M->ECON1 = RB_ETH_ECON1_RXEN;
 
-	// TODO: Auto-negotiation
+	// reset PHY
 	phy_write_reg( PHY_BMCR, PHY_BMCR_RESET );
 	Delay_Ms( 200 );
+	// configure PHY for full-duplex mode (TODO: implement auto-negotiation)
 	phy_write_reg( PHY_BMCR, PHY_BMCR_FULL_DUPLEX );
 
+	// clear all pending interrupt flags
 	ETH10M->EIR = 0xFF;
-	ETH10M->EIE = RB_ETH_EIE_INTIE | RB_ETH_EIE_RXIE | RB_ETH_EIE_TXIE | RB_ETH_EIE_LINKIE | RB_ETH_EIE_TXERIE |
-	              RB_ETH_EIE_RXERIE | RB_ETH_EIE_R_EN50;
+
+	ETH10M->EIE = RB_ETH_EIE_INTIE | // Ethernet interrupt enable (master enable)
+	              RB_ETH_EIE_RXIE | // RX complete interrupt
+	              RB_ETH_EIE_TXIE | // TX complete interrupt
+	              RB_ETH_EIE_LINKIE | // Link status change interrupt
+	              RB_ETH_EIE_TXERIE | // TX error interrupt (collision, underrun, etc.)
+	              RB_ETH_EIE_RXERIE | // RX error interrupt (CRC error, overrun, etc.)
+	              RB_ETH_EIE_R_EN50; // Built-in 50ohm impedance matching resistor enable
 
 	NVIC_EnableIRQ( ETH_IRQn );
 
