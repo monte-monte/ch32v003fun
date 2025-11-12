@@ -1,4 +1,5 @@
 #include "ch32fun.h"
+#include <stdio.h>
 
 #define MY_IP_ADDR { 192, 168, 1, 100 }
 
@@ -81,6 +82,18 @@ static void eth_rx_callback( const uint8_t *pkt, uint16_t len )
 	}
 }
 
+static void link_status_callback( bool link_up )
+{
+	if ( link_up )
+	{
+		printf( "ETH: Link UP\n" );
+	}
+	else
+	{
+		printf( "ETH: Link DOWN\n" );
+	}
+}
+
 int main( void )
 {
 	SystemInit();
@@ -88,7 +101,7 @@ int main( void )
 
 	eth_config_t cfg = { .mac_addr = NULL,
 		.rx_callback = eth_rx_callback,
-		.link_callback = NULL,
+		.link_callback = link_status_callback,
 		.promiscuous_mode = false,
 		.broadcast_filter = true,
 		.multicast_filter = false };
@@ -99,16 +112,25 @@ int main( void )
 		while ( 1 );
 	}
 
-	eth_get_mac_address( g_my_mac ); // from part uuid
-
+	eth_get_mac_address( g_my_mac );
 	printf( "IP:  %d.%d.%d.%d\n", g_my_ip[0], g_my_ip[1], g_my_ip[2], g_my_ip[3] );
 	printf( "MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", g_my_mac[0], g_my_mac[1], g_my_mac[2], g_my_mac[3], g_my_mac[4],
 		g_my_mac[5] );
-	printf( "\nReady - try ping\n\n" );
+	printf( "\nWaiting for link...\n" );
+
+	const uint32_t ticks_per_ms = ( FUNCONF_SYSTEM_CORE_CLOCK / 1000 );
+	const uint32_t poll_interval_ticks = 100 * ticks_per_ms; // 100ms poll interval
+	uint64_t last_poll_tick = SysTick->CNT;
 
 	while ( 1 )
 	{
 		eth_process_rx();
-		eth_poll_link();
+
+		uint64_t now = SysTick->CNT;
+		if ( ( now - last_poll_tick ) >= poll_interval_ticks )
+		{
+			eth_poll_link();
+			last_poll_tick = now;
+		}
 	}
 }

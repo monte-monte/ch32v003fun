@@ -5,11 +5,11 @@
 #include <stdint.h>
 
 #ifndef ETH_RX_BUF_COUNT
-#define ETH_RX_BUF_COUNT 2
+#define ETH_RX_BUF_COUNT 4
 #endif
 
 #ifndef ETH_TX_BUF_COUNT
-#define ETH_TX_BUF_COUNT 1
+#define ETH_TX_BUF_COUNT 2
 #endif
 
 #ifndef ETH_RX_BUF_SIZE
@@ -25,22 +25,14 @@
 #endif
 
 #define ETH_MAC_ADDR_LEN 6
-#define ETH_HEADER_LEN 14
 
-#define ROM_CFG_USERADR_ID 0x1FFFF7E8
-#define ETH_DMARxDesc_FrameLengthShift 16
-
-// Ethernet frame structure
-typedef struct
-{
-	uint8_t dest_mac[ETH_MAC_ADDR_LEN];
-	uint8_t src_mac[ETH_MAC_ADDR_LEN];
-	uint16_t ethertype; // Big endian
-} __attribute__( ( packed ) ) eth_header_t;
+// Define ETH_ENABLE_STATS before including this header to enable stats collection
+// #define ETH_ENABLE_STATS
 
 // Callback types
 typedef void ( *eth_rx_callback_t )( const uint8_t *packet, uint16_t length );
 typedef void ( *eth_link_callback_t )( bool link_up );
+typedef void ( *eth_activity_callback_t )( void );
 
 // Ethernet configuration
 typedef struct
@@ -48,11 +40,13 @@ typedef struct
 	uint8_t *mac_addr; // MAC address (can be NULL to use chip default)
 	eth_rx_callback_t rx_callback; // Called when packet received (in interrupt context)
 	eth_link_callback_t link_callback; // Called when link status changes
+	eth_activity_callback_t activity_callback; // Called on TX/RX activity, can be used for LED
 	bool promiscuous_mode; // Enable promiscuous mode
 	bool broadcast_filter; // Accept broadcast packets
 	bool multicast_filter; // Accept multicast packets
 } eth_config_t;
 
+#ifdef ETH_ENABLE_STATS
 // Ethernet statistics
 typedef struct
 {
@@ -63,6 +57,7 @@ typedef struct
 	uint32_t rx_dropped;
 	uint32_t tx_dropped;
 } eth_stats_t;
+#endif
 
 #ifdef __cplusplus
 extern "C"
@@ -91,7 +86,27 @@ extern "C"
 	void eth_process_rx( void );
 
 	/**
-	 * Poll link status (call periodically from main loop)
+	 * Get pointer to next received packet (alternative to eth_process_rx with callback)
+	 * @param length Pointer to store packet length
+	 * @return Pointer to packet data, or NULL if no packet ready
+	 * @note Caller MUST call eth_release_rx_packet() when done with the packet
+	 * @note Packet data is valid only until eth_release_rx_packet() is called
+	 */
+	const uint8_t *eth_get_rx_packet( uint16_t *length );
+
+	/**
+	 * Release currently held RX packet back to DMA
+	 * @note Must be called after eth_get_rx_packet() to free the descriptor
+	 */
+	void eth_release_rx_packet( void );
+
+	/**
+	 * Poll link status and handle auto-negotiation
+	 * this is based on WCHNET_LinkProcess
+	 * https://github.com/openwch/ch32v20x/blob/main/EVT/EXAM/ETH/NetLib/eth_driver.c#L131
+	 * TODO: cable polarity reversal is untested
+	 *
+	 * call this periodically from main loop (i.e. every 50-100ms)
 	 */
 	void eth_poll_link( void );
 
@@ -107,6 +122,7 @@ extern "C"
 	 */
 	bool eth_is_link_up( void );
 
+#ifdef ETH_ENABLE_STATS
 	/**
 	 * Get stats
 	 * @param stats Pointer to statistics structure to fill
@@ -117,51 +133,10 @@ extern "C"
 	 * Reset stat counters
 	 */
 	void eth_reset_stats( void );
+#endif
 
 #ifdef __cplusplus
 }
-#endif
-
-/**
- * Build Ethernet header
- * @param buffer Buffer to write header to
- * @param dest_mac Destination MAC address
- * @param src_mac Source MAC address
- * @param ethertype EtherType (e.g., 0x0800 for IPv4, 0x0806 for ARP)
- * @return Number of bytes written (14)
- */
-static inline uint16_t eth_build_header(
-	uint8_t *buffer, const uint8_t *dest_mac, const uint8_t *src_mac, uint16_t ethertype )
-{
-	eth_header_t *hdr = (eth_header_t *)buffer;
-	for ( int i = 0; i < ETH_MAC_ADDR_LEN; i++ )
-	{
-		hdr->dest_mac[i] = dest_mac[i];
-		hdr->src_mac[i] = src_mac[i];
-	}
-	hdr->ethertype = __builtin_bswap16( ethertype ); // swap byte order
-	return ETH_HEADER_LEN;
-}
-
-/**
- * Parse Ethernet header
- * @param packet Pointer to packet data
- * @param header Pointer to header structure to fill
- * @return Pointer to payload (after header)
- */
-static inline const uint8_t *eth_parse_header( const uint8_t *packet, eth_header_t *header )
-{
-	const eth_header_t *hdr = (const eth_header_t *)packet;
-	*header = *hdr;
-	header->ethertype = __builtin_bswap16( header->ethertype ); // swap byte order
-	return packet + ETH_HEADER_LEN;
-}
-
-// Broadcast MAC address
-#ifdef ETHERNET_IMPLEMENTATION
-const uint8_t ETH_BROADCAST_MAC[ETH_MAC_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-#else
-extern const uint8_t ETH_BROADCAST_MAC[ETH_MAC_ADDR_LEN];
 #endif
 
 #endif // _CH32V208_ETH_H
@@ -171,7 +146,6 @@ extern const uint8_t ETH_BROADCAST_MAC[ETH_MAC_ADDR_LEN];
 
 #include "ch32fun.h"
 #include "ch32v20xhw.h"
-#include <stdio.h>
 #include <string.h>
 
 // DMA descriptor
@@ -188,7 +162,7 @@ typedef struct
 {
 	volatile uint32_t head;
 	volatile uint32_t tail;
-	volatile bool is_full;
+	volatile bool is_full; // this is only really needed if ETH_TX_BUF_COUNT == 1
 } tx_queue_t;
 
 // driver state
@@ -200,9 +174,22 @@ typedef struct
 	uint8_t mac_addr[ETH_MAC_ADDR_LEN];
 	eth_rx_callback_t rx_callback;
 	eth_link_callback_t link_callback;
-	volatile bool link_up;
+	eth_activity_callback_t activity_callback;
 	volatile bool link_irq_flag;
+#ifdef ETH_ENABLE_STATS
 	eth_stats_t stats;
+#endif
+	// autoneg & polarity state
+	uint8_t phy_mdix_mode; // current MDI/MDIX setting
+	uint8_t crc_error_count; // CRC errors since link up
+	bool polarity_detect_active;
+	uint8_t negotiation_poll_count;
+	enum
+	{
+		LINK_STATE_DOWN,
+		LINK_STATE_NEGOTIATING,
+		LINK_STATE_UP
+	} link_state;
 } eth_driver_state_t;
 
 __attribute__( ( aligned( 4 ) ) ) static ETH_DMADESCTypeDef g_dma_rx_descs[ETH_RX_BUF_COUNT];
@@ -211,8 +198,6 @@ __attribute__( ( aligned( 4 ) ) ) static uint8_t g_mac_rx_bufs[ETH_RX_BUF_COUNT 
 __attribute__( ( aligned( 4 ) ) ) static uint8_t g_mac_tx_bufs[ETH_TX_BUF_COUNT * ETH_TX_BUF_SIZE];
 
 static eth_driver_state_t g_eth_state = { 0 };
-
-const uint8_t ETH_BROADCAST_MAC[ETH_MAC_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
 static void phy_write_reg( uint8_t reg_add, uint16_t reg_val )
 {
@@ -287,6 +272,108 @@ static void tx_start_if_possible( void )
 	ETH10M->ECON1 |= RB_ETH_ECON1_TXRTS; // set tx req flag to start DMA transmission
 }
 
+/**
+ * Start PHY auto-negotiation with specific MDI/MDIX mode
+ */
+static void phy_start_autoneg( uint8_t mdix_mode )
+{
+	// reset and restart auto-negotiation
+	phy_write_reg( PHY_BMCR, PHY_BMCR_RESET );
+	Delay_Us( 100 );
+	// configure MDI/MDIX mode
+	phy_write_reg( PHY_MDIX, ( mdix_mode & MDIX_MODE_MASK ) | MDIX_PN_POLARITY_NORMAL );
+	// enable auto-negotiation
+	phy_write_reg( PHY_BMCR, PHY_BMCR_AN_ENABLE | PHY_BMCR_AN_RESTART );
+
+	g_eth_state.phy_mdix_mode = mdix_mode;
+}
+
+/**
+ * Try next MDI/MDIX mode in sequence: AUTO -> MDIX -> MDI -> AUTO
+ */
+static void phy_try_next_mdix_mode( void )
+{
+	uint8_t next_mode;
+
+	switch ( g_eth_state.phy_mdix_mode & MDIX_MODE_MASK )
+	{
+		case MDIX_MODE_AUTO:
+			next_mode = MDIX_MODE_MDIX; // try forced MDIX
+			break;
+		case MDIX_MODE_MDIX:
+			next_mode = MDIX_MODE_MDI; // try forced MDI
+			break;
+		default:
+			next_mode = MDIX_MODE_AUTO; // back to auto
+			break;
+	}
+
+	phy_start_autoneg( next_mode );
+}
+
+/**
+ * Handle cable polarity issue (P/N reversal)
+ */
+static void phy_fix_polarity( void )
+{
+	uint16_t mdix_reg = phy_read_reg( PHY_MDIX );
+
+	// toggle P/N polarity between NORMAL and REVERSED
+	mdix_reg ^= MDIX_PN_POLARITY_REVERSED;
+
+	phy_write_reg( PHY_MDIX, mdix_reg );
+	g_eth_state.crc_error_count = 0;
+}
+
+static void eth_link_up_handler( void )
+{
+	// read auto-negotiation registers
+	uint16_t anar = phy_read_reg( PHY_ANAR ); // what we advertised
+	uint16_t anlpar = phy_read_reg( PHY_ANLPAR ); // what partner advertised
+	uint16_t common = anar & anlpar;
+
+	// check if both sides support full-duplex
+	bool is_full_duplex = ( common & PHY_ANLPAR_10BASE_TFD ) != 0;
+	// configure MAC to match negotiated duplex mode
+	if ( is_full_duplex )
+	{
+		ETH10M->MACON2 |= RB_ETH_MACON2_FULDPX;
+	}
+	else
+	{
+		ETH10M->MACON2 &= ~RB_ETH_MACON2_FULDPX;
+	}
+	// enable CRC error packet reception for polarity detection
+	ETH10M->ERXFCON |= RB_ETH_ERXFCON_CRCEN;
+
+	g_eth_state.link_state = LINK_STATE_UP;
+	g_eth_state.crc_error_count = 0;
+	g_eth_state.polarity_detect_active = true;
+	g_eth_state.negotiation_poll_count = 0;
+
+	if ( g_eth_state.link_callback )
+	{
+		g_eth_state.link_callback( true );
+	}
+}
+
+/**
+ * Configure MAC for link down
+ */
+static void eth_link_down_handler( void )
+{
+	// Disable polarity detection
+	g_eth_state.polarity_detect_active = false;
+	ETH10M->ERXFCON &= ~RB_ETH_ERXFCON_CRCEN;
+
+	g_eth_state.link_state = LINK_STATE_DOWN;
+
+	if ( g_eth_state.link_callback )
+	{
+		g_eth_state.link_callback( false );
+	}
+}
+
 int eth_init( const eth_config_t *config )
 {
 	if ( !config )
@@ -298,6 +385,7 @@ int eth_init( const eth_config_t *config )
 
 	g_eth_state.rx_callback = config->rx_callback;
 	g_eth_state.link_callback = config->link_callback;
+	g_eth_state.activity_callback = config->activity_callback;
 
 	if ( config->mac_addr )
 	{
@@ -307,9 +395,6 @@ int eth_init( const eth_config_t *config )
 	{
 		eth_get_chip_mac_addr( g_eth_state.mac_addr );
 	}
-
-	// printf( "Ethernet MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", g_eth_state.mac_addr[0], g_eth_state.mac_addr[1],
-	// 	g_eth_state.mac_addr[2], g_eth_state.mac_addr[3], g_eth_state.mac_addr[4], g_eth_state.mac_addr[5] );
 
 	RCC->APB2PCENR |= RCC_APB2Periph_AFIO;
 	RCC->CFGR0 |= RCC_ETHPRE; // Ethernet clock prescaler
@@ -387,14 +472,18 @@ int eth_init( const eth_config_t *config )
 	ETH10M->ERXST = g_eth_state.rx_desc_head->Buffer1Addr;
 	ETH10M->ECON1 = RB_ETH_ECON1_RXEN;
 
-	// reset PHY
-	phy_write_reg( PHY_BMCR, PHY_BMCR_RESET );
-	Delay_Ms( 200 );
-	// configure PHY for full-duplex mode (TODO: implement auto-negotiation)
-	phy_write_reg( PHY_BMCR, PHY_BMCR_FULL_DUPLEX );
+	g_eth_state.link_state = LINK_STATE_DOWN;
+	g_eth_state.negotiation_poll_count = 0;
+	g_eth_state.polarity_detect_active = false;
+	g_eth_state.crc_error_count = 0;
+
+	// start auto-negotiation with AUTO MDI/MDIX
+	phy_start_autoneg( MDIX_MODE_AUTO );
+	Delay_Ms( 100 ); // Give PHY time to initialize
 
 	// clear all pending interrupt flags
 	ETH10M->EIR = 0xFF;
+	ETH10M->ESTAT |= RB_ETH_ESTAT_INT | RB_ETH_ESTAT_BUFER;
 
 	ETH10M->EIE = RB_ETH_EIE_INTIE | // Ethernet interrupt enable (master enable)
 	              RB_ETH_EIE_RXIE | // RX complete interrupt
@@ -416,89 +505,160 @@ int eth_send_packet( const uint8_t *packet, uint16_t length )
 		return -2;
 	}
 
-	__disable_irq();
 	if ( tx_queue_is_full( &g_eth_state.tx_q ) )
 	{
-		__enable_irq();
+#ifdef ETH_ENABLE_STATS
 		g_eth_state.stats.tx_dropped++;
+#endif
 		return -1;
 	}
+
+	// reserve our slot in the queue
 	uint32_t idx = g_eth_state.tx_q.head;
-	tx_queue_produce( &g_eth_state.tx_q ); // reserve the slot
-	__enable_irq();
+	tx_queue_produce( &g_eth_state.tx_q );
 
 	uint8_t *tx_buf = (uint8_t *)g_dma_tx_descs[idx].Buffer1Addr;
 	memcpy( tx_buf, packet, length );
 
-	// mark descriptor ready
 	g_dma_tx_descs[idx].Status = length;
 
-	// try to kick TX
-	__disable_irq();
 	tx_start_if_possible();
-	__enable_irq();
 
 	return 0;
 }
 
+const uint8_t *eth_get_rx_packet( uint16_t *length )
+{
+	if ( !length )
+	{
+		return NULL;
+	}
+
+	if ( g_eth_state.rx_desc_tail->Status & ETH_DMARxDesc_OWN )
+	{
+		return NULL; // no packet ready
+	}
+
+	// extract packet length from descriptor status field
+	*length = ( g_eth_state.rx_desc_tail->Status & ETH_DMARxDesc_FL ) >> ETH_DMARxDesc_FrameLengthShift;
+
+	// return pointer to packet buffer
+	return (const uint8_t *)g_eth_state.rx_desc_tail->Buffer1Addr;
+}
+
+void eth_release_rx_packet( void )
+{
+#ifdef ETH_ENABLE_STATS
+	g_eth_state.stats.rx_packets++;
+#endif
+
+	// give descriptor back to DMA
+	g_eth_state.rx_desc_tail->Status = ETH_DMARxDesc_OWN;
+
+	// advance to next descriptor in ring
+	g_eth_state.rx_desc_tail = (ETH_DMADESCTypeDef *)g_eth_state.rx_desc_tail->Buffer2NextDescAddr;
+}
+
+
 void eth_process_rx( void )
 {
-	// process all packets that DMA has released (OWN bit cleared by interrupt)
-	while ( !( g_eth_state.rx_desc_tail->Status & ETH_DMARxDesc_OWN ) )
-	{
-		uint32_t len = ( g_eth_state.rx_desc_tail->Status & ETH_DMARxDesc_FL ) >> ETH_DMARxDesc_FrameLengthShift;
-		uint8_t *buffer = (uint8_t *)g_eth_state.rx_desc_tail->Buffer1Addr;
+	uint16_t length;
+	const uint8_t *packet;
 
-		// deliver to user callback
+	// process all packets that DMA has released
+	while ( ( packet = eth_get_rx_packet( &length ) ) != NULL )
+	{
+		// deliver to user callback if registered
 		if ( g_eth_state.rx_callback )
 		{
-			g_eth_state.rx_callback( buffer, len );
+			g_eth_state.rx_callback( packet, length );
 		}
 
-		// return descriptor to DMA
-		g_eth_state.stats.rx_packets++;
-
-		// advance to next descriptor in ring
-		g_eth_state.rx_desc_tail->Status = ETH_DMARxDesc_OWN;
-		g_eth_state.rx_desc_tail = (ETH_DMADESCTypeDef *)g_eth_state.rx_desc_tail->Buffer2NextDescAddr;
+		eth_release_rx_packet();
 	}
 }
 
-/**
- * TODO: this should ideally do proper auto negotiation and polarity reversal
- */
 void eth_poll_link( void )
 {
-	if ( !g_eth_state.link_irq_flag )
+	if ( g_eth_state.link_irq_flag )
 	{
-		return;
+		g_eth_state.link_irq_flag = false;
+		g_eth_state.negotiation_poll_count = 0;
 	}
-	g_eth_state.link_irq_flag = false;
 
-	// i'm not sure if PHY link is latched-low, maytbe we don't need 2 reads
-	(void)phy_read_reg( PHY_BMSR );
 	uint16_t bmsr = phy_read_reg( PHY_BMSR );
+	uint16_t anlpar = phy_read_reg( PHY_ANLPAR );
 
-	bool link_up = ( bmsr & PHY_BMSR_LINK_STATUS ) != 0;
+	bool phy_link = ( bmsr & PHY_BMSR_LINK_STATUS ) != 0;
+	bool an_complete = ( bmsr & PHY_BMSR_AN_COMPLETE ) != 0;
 
-	if ( link_up != g_eth_state.link_up )
+	switch ( g_eth_state.link_state )
 	{
-		g_eth_state.link_up = link_up;
 
-		if ( link_up )
-		{
-			ETH10M->MACON2 |= RB_ETH_MACON2_FULDPX; // enable full duplex
-			// printf( "Ethernet: Link UP\n" );
-		}
-		else
-		{
-			// printf( "Ethernet: Link DOWN\n" );
-		}
+		case LINK_STATE_DOWN:
+			if ( phy_link && an_complete && ( anlpar != 0 ) )
+			{
+				// valid link with successful negotiation
+				eth_link_up_handler();
+			}
+			else if ( phy_link && an_complete && ( anlpar == 0 ) )
+			{
+				// false auto-negotiation completion (ANLPAR=0)
+				// reset PHY and try different mode
+				g_eth_state.link_state = LINK_STATE_NEGOTIATING;
+				g_eth_state.negotiation_poll_count = 0;
+				phy_write_reg( PHY_BMCR, PHY_BMCR_RESET );
+				Delay_Us( 100 );
+				phy_try_next_mdix_mode();
+			}
+			break;
 
-		if ( g_eth_state.link_callback )
-		{
-			g_eth_state.link_callback( link_up );
-		}
+		case LINK_STATE_NEGOTIATING:
+			if ( phy_link && an_complete && ( anlpar != 0 ) )
+			{
+				// negotiation succeeded
+				eth_link_up_handler();
+			}
+			else if ( phy_link && an_complete && ( anlpar == 0 ) )
+			{
+				// still no valid partner response after negotiation
+				g_eth_state.negotiation_poll_count++;
+
+				if ( g_eth_state.negotiation_poll_count >= 10 )
+				{
+					// try next MDI/MDIX mode after 10 polls
+					g_eth_state.negotiation_poll_count = 0;
+					phy_write_reg( PHY_BMCR, PHY_BMCR_RESET );
+					Delay_Us( 100 );
+					phy_try_next_mdix_mode();
+				}
+			}
+			else if ( !phy_link )
+			{
+				// link went down during negotiation
+				g_eth_state.link_state = LINK_STATE_DOWN;
+				g_eth_state.negotiation_poll_count = 0;
+			}
+			break;
+
+		case LINK_STATE_UP:
+			if ( !phy_link )
+			{
+				// link went down
+				eth_link_down_handler();
+				phy_start_autoneg( MDIX_MODE_AUTO );
+			}
+			else if ( g_eth_state.polarity_detect_active )
+			{
+				// monitor for polarity issues
+				if ( g_eth_state.crc_error_count >= 3 )
+				{
+					phy_fix_polarity();
+					g_eth_state.polarity_detect_active = false;
+					ETH10M->ERXFCON &= ~RB_ETH_ERXFCON_CRCEN;
+				}
+			}
+			break;
 	}
 }
 
@@ -512,9 +672,10 @@ void eth_get_mac_address( uint8_t *mac_addr )
 
 bool eth_is_link_up( void )
 {
-	return g_eth_state.link_up;
+	return g_eth_state.link_state == LINK_STATE_UP;
 }
 
+#ifdef ETH_ENABLE_STATS
 void eth_get_stats( eth_stats_t *stats )
 {
 	if ( stats )
@@ -527,6 +688,7 @@ void eth_reset_stats( void )
 {
 	memset( &g_eth_state.stats, 0, sizeof( eth_stats_t ) );
 }
+#endif
 
 void ETH_IRQHandler( void ) __attribute__( ( interrupt ) ) __attribute__( ( used ) );
 void ETH_IRQHandler( void )
@@ -540,16 +702,39 @@ void ETH_IRQHandler( void )
 		// check if DMA still owns the current head descriptor
 		if ( g_eth_state.rx_desc_head->Status & ETH_DMARxDesc_OWN )
 		{
+			// check for RX errors
+			uint8_t estat = ETH10M->ESTAT;
+			const uint8_t error_mask =
+				RB_ETH_ESTAT_BUFER | RB_ETH_ESTAT_RXCRCER | RB_ETH_ESTAT_RXNIBBLE | RB_ETH_ESTAT_RXMORE;
+
+			if ( estat & error_mask )
+			{
+				// track CRC errors specifically for polarity detection
+				if ( ( estat & RB_ETH_ESTAT_RXCRCER ) && g_eth_state.polarity_detect_active )
+				{
+					g_eth_state.crc_error_count++;
+				}
+
+#ifdef ETH_ENABLE_STATS
+				g_eth_state.stats.rx_errors++;
+#endif
+				return; // discard
+			}
+
+
 			// DMA still writing, check if next descriptor is available
 			ETH_DMADESCTypeDef *next_desc = (ETH_DMADESCTypeDef *)g_eth_state.rx_desc_head->Buffer2NextDescAddr;
 
 			if ( !( next_desc->Status & ETH_DMARxDesc_OWN ) )
 			{
 				// ring full
+#ifdef ETH_ENABLE_STATS
 				g_eth_state.stats.rx_dropped++;
+#endif
 			}
 			else
 			{
+				// packet is ready and we have space
 				// mark current descriptor as ready for CPU processing
 				g_eth_state.rx_desc_head->Status &= ~ETH_DMARxDesc_OWN;
 
@@ -562,6 +747,12 @@ void ETH_IRQHandler( void )
 
 				// tell MAC where to write next packet
 				ETH10M->ERXST = (uint32_t)g_eth_state.rx_desc_head->Buffer1Addr;
+
+				// signal activity
+				if ( g_eth_state.activity_callback )
+				{
+					g_eth_state.activity_callback();
+				}
 			}
 		}
 	}
@@ -572,17 +763,27 @@ void ETH_IRQHandler( void )
 
 		if ( !tx_queue_is_empty( &g_eth_state.tx_q ) )
 		{
+#ifdef ETH_ENABLE_STATS
 			g_eth_state.stats.tx_packets++;
+#endif
 			tx_queue_consume( &g_eth_state.tx_q );
 		}
 
 		tx_start_if_possible();
+
+		// signal activity
+		if ( g_eth_state.activity_callback )
+		{
+			g_eth_state.activity_callback();
+		}
 	}
 
 	if ( flags & RB_ETH_EIR_TXERIF )
 	{
 		ETH10M->EIR = RB_ETH_EIR_TXERIF;
+#ifdef ETH_ENABLE_STATS
 		g_eth_state.stats.tx_errors++;
+#endif
 
 		if ( !tx_queue_is_empty( &g_eth_state.tx_q ) )
 		{
@@ -595,7 +796,9 @@ void ETH_IRQHandler( void )
 	{
 		ETH10M->EIR = RB_ETH_EIR_RXERIF;
 		ETH10M->ECON1 |= RB_ETH_ECON1_RXEN;
+#ifdef ETH_ENABLE_STATS
 		g_eth_state.stats.rx_errors++;
+#endif
 	}
 
 	if ( flags & RB_ETH_EIR_LINKIF )
