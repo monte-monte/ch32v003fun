@@ -27,7 +27,6 @@ sfhip hip = {
 	.need_to_discover = 1, // start w/ DHCP DISCOVER
 };
 
-static uint64_t last_tick_time = 0;
 static sfhip_phy_packet_mtu scratch __attribute__( ( aligned( 4 ) ) );
 
 int sfhip_send_packet( sfhip *hip, sfhip_phy_packet *data, int length )
@@ -97,29 +96,27 @@ int main( void )
 	printf( "Waiting for DHCP lease...\n" );
 
 	const uint32_t ticks_per_ms = ( FUNCONF_SYSTEM_CORE_CLOCK / 1000 );
-	const uint32_t poll_interval_ticks = 100 * ticks_per_ms;
-	uint64_t last_poll_tick = SysTick->CNT;
-	last_tick_time = SysTick->CNT / ticks_per_ms;
+	const uint32_t poll_interval_ms = 100;
+	uint64_t last_tick_ms = SysTick->CNT / ticks_per_ms;
+	uint64_t last_poll_ms = last_tick_ms;
 
 	while ( 1 )
 	{
 		process_rx_packets();
 
-		uint64_t now = SysTick->CNT;
-		uint64_t now_ms = now / ticks_per_ms;
-		int delta_ms = now_ms - last_tick_time;
+		uint64_t now_ms = SysTick->CNT / ticks_per_ms;
 
-		if ( delta_ms > 0 )
+		if ( now_ms > last_tick_ms )
 		{
-			sfhip_tick( &hip, &scratch, delta_ms );
-			last_tick_time = now_ms;
+			sfhip_tick( &hip, &scratch, now_ms - last_tick_ms );
+			last_tick_ms = now_ms;
 		}
 
 		// poll link status periodically
-		if ( ( now - last_poll_tick ) >= poll_interval_ticks )
+		if ( ( now_ms - last_poll_ms ) >= poll_interval_ms )
 		{
 			eth_poll_link();
-			last_poll_tick = now;
+			last_poll_ms = now_ms;
 		}
 	}
 }
