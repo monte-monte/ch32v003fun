@@ -84,14 +84,7 @@ static void eth_rx_callback( const uint8_t *pkt, uint16_t len )
 
 static void link_status_callback( bool link_up )
 {
-	if ( link_up )
-	{
-		printf( "ETH: Link UP\n" );
-	}
-	else
-	{
-		printf( "ETH: Link DOWN\n" );
-	}
+	printf( "ETH: Link %s\n", link_up ? "UP" : "DOWN" );
 }
 
 int main( void )

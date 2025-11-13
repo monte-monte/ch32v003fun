@@ -1,6 +1,6 @@
 all : flash
 
-TARGET:=eth_raw_icmp
+TARGET:=eth_sfhip
 TARGET_MCU:=CH32V208
 TARGET_MCU_PACKAGE:=CH32V208WBU6
 
