@@ -142,6 +142,21 @@ extern "C"
 	int eth_send_packet( const uint8_t *packet, uint16_t length );
 
 	/**
+	 * Get pointer to next available TX buffer for zero-copy transmission
+	 * @param length max length available in buffer
+	 * @return pointer to TX buffer, or NULL if queue full
+	 * @note After writing packet data, call eth_send_packet_zerocopy() with actual length
+	 */
+	uint8_t *eth_get_tx_buffer( uint16_t *max_length );
+
+	/**
+	 * Commit a zero-copy TX buffer for transmission
+	 * @param length packet length written to buffer from eth_get_tx_buffer()
+	 * @return 0 on success
+	 */
+	int eth_send_packet_zerocopy( uint16_t length );
+
+	/**
 	 * Process received packets (call from main loop)
 	 * This will invoke the rx_callback for each received pkt
 	 */
@@ -214,8 +229,6 @@ typedef struct
 {
 	volatile uint32_t Status;
 	volatile uint32_t Buffer1Addr;
-	volatile uint32_t Buffer2NextDescAddr;
-	volatile uint32_t Reserved;
 } ETH_DMADESCTypeDef;
 
 // TX queue management
@@ -229,8 +242,8 @@ typedef struct
 // driver state
 typedef struct
 {
-	ETH_DMADESCTypeDef *rx_desc_head;
-	ETH_DMADESCTypeDef *rx_desc_tail;
+	uint32_t rx_head_idx;
+	uint32_t rx_tail_idx;
 	tx_queue_t tx_q;
 	uint8_t mac_addr[ETH_MAC_ADDR_LEN];
 	eth_rx_callback_t rx_callback;
@@ -518,18 +531,16 @@ int eth_init( const eth_config_t *config )
 	}
 
 	// init RX descriptor ring (DMA reads from these)
-	g_eth_state.rx_desc_head = g_dma_rx_descs; // DMA writes to head
-	g_eth_state.rx_desc_tail = g_dma_rx_descs; // CPU reads from tail
+	g_eth_state.rx_head_idx = 0;
+	g_eth_state.rx_tail_idx = 0;
 	for ( int i = 0; i < ETH_RX_BUF_COUNT; i++ )
 	{
 		g_dma_rx_descs[i].Status = ETH_DMARxDesc_OWN; // DMA owns all initially
 		g_dma_rx_descs[i].Buffer1Addr = (uint32_t)&g_mac_rx_bufs[i * ETH_RX_BUF_SIZE];
-		// create circular linked list of descriptors
-		g_dma_rx_descs[i].Buffer2NextDescAddr = (uint32_t)&g_dma_rx_descs[( i + 1 ) % ETH_RX_BUF_COUNT];
 	}
 
 	// start RX
-	ETH10M->ERXST = g_eth_state.rx_desc_head->Buffer1Addr;
+	ETH10M->ERXST = g_dma_rx_descs[0].Buffer1Addr;
 	ETH10M->ECON1 = RB_ETH_ECON1_RXEN;
 
 	g_eth_state.link_state = LINK_STATE_DOWN;
@@ -560,11 +571,6 @@ int eth_init( const eth_config_t *config )
 
 int eth_send_packet( const uint8_t *packet, uint16_t length )
 {
-	if ( !packet || length == 0 || length > ETH_TX_BUF_SIZE )
-	{
-		return -2;
-	}
-
 	if ( tx_queue_is_full( &g_eth_state.tx_q ) )
 	{
 #ifdef ETH_ENABLE_STATS
@@ -579,9 +585,35 @@ int eth_send_packet( const uint8_t *packet, uint16_t length )
 
 	uint8_t *tx_buf = (uint8_t *)g_dma_tx_descs[idx].Buffer1Addr;
 	memcpy( tx_buf, packet, length );
-
 	g_dma_tx_descs[idx].Status = length;
 
+	tx_start_if_possible();
+	return 0;
+}
+
+uint8_t *eth_get_tx_buffer( uint16_t *max_length )
+{
+	if ( tx_queue_is_full( &g_eth_state.tx_q ) )
+	{
+		return NULL;
+	}
+
+	if ( max_length )
+	{
+		*max_length = ETH_TX_BUF_SIZE;
+	}
+
+	uint32_t idx = g_eth_state.tx_q.head;
+	return (uint8_t *)g_dma_tx_descs[idx].Buffer1Addr;
+}
+
+
+int eth_send_packet_zerocopy( uint16_t length )
+{
+	uint32_t idx = g_eth_state.tx_q.head;
+	g_dma_tx_descs[idx].Status = length;
+
+	tx_queue_produce( &g_eth_state.tx_q );
 	tx_start_if_possible();
 
 	return 0;
@@ -594,16 +626,18 @@ const uint8_t *eth_get_rx_packet( uint16_t *length )
 		return NULL;
 	}
 
-	if ( g_eth_state.rx_desc_tail->Status & ETH_DMARxDesc_OWN )
+	uint32_t tail_idx = g_eth_state.rx_tail_idx;
+
+	if ( g_dma_rx_descs[tail_idx].Status & ETH_DMARxDesc_OWN )
 	{
 		return NULL; // no packet ready
 	}
 
 	// extract packet length from descriptor status field
-	*length = ( g_eth_state.rx_desc_tail->Status & ETH_DMARxDesc_FL ) >> ETH_DMARxDesc_FrameLengthShift;
+	*length = ( g_dma_rx_descs[tail_idx].Status & ETH_DMARxDesc_FL ) >> ETH_DMARxDesc_FrameLengthShift;
 
 	// return pointer to packet buffer
-	return (const uint8_t *)g_eth_state.rx_desc_tail->Buffer1Addr;
+	return (const uint8_t *)g_dma_rx_descs[tail_idx].Buffer1Addr;
 }
 
 void eth_release_rx_packet( void )
@@ -611,12 +645,13 @@ void eth_release_rx_packet( void )
 #ifdef ETH_ENABLE_STATS
 	g_eth_state.stats.rx_packets++;
 #endif
+	uint32_t tail_idx = g_eth_state.rx_tail_idx;
 
 	// give descriptor back to DMA
-	g_eth_state.rx_desc_tail->Status = ETH_DMARxDesc_OWN;
+	g_dma_rx_descs[tail_idx].Status = ETH_DMARxDesc_OWN;
 
 	// advance to next descriptor in ring
-	g_eth_state.rx_desc_tail = (ETH_DMADESCTypeDef *)g_eth_state.rx_desc_tail->Buffer2NextDescAddr;
+	g_eth_state.rx_tail_idx = ( tail_idx + 1 ) % ETH_RX_BUF_COUNT;
 }
 
 
@@ -755,12 +790,14 @@ void ETH_IRQHandler( void )
 {
 	uint32_t flags = ETH10M->EIR;
 
+	uint32_t head_idx = g_eth_state.rx_head_idx;
+
 	if ( flags & RB_ETH_EIR_RXIF )
 	{
 		ETH10M->EIR = RB_ETH_EIR_RXIF; // clear interrupt flag
 
 		// check if DMA still owns the current head descriptor
-		if ( g_eth_state.rx_desc_head->Status & ETH_DMARxDesc_OWN )
+		if ( g_dma_rx_descs[head_idx].Status & ETH_DMARxDesc_OWN )
 		{
 			// check for RX errors
 			uint8_t estat = ETH10M->ESTAT;
@@ -781,11 +818,10 @@ void ETH_IRQHandler( void )
 				return; // discard
 			}
 
+			// check if next descriptor is available
+			uint32_t next_idx = ( head_idx + 1 ) % ETH_RX_BUF_COUNT;
 
-			// DMA still writing, check if next descriptor is available
-			ETH_DMADESCTypeDef *next_desc = (ETH_DMADESCTypeDef *)g_eth_state.rx_desc_head->Buffer2NextDescAddr;
-
-			if ( !( next_desc->Status & ETH_DMARxDesc_OWN ) )
+			if ( !( g_dma_rx_descs[next_idx].Status & ETH_DMARxDesc_OWN ) )
 			{
 				// ring full
 #ifdef ETH_ENABLE_STATS
@@ -796,17 +832,17 @@ void ETH_IRQHandler( void )
 			{
 				// packet is ready and we have space
 				// mark current descriptor as ready for CPU processing
-				g_eth_state.rx_desc_head->Status &= ~ETH_DMARxDesc_OWN;
+				g_dma_rx_descs[head_idx].Status &= ~ETH_DMARxDesc_OWN;
 
 				// add frame metadata
-				g_eth_state.rx_desc_head->Status |= ( ETH_DMARxDesc_FS | ETH_DMARxDesc_LS | // Single segment frame
-													  ( ETH10M->ERXLN << ETH_DMARxDesc_FrameLengthShift ) );
+				g_dma_rx_descs[head_idx].Status |= ( ETH_DMARxDesc_FS | ETH_DMARxDesc_LS | // Single segment frame
+													 ( ETH10M->ERXLN << ETH_DMARxDesc_FrameLengthShift ) );
 
 				// advance head to next descriptor for DMA
-				g_eth_state.rx_desc_head = next_desc;
+				g_eth_state.rx_head_idx = next_idx;
 
 				// tell MAC where to write next packet
-				ETH10M->ERXST = (uint32_t)g_eth_state.rx_desc_head->Buffer1Addr;
+				ETH10M->ERXST = g_dma_rx_descs[next_idx].Buffer1Addr;
 
 				// signal activity
 				if ( g_eth_state.activity_callback )
