@@ -1524,6 +1524,16 @@ void SetupDebugPrintf( void )
 	*DMDATA0 = 0x80;
 }
 
+void CallConstructors( void )
+{
+	extern void (*__init_array_start[])(void);
+	extern void (*__init_array_end[])(void);
+
+	for (void (**ctor)(void) = __init_array_start; ctor < __init_array_end; ++ctor) {
+		(*ctor)();
+	}
+}
+
 int WaitForDebuggerToAttach( int timeout_ms )
 {
 
@@ -1809,6 +1819,9 @@ void SystemInit( void )
 #endif
 #if defined( FUNCONF_USE_DEBUGPRINTF ) && FUNCONF_USE_DEBUGPRINTF
 	SetupDebugPrintf();
+#endif
+#if defined(FUNCONF_SUPPORT_CONSTRUCTORS) && FUNCONF_SUPPORT_CONSTRUCTORS
+	CallConstructors();
 #endif
 }
 
