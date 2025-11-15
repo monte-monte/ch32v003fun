@@ -5350,6 +5350,8 @@ then stop sending, 10=send pause frame periodically, 01=send pause frame once, t
 #define R8_ETH_MAADRL5          (*((volatile uint8_t *)(0x40028000+0x2C))) /* RW MAC 4 */
 #define R8_ETH_MAADRL6          (*((volatile uint8_t *)(0x40028000+0x2D))) /* RW MAC 4 */
 
+#define ROM_CFG_USERADR_ID 0x1FFFF7E8
+
 //PHY Register Addresses (use with MIERGADR/MIRD for reads, or with R32_ETH_MIWR for writes)
 #define PHY_BMCR                0x00                                            /* Control Register */
 #define PHY_BMSR                0x01                                            /* Status Register */
@@ -5564,6 +5566,8 @@ extern "C" {
 
 /* Field definition of RDES3 register */
 #define ETH_DMARxDesc_B2AP  ((uint32_t)0xFFFFFFFF)  /* Buffer2 Address Pointer */
+
+#define ETH_DMARxDesc_FrameLengthShift 16           /* Bit position of frame length field */
 
 
 /* ch32v00x_gpio.c -----------------------------------------------------------*/
