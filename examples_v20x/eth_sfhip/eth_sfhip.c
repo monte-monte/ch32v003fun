@@ -4,7 +4,7 @@
 #define SFHIP_WARN( x... ) printf( x )
 #define SFHIP_IMPLEMENTATION
 #define HIP_PHY_HEADER_LENGTH_BYTES 0
-#define SFHIP_TCP_SOCKETS 4
+#define SFHIP_TCP_SOCKETS 16
 
 #include "sfhip.h"
 
