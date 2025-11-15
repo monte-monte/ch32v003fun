@@ -18,7 +18,7 @@ sfhip hip = {
 	.ip = 0,
 	.mask = 0,
 	.gateway = 0,
-	.self_mac = { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } }, // will be populated from pard uuid by eth driver
+	.self_mac = { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } }, // will be populated from part uuid by eth driver
 	.hostname = "ch32v208",
 	.need_to_discover = 1, // start w/ DHCP DISCOVER
 };
