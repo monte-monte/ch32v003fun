@@ -1,6 +1,6 @@
 all : flash
 
-TARGET:=GPIO
+TARGET:=mco_clock_output
 
 TARGET_MCU?=CH32V003
 include ../../ch32fun/ch32fun.mk
