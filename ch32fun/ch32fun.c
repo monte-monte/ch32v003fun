@@ -1825,7 +1825,7 @@ void SystemInit( void )
 #endif
 }
 
-#if defined(FUNCONF_INIT_ANALOG) && FUNCONF_INIT_ANALOG
+#ifndef CH5xx // no-op on ch5xx
 void funAnalogInit( void )
 {
 	// Please remember that ADC clock should not exceed 14Mhz!
