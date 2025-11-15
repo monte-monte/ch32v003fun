@@ -18,7 +18,7 @@ sfhip hip = {
 	.ip = 0,
 	.mask = 0,
 	.gateway = 0,
-	.self_mac = { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
+	.self_mac = { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } }, // will be populated from pard uuid by eth driver
 	.hostname = "ch32v208",
 	.need_to_discover = 1, // start w/ DHCP DISCOVER
 };
@@ -32,6 +32,7 @@ const char http_response[] = "HTTP/1.1 200 OK\r\n"
 							 "\r\n"
 							 "Hello from CH32V208!\r\n";
 
+// track which sockets have already sent their HTTP response
 static bool response_sent[SFHIP_TCP_SOCKETS] = { false };
 
 int sfhip_send_packet( sfhip *hip, sfhip_phy_packet *data, int length )
@@ -52,30 +53,33 @@ static void link_status_callback( bool link_up )
 	printf( "Link %s\n", link_up ? "UP" : "DOWN" );
 }
 
+// called by sfhip when a new TCP connection arrives
+// 0 to accept, -1 to reject
 int sfhip_tcp_accept_connection( sfhip *hip, int sockno, int localport, hipbe32 remote_host )
 {
 	if ( localport == HIPHTONS( HTTP_PORT ) ) return 0;
 	return -1;
 }
 
-
+// called when TCP data arrives or connection state changes
 sfhip_length_or_tcp_code sfhip_tcp_event(
 	sfhip *hip, int sockno, uint8_t *ip_payload, int ip_payload_length, int max_out_payload, int acked )
 {
+	// if we received data and haven't sent our response yet, send it now
 	if ( ip_payload_length > 0 && !response_sent[sockno] )
 	{
 		response_sent[sockno] = true;
-		int response_len = sizeof( http_response ) - 1;
+		int response_len = sizeof( http_response ) - 1; // -1 to exclude null term
 		if ( response_len > max_out_payload ) response_len = max_out_payload;
 		memcpy( ip_payload, http_response, response_len );
-		// printf( "." );
+		// printf( "." ); // debug: dot per request
 		return response_len;
 	}
 
 	// was ACKed, close conn
 	if ( acked > 0 && response_sent[sockno] ) return SFHIP_TCP_OUTPUT_FIN;
 
-	return 0;
+	return 0; // no action needed
 }
 
 
@@ -93,7 +97,7 @@ int main( void )
 		.rx_callback = NULL,
 		.link_callback = link_status_callback,
 		.promiscuous_mode = false,
-		.broadcast_filter = true,
+		.broadcast_filter = true, // accept broadcast packets
 		.multicast_filter = false };
 
 	if ( eth_init( &cfg ) != 0 )
@@ -116,13 +120,16 @@ int main( void )
 		uint16_t pkt_len;
 		const uint8_t *pkt = eth_get_rx_packet( &pkt_len );
 
+		// process received packet if valid and within MTU limits
 		if ( pkt && pkt_len > 0 && pkt_len <= SFHIP_MTU )
 		{
+			// hand packet to sfhip for processing
 			sfhip_accept_packet( &hip, (sfhip_phy_packet_mtu *)pkt, pkt_len );
-			eth_release_rx_packet();
+			eth_release_rx_packet(); // return buffer to DMA ring
 		}
 		else if ( pkt )
 		{
+			// exists but oversized
 			eth_release_rx_packet();
 		}
 
@@ -134,6 +141,7 @@ int main( void )
 			last_tick_ms = now_ms;
 		}
 
+		// poll PHY for link status changes
 		if ( ( now_ms - last_poll_ms ) >= poll_interval_ms )
 		{
 			eth_poll_link();
