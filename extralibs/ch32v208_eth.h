@@ -1,6 +1,20 @@
 /*
  * Single-File-Header for the CH32V208 (and CH579?) built-in 10BASE-T MAC/PHY.
  *
+ * This peripheral uses POINTER-BASED DMA, not descriptor-based DMA:
+ *
+ * Hardware:
+ *   - ERXST register: Points to buffer for next RX packet
+ *   - ETXST register: Points to buffer for current TX packet
+ *   - Hardware DMAs directly to/from these addresses
+ *   - Software must manually update pointers after each packet
+ *
+ * Software (this driver):
+ *   - Creates descriptor ring for bookkeeping
+ *   - Descriptors are NEVER accessed by hardware
+ *   - OWN bit is pure software: 1=empty, 0=filled
+ *   - Provides ring-buffer API on top of simple pointers
+ *
  * USAGE
  *
  * Include once with implementation:
@@ -34,7 +48,7 @@
  *       // process packet (called from eth_process_rx)
  *   }
  *
- * Manual polling (zero-copy, for lwIP etc):
+ * Manual polling (zero-copy, for sfhip, lwIP etc):
  *
  *   uint16_t length;
  *   const uint8_t *packet;
@@ -45,8 +59,21 @@
  *
  * SENDING PACKETS
  *
- *   int ret = eth_send_packet(packet, length);
- *   // ret: 0=success, -1=queue full, -2=invalid length
+ * Simple (with memcpy):
+ *
+ *   uint8_t packet[64];
+ *   // ... fill packet ...
+ *   int ret = eth_send_packet(packet, 64);
+ *   // ret: 0=success, -1=queue full
+ *
+ * Zero-copy mode (build directly in DMA buffer):
+ *
+ *   uint16_t max_len;
+ *   uint8_t *buf = eth_get_tx_buffer(&max_len);
+ *   if (buf) {
+ *       // build packet directly in DMA buffer
+ *       eth_send_packet_zerocopy(actual_length);
+ *   }
  *
  * CONFIGURATION
  *
@@ -137,7 +164,7 @@ extern "C"
 	 * Send an Ethernet packet
 	 * @param packet Ptr to packet data (incl. Ethernet header)
 	 * @param length Length of pkt in bytes
-	 * @return 0: success, -1: queue full, -2: invalid length)
+	 * @return 0: success, -1: queue full
 	 */
 	int eth_send_packet( const uint8_t *packet, uint16_t length );
 
@@ -799,6 +826,16 @@ void ETH_IRQHandler( void )
 		// check if DMA still owns the current head descriptor
 		if ( g_dma_rx_descs[head_idx].Status & ETH_DMARxDesc_OWN )
 		{
+			uint16_t rx_len = ETH10M->ERXLN;
+
+			if ( rx_len == 0 || rx_len > ETH_RX_BUF_SIZE )
+			{
+#ifdef ETH_ENABLE_STATS
+				g_eth_state.stats.rx_errors++;
+#endif
+				return;
+			}
+
 			// check for RX errors
 			uint8_t estat = ETH10M->ESTAT;
 			const uint8_t error_mask =
