@@ -4,20 +4,16 @@
 #define SFHIP_WARN( x... ) printf( x )
 #define SFHIP_IMPLEMENTATION
 #define HIP_PHY_HEADER_LENGTH_BYTES 0
-#define SFHIP_TCP_SOCKETS 0
+#define SFHIP_TCP_SOCKETS 4
 
 #include "sfhip.h"
 
-// SFHIP_MTU: 1536 bytes
-// MAC header: 14 bytes
-// PHY header: 0 bytes
-// 1550 bytes (round up to 1552 for alignment)
-#define ETH_RX_BUF_SIZE 1552
-#define ETH_TX_BUF_SIZE 1552
+#define ETH_RX_BUF_SIZE 1536
 #define CH32V208_ETH_IMPLEMENTATION
 #include "../../extralibs/ch32v208_eth.h"
 
-// sfhip stack
+#define HTTP_PORT 80
+
 sfhip hip = {
 	.ip = 0,
 	.mask = 0,
@@ -29,44 +25,63 @@ sfhip hip = {
 
 static sfhip_phy_packet_mtu scratch __attribute__( ( aligned( 4 ) ) );
 
+const char http_response[] = "HTTP/1.1 200 OK\r\n"
+							 "Content-Type: text/plain\r\n"
+							 "Content-Length: 22\r\n"
+							 "Connection: close\r\n"
+							 "\r\n"
+							 "Hello from CH32V208!\r\n";
+
+static bool response_sent[SFHIP_TCP_SOCKETS] = { false };
+
 int sfhip_send_packet( sfhip *hip, sfhip_phy_packet *data, int length )
 {
-	return eth_send_packet( (uint8_t *)data, length );
+	return eth_send_packet( (const uint8_t *)data, length );
 }
-
-static inline void process_rx_packets( void )
-{
-	uint16_t pkt_len;
-	const uint8_t *pkt = eth_get_rx_packet( &pkt_len );
-
-	if ( pkt && pkt_len > 0 && pkt_len <= sizeof( scratch ) )
-	{
-		// copy dma buf to scratch before processing
-		// otherwise we seem to hardfault on misaligned 32-bit mem access
-		// TODO: figure out how to zero-copy
-		memcpy( &scratch, pkt, pkt_len );
-		eth_release_rx_packet();
-		sfhip_accept_packet( &hip, &scratch, pkt_len );
-	}
-	else if ( pkt )
-	{
-		// too large or zero length
-		eth_release_rx_packet();
-	}
-}
-
 
 void sfhip_got_dhcp_lease( sfhip *hip, sfhip_address addr )
 {
 	uint32_t ip = HIPNTOHL( addr );
-	printf( "DHCP IP: %u.%u.%u.%u\n", (unsigned int)( ( ip >> 24 ) & 0xFF ), (unsigned int)( ( ip >> 16 ) & 0xFF ),
-		(unsigned int)( ( ip >> 8 ) & 0xFF ), (unsigned int)( ip & 0xFF ) );
+	printf( "\nGot IP: %lu.%lu.%lu.%lu\n", ( ip >> 24 ) & 0xFF, ( ip >> 16 ) & 0xFF, ( ip >> 8 ) & 0xFF, ip & 0xFF );
+	printf( "HTTP server ready at http://%lu.%lu.%lu.%lu/\n\n", ( ip >> 24 ) & 0xFF, ( ip >> 16 ) & 0xFF,
+		( ip >> 8 ) & 0xFF, ip & 0xFF );
 }
-
 
 static void link_status_callback( bool link_up )
 {
-	printf( "ETH: Link %s\n", link_up ? "UP" : "DOWN" );
+	printf( "Link %s\n", link_up ? "UP" : "DOWN" );
+}
+
+int sfhip_tcp_accept_connection( sfhip *hip, int sockno, int localport, hipbe32 remote_host )
+{
+	if ( localport == HIPHTONS( HTTP_PORT ) ) return 0;
+	return -1;
+}
+
+
+sfhip_length_or_tcp_code sfhip_tcp_event(
+	sfhip *hip, int sockno, uint8_t *ip_payload, int ip_payload_length, int max_out_payload, int acked )
+{
+	if ( ip_payload_length > 0 && !response_sent[sockno] )
+	{
+		response_sent[sockno] = true;
+		int response_len = sizeof( http_response ) - 1;
+		if ( response_len > max_out_payload ) response_len = max_out_payload;
+		memcpy( ip_payload, http_response, response_len );
+		// printf( "." );
+		return response_len;
+	}
+
+	// was ACKed, close conn
+	if ( acked > 0 && response_sent[sockno] ) return SFHIP_TCP_OUTPUT_FIN;
+
+	return 0;
+}
+
+
+void sfhip_tcp_socket_closed( sfhip *hip, int sockno )
+{
+	response_sent[sockno] = false;
 }
 
 int main( void )
@@ -74,7 +89,6 @@ int main( void )
 	SystemInit();
 	printf( "CH32V208 ETH10M test with sfhip (DHCP)\n" );
 
-	// init Ethernet driver
 	eth_config_t cfg = { .mac_addr = NULL,
 		.rx_callback = NULL,
 		.link_callback = link_status_callback,
@@ -88,12 +102,9 @@ int main( void )
 		while ( 1 );
 	}
 
-	// get MAC address and set it in sfhip
 	eth_get_mac_address( (uint8_t *)&hip.self_mac );
-
 	printf( "MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", hip.self_mac.mac[0], hip.self_mac.mac[1], hip.self_mac.mac[2],
 		hip.self_mac.mac[3], hip.self_mac.mac[4], hip.self_mac.mac[5] );
-	printf( "Waiting for DHCP lease...\n" );
 
 	const uint32_t ticks_per_ms = ( FUNCONF_SYSTEM_CORE_CLOCK / 1000 );
 	const uint32_t poll_interval_ms = 100;
@@ -102,7 +113,18 @@ int main( void )
 
 	while ( 1 )
 	{
-		process_rx_packets();
+		uint16_t pkt_len;
+		const uint8_t *pkt = eth_get_rx_packet( &pkt_len );
+
+		if ( pkt && pkt_len > 0 && pkt_len <= SFHIP_MTU )
+		{
+			sfhip_accept_packet( &hip, (sfhip_phy_packet_mtu *)pkt, pkt_len );
+			eth_release_rx_packet();
+		}
+		else if ( pkt )
+		{
+			eth_release_rx_packet();
+		}
 
 		uint64_t now_ms = SysTick->CNT / ticks_per_ms;
 
@@ -112,7 +134,6 @@ int main( void )
 			last_tick_ms = now_ms;
 		}
 
-		// poll link status periodically
 		if ( ( now_ms - last_poll_ms ) >= poll_interval_ms )
 		{
 			eth_poll_link();

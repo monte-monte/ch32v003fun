@@ -3,8 +3,8 @@
 
 /**
  General coding considerations:
-  1. Consider something like RISC-V where the first 5 parameters are passed
-     by a0..a4 registers.
+  1. Consider something like RISC-V where the first 6 parameters are passed
+     by a0..a5 registers.
   2. Consider something like RV32E, where you only get 16 total registers, so
      try to write the code to not register spill.  You can do this by writing
      the code so at any one point, only a few variables are needed.
@@ -273,6 +273,9 @@ typedef int sfhip_length_or_tcp_code;
 
 #define MAXIMUM_TCP_REPLY ( SFHIP_MTU - sizeof( sfhip_mac_header ) - sizeof( sfhip_ip_header ) - \
 	                        sizeof( sfhip_tcp_header ) )
+
+typedef struct HIPPACK { uint32_t v; } hipunalignedu32;
+typedef struct HIPPACK16 { uint32_t v; } hipunalignedu32a16;
 
 typedef struct HIPPACK16
 {
@@ -657,7 +660,7 @@ int sfhip_dhcp_client_request( sfhip * hip, sfhip_phy_packet_mtu * scratch )
 
 	if ( !hip->need_to_discover && hip->ip )
 	{
-		typedef struct HIPPACK16
+		typedef struct HIPPACK
 		{
 			uint8_t req, len;
 			hipbe32 ip;
@@ -946,7 +949,7 @@ int sfhip_send_tcp_packet( sfhip * hip,
 	{
 		payload_length = 4;
 		optionadd = 4;
-		( (hipbe32 *)( tcp + 1 ) )[0] = HIPHTONL(
+		( (hipunalignedu32a16 *)( tcp + 1 ) )->v = HIPHTONL(
 		    0x02040000 |
 		    ( SFHIP_MTU - sizeof( sfhip_tcp_header ) - sizeof( sfhip_ip_header ) -
 		      sizeof( sfhip_phy_packet ) - 18 /* to just make it a smoler */ ) );
@@ -1021,7 +1024,7 @@ int sfhip_handle_tcp( sfhip * hip,
 		return -1;
 
 		#if SFHIP_CHECK_TCP_CHECKSUM || SFHIP_CHECK_UDP_CHECKSUM
-	sfhip_address sender = ( (sfhip_address *)ip_payload )[-2];
+	sfhip_address sender = ( (hipunalignedu32a16 *)ip_payload )[-2].v;
 		#else
 	sfhip_address sender = ( (sfhip_ip_header *)( data->payload ) )->source_address;
 		#endif
@@ -1353,13 +1356,20 @@ int sfhip_accept_packet( sfhip * hip, sfhip_phy_packet_mtu * data, int length )
 
 	#if SFHIP_CHECK_UDP_CHECKSUM || SFHIP_CHECK_TCP_CHECKSUM
 		// Setup the psudoheader.  We can use a common setup for UDP and TCP.
+		struct pseudo_header
+		{
+			uint32_t protolen;
+			uint32_t sourceaddy;
+			uint32_t destaddy;
+		} HIPPACK16 * pse = ip_payload - 12;
+
 		sfhip_address * pseudoheader = ip_payload - 12;
 		if ( hlen < 20 )
 		{
-			pseudoheader[1] = iph->source_address;
-			pseudoheader[2] = iph->destination_address;
+			pse->sourceaddy = iph->source_address;
+			pse->destaddy = iph->destination_address;
 		}
-		pseudoheader[0] = ( iph->protocol << 24 ) | HIPNTOHS( ip_payload_length );
+		pse->protolen = ( iph->protocol << 24 ) | HIPNTOHS( ip_payload_length );
 	#endif
 
 		switch ( protocol )
