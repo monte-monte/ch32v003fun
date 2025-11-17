@@ -1,6 +1,6 @@
 all : flash
 
-TARGET:=LoRa_sx126x_test
+TARGET:=spi_lora_sx126x
 TARGET_MCU?=CH32V003
 
 include ../../ch32fun/ch32fun.mk
