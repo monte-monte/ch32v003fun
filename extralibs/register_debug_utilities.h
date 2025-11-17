@@ -55,6 +55,7 @@ void UTIL_PRINT_BITS_VALUES(u32 reg, ...) {
 		const char* name = va_arg(count_args, const char*);
 		if (name == NULL) break;
 		int pos = va_arg(count_args, int);
+		(void)pos;
 		pair_count++;
 	}
 	va_end(count_args);

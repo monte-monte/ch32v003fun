@@ -912,7 +912,7 @@ RV_STATIC_INLINE void funPinMode(u32 pin, GPIOModeTypeDef mode)
 // For pins, use things like PA8, PB15
 // For configuration, use things like GPIO_CFGLR_OUT_10Mhz_PP
 
-#define funDigitalWrite( pin, value ) { GpioOf( pin )->BSHR = 1<<((!(value))*16 + ((pin) & 0xf)); }
+#define funDigitalWrite( pin, value ) do{ GpioOf( pin )->BSHR = 1<<((!(value))*16 + ((pin) & 0xf)); }while(0)
 
 #if defined(CH32X03x)
 #define funGpioInitAll() { RCC->APB2PCENR |= ( RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC ); }
