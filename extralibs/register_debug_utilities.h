@@ -128,7 +128,7 @@ void UTIL_PRINT_BIT_RANGE(u32 reg, ...) {
 		
 		if (fields[i].end == fields[i].start) {
 			// Single bit
-			printf("%s=%d", fields[i].name, (reg >> fields[i].start) & 1);
+			printf("%s=%d", fields[i].name, (unsigned int)((reg >> fields[i].start) & 1));
 		} else {
 			// Multiple bits
 			int mask = ((1 << (fields[i].end - fields[i].start + 1)) - 1);
@@ -143,8 +143,8 @@ void UTIL_PRINT_BIT_RANGE(u32 reg, ...) {
 //! PRINT REGS
 //! ####################################
 
-#define UTIL_PRINT_REG8(reg, label) printf("%s: 0x%02X\n", label, reg);
-#define UTIL_PRINT_REG16(reg, label) printf("%s: 0x%04X\n", label, reg);
-#define UTIL_PRINT_REG32(reg, label) printf("%s: 0x%08lX\n", label, reg);
+#define UTIL_PRINT_REG8(reg, label) printf("%s: 0x%02X\n", label, (unsigned int)reg);
+#define UTIL_PRINT_REG16(reg, label) printf("%s: 0x%04X\n", label, (unsigned int)reg);
+#define UTIL_PRINT_REG32(reg, label) printf("%s: 0x%08lX\n", label, (unsigned int)reg);
 
 
