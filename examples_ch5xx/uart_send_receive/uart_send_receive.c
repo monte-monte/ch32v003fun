@@ -1,3 +1,5 @@
+#define FUNCONF_SYSTICK_USE_HCLK 1
+
 // Simple ADC example to read temperature, battery voltage, and ADC channel 0 (PA4)
 #include "ch32fun.h"
 #include "fun_uart_ch5xx.h"
@@ -7,8 +9,6 @@
 // R32_UART2_CTRL: RX PA6, TX PA7
 // R32_UART3_CTRL: RX PA4, TX PA5
 
-#define DELAY_US_TIME ((FUNCONF_SYSTEM_CORE_CLOCK)/1000000)
-#define DELAY_MS_TIME ((FUNCONF_SYSTEM_CORE_CLOCK)/1000)
 #define DELAY_SEC_TIME(n) (DELAY_MS_TIME * 1000 * n)
 
 #define TARGET_UART &R32_UART3_CTRL
