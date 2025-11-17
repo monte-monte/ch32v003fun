@@ -51,6 +51,7 @@
  * - Returns success for written bytes only
  */
 
+#define FUNCONF_SYSTICK_USE_HCLK 1
 
 #include "ch32fun.h"
 #include <stdio.h>
@@ -62,6 +63,19 @@
 #define I2C_ADDRESS 0x66		// use this for i2c_slave_test
 
 u8 read_state = 0;
+
+u32 SysTick_getCount() { return SysTick->CNT; }
+
+void SysTick_Start() {
+    SysTick->CTLR = 0x0000;
+    // Set the compare register
+    SysTick->CMP = 0xFFFFFFFF;
+    // Reset the Count Register, and the global millis counter to 0
+    SysTick->CNT = 0x00000000;
+    // Set the SysTick Configuration
+    SysTick->CTLR |= SYSTICK_CTLR_STE |  // Enable Counter
+                    SYSTICK_CTLR_STCLK ;  // Set Clock Source to HCLK/1    
+}
 
 void print_ch32_readings(u8 i2_addr) {
 	u8 rx_buf[8];
@@ -156,6 +170,7 @@ u16 get_bh1750_readings(u8 i2cAddress) {
 
 int main() {
 	SystemInit();
+	SysTick_Start();
 	funGpioInitAll(); // Enable GPIOs
 
 	printf("\n~ I2C sensors Example ~\n");
@@ -169,14 +184,18 @@ int main() {
 	i2c_sendByte(I2C_ADDRESS, 0x01); // Power on
 	i2c_sendByte(I2C_ADDRESS, 0x23); // resolution
 
-	while(1) {
-		#if I2C_ADDRESS == 0x23
-			u16 lux = get_bh1750_readings(I2C_ADDRESS);
-			printf("BH1750 Reading: %d lx\n", lux);
-		#else
-			print_ch32_readings(I2C_ADDRESS);
-		#endif
+	u32 time_ref = 0;
 
-		Delay_Ms(1000);
+	while(1) {
+		if (TimeElapsed32(SysTick_getCount(), time_ref) > DELAY_SEC_TIME(1)) {
+			time_ref = SysTick_getCount();
+
+			#if I2C_ADDRESS == 0x23
+				u16 lux = get_bh1750_readings(I2C_ADDRESS);
+				printf("BH1750 Reading: %d lx\n", lux);
+			#else
+				print_ch32_readings(I2C_ADDRESS);
+			#endif
+		}
 	}
 }
