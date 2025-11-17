@@ -7,6 +7,12 @@
 #define UART_RX_PIN PA3
 #include "uart.h"
 
+
+#if defined( FUNCONF_SYSTICK_USE_HCLK ) && FUNCONF_SYSTICK_USE_HCLK && !defined(CH32V10x)
+#define SYSTICK_DIV 1
+#else
+#define SYSTICK_DIV 8
+#endif
 #if !defined(CH32V10x) && !defined (CH32X03x)
 volatile uint32_t millis_cnt = 0;
 #else
@@ -174,7 +180,7 @@ void systick_init(void)
 #if SYSTICK_DIV==1
                   SYSTICK_CTLR_STCLK;  // Set Clock Source to HCLK/1
 #else
-                                    ;
+                  0                 ;
 #endif
 #else
 	uint64_t cmp_tmp = DELAY_MS_TIME - 1;
