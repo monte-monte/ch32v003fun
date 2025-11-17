@@ -1,8 +1,10 @@
-// coppied from the ch32v003 example
+// this example show how to enter the sleep mode on the CH32V00x with the lowest power consumption
+// and wake up on a timer event. The current conspumption is around 10uA.
+// The sleep time is configured with AWUPSC and AWUWR
+// t = AWUWR (Auto-wakeup Window Comparision Register) / (fLSI / AWUPSC (Auto-wakeup Prescaler Value))
 
 #include "ch32fun.h"
 #include <stdio.h>
-
 
 int main()
 {
@@ -15,6 +17,7 @@ int main()
 	Delay_Ms(5000);
 	funGpioInitAll();
 
+	// Set all GPIOs to input pull up to reduce the power consumption otherwise they may cause current leak
 	// [0] Mode -> 0 for input, [1] RO, [3:2] Config -> 0b10 for pullup
 	// so 0b1000 = 0x8 for Input Pullup
 	GPIOA->CFGLR = 0x88888888;
