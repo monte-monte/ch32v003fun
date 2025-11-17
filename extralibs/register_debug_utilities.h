@@ -143,8 +143,8 @@ void UTIL_PRINT_BIT_RANGE(u32 reg, ...) {
 //! PRINT REGS
 //! ####################################
 
-#define UTIL_PRINT_REG8(reg, label) printf("%s: 0x%02X\n", label, (unsigned int)reg);
-#define UTIL_PRINT_REG16(reg, label) printf("%s: 0x%04X\n", label, (unsigned int)reg);
-#define UTIL_PRINT_REG32(reg, label) printf("%s: 0x%08lX\n", label, (unsigned int)reg);
+#define UTIL_PRINT_REG8(reg, label) printf("%s: 0x%02X\n", label, (unsigned int)(reg));
+#define UTIL_PRINT_REG16(reg, label) printf("%s: 0x%04X\n", label, (unsigned int)(reg));
+#define UTIL_PRINT_REG32(reg, label) printf("%s: 0x%08X\n", label, (unsigned int)(reg));
 
 
