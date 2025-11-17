@@ -1,7 +1,7 @@
 // MIT License
 // Copyright (c) 2025 UniTheCat
 
-#define I2C_TIMEOUT 100000
+#define I2C_TIMEOUT_DEFAULT 200000
 
 //! ####################################
 //! I2C INIT FUNCTIONS
@@ -15,7 +15,7 @@ void i2c_init(u32 systemClock_Hz, u32 i2cSpeed_Hz) {
 	I2C1->CTLR1 &= ~I2C_CTLR1_PE;
 
 	// configure I2C clock
-	I2C1->CTLR2 = systemClock_Hz / 1000000;
+	I2C1->CTLR2 = (systemClock_Hz / 1000000);
 	I2C1->CKCFGR = systemClock_Hz / (i2cSpeed_Hz << 1);	// SystemClockHz / (100KHz * 2)
 	
 	// Enable I2C
@@ -27,27 +27,27 @@ void i2c_init(u32 systemClock_Hz, u32 i2cSpeed_Hz) {
 
 u8 i2c_start(u8 i2cAddress, u8 isRead) {
 	//# Wait while BUSY, when BUSY is set to 0 then continue
-	u32 timeout = I2C_TIMEOUT;
-	while((I2C1->STAR2 & I2C_STAR2_BUSY) && timeout--);
-	if (timeout == 0) { I2C1->CTLR1 |= I2C_CTLR1_STOP; return 0x11; }
+	u32 timeout = I2C_TIMEOUT_DEFAULT;
+	while((I2C1->STAR2 & I2C_STAR2_BUSY) && --timeout);
+	// if (timeout == 0) { I2C1->CTLR1 |= I2C_CTLR1_STOP; return 0x11; }
 
 	//# Generate START condition
 	I2C1->CTLR1 |= I2C_CTLR1_START;
 
 	//# Wait while SB is 0, when SB is set to 1 then continue
-	timeout = I2C_TIMEOUT;
-	while(!(I2C1->STAR1 & I2C_STAR1_SB) && timeout--);
+	timeout = I2C_TIMEOUT_DEFAULT;
+	while(!(I2C1->STAR1 & I2C_STAR1_SB) && --timeout);
 	if (timeout == 0) { I2C1->CTLR1 |= I2C_CTLR1_STOP; return 0x12; }
-	// printf("timeoutB: %d\n", I2C_TIMEOUT - timeout);
+	// printf("timeoutB: %d\n", I2C_TIMEOUT_DEFAULT - timeout);
 
 	//# Send address + read/write. Write = 0, Read = 1
 	I2C1->DATAR = (i2cAddress << 1) | isRead;
 
 	//# Wait while ADDR is 0, if ADDR is set to 1 then continue
-	timeout = I2C_TIMEOUT;
-	while(!(I2C1->STAR1 & I2C_STAR1_ADDR) && timeout--);
+	timeout = I2C_TIMEOUT_DEFAULT;
+	while(!(I2C1->STAR1 & I2C_STAR1_ADDR) && --timeout);
 	if (timeout == 0) { I2C1->CTLR1 |= I2C_CTLR1_STOP; return 0x13; }
-	// printf("timeoutC: %d\n", I2C_TIMEOUT - timeout);
+	// printf("timeoutC: %d\n", I2C_TIMEOUT_DEFAULT - timeout);
 
 	//! REQUIRED. Clear ADDR by reading STAR1 then STAR2
 	(void)I2C1->STAR1;
@@ -66,15 +66,15 @@ u8 i2c_sendBytes_noStop(u8 i2cAddress, u8* buffer, u8 len) {
 
 	for(u8 i = 0; i < len; i++) {
 		//# Wait for register empty
-		timeout = I2C_TIMEOUT;
-		while(!(I2C1->STAR1 & I2C_STAR1_TXE) && timeout--);
+		timeout = I2C_TIMEOUT_DEFAULT;
+		while(!(I2C1->STAR1 & I2C_STAR1_TXE) && --timeout);
 		if (timeout == 0) { I2C1->CTLR1 |= I2C_CTLR1_STOP; return 0x21; }
 		I2C1->DATAR = buffer[i];		// Send data
 	}
 
 	//# Wait for transmission complete. Wait while BTF is 0, when set to 1 continue
-	timeout = I2C_TIMEOUT;
-	while(!(I2C1->STAR1 & I2C_STAR1_BTF) && timeout--);
+	timeout = I2C_TIMEOUT_DEFAULT;
+	while(!(I2C1->STAR1 & I2C_STAR1_BTF) && --timeout);
 	if (timeout == 0) { I2C1->CTLR1 |= I2C_CTLR1_STOP; return 0x22; }
 	
 	return 0;
@@ -108,8 +108,8 @@ u8 i2c_readBytes(u8 i2cAddress, u8* buffer, u8 len) {
 		if(i == len-1) I2C1->CTLR1 &= ~I2C_CTLR1_ACK;
 		
 		//# Wait for data. Wait while RxNE is 0, when set to 1 continue
-		u32 timeout = I2C_TIMEOUT;
-		while(!(I2C1->STAR1 & I2C_STAR1_RXNE) && timeout--);
+		u32 timeout = I2C_TIMEOUT_DEFAULT;
+		while(!(I2C1->STAR1 & I2C_STAR1_RXNE) && --timeout);
 		if (timeout == 0) { I2C1->CTLR1 |= I2C_CTLR1_STOP; return 0x31; }
 
 		//# Read data
@@ -138,15 +138,7 @@ u8 i2c_readReg_buffer(u8 i2cAddress, u8 reg, u8 *rx_buf, u8 rx_len) {
 //! ####################################
 
 void i2c_slave_init(u16 self_addr, u32 systemClock_Hz, u32 i2cSpeed_Hz) {
-	// Enable I2C clock
-	RCC->APB1PCENR |= RCC_APB1Periph_I2C1;
-	// Disable I2C before configuration
-	I2C1->CTLR1 &= ~I2C_CTLR1_PE;
-
-	// << 1 means x2
-	// configure I2C clock
-	I2C1->CTLR2 |= (systemClock_Hz / 1000000) & I2C_CTLR2_FREQ;
-	I2C1->CKCFGR = systemClock_Hz / (i2cSpeed_Hz << 1);
+	i2c_init(systemClock_Hz, i2cSpeed_Hz);
 
 	// Configure the CH32 I2C slave address to make it an I2C slave
 	I2C1->OADDR1  = (self_addr << 1);
@@ -156,12 +148,6 @@ void i2c_slave_init(u16 self_addr, u32 systemClock_Hz, u32 i2cSpeed_Hz) {
 	I2C1->CTLR2 |= I2C_CTLR2_ITEVTEN | I2C_CTLR2_ITERREN | I2C_CTLR2_ITBUFEN;
 	NVIC_EnableIRQ(I2C1_EV_IRQn); // I2C Event interrupt
 	NVIC_EnableIRQ(I2C1_ER_IRQn); // I2C Error interrupt
-
-	// Enable I2C
-	I2C1->CTLR1 |= I2C_CTLR1_PE;
-
-	// Enable ACK
-	I2C1->CTLR1 |= I2C_CTLR1_ACK;
 }
 
 void I2C1_ER_IRQHandler(void) __attribute__((interrupt));

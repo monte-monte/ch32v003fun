@@ -19,6 +19,13 @@
  * - Connect SCL (PA10) of both boards together
  * - Connect SDA (PA11) of both boards together
  * 
+ * Expected output readings from CH32X03X slave:
+ * Read 1 byte (cmd 0x01): 0x11
+ * Read 2 bytes (cmd 0x13): 0x5D 0x66 
+ * Read 4 bytes (cmd 0x14): 0x77 0x88 0x99 0xAA 
+ * write buffer (cmd 0x31): successful
+ * Read buffer (cmd 0x30): 0xAA 0xBB 0xCC 0xFF 0xFF 
+ * 
  * 0x3x Slave Command Set:
  * 0x01 - Minick BH1750 Power on command (returns 1 byte)
  * 0x23 - Minmick BH1750 Resolution command (returns 1 byte) 
