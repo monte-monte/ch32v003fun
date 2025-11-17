@@ -853,7 +853,7 @@ extern "C" {
 #define Ticks_from_Us(n)	((n) * DELAY_US_TIME)
 #define Ticks_from_Ms(n)	((n) * DELAY_MS_TIME)
 
-#define SystickElapsed(now,start)  ((uint32_t)((uint32_t)(now)-(uint32_t)(start)))
+#define TimeElapsed32(now,start)  ((uint32_t)((uint32_t)(now)-(uint32_t)(start)))
 
 // Add a certain number of nops.  Note: These are usually executed in pairs
 // and take two cycles, so you typically would use 0, 2, 4, etc.
