@@ -24,7 +24,7 @@ void UTIL_PRINT_BITS(u32 val, u8 len, const char* format, ...) {
 	
 	printf("[");
 	for (int i = (len)-1; i >= 0; i--) {
-		printf("%d", (uint32_t)(((val) >> i) & 1));
+		printf("%d", (unsigned int)(((val) >> i) & 1));
 		if (i > 0) printf(i % divider_len ? " " : " %s ", separator);
 	}
 	printf("]\n");
@@ -71,7 +71,7 @@ void UTIL_PRINT_BITS_VALUES(u32 reg, ...) {
 	// Print the pairs
 	for (int i = 0; i < pair_count; i++) {
 		if (i > 0) printf(", ");
-		printf("%s=%d", pairs[i].name, (uint32_t)((reg >> pairs[i].pos) & 1));
+		printf("%s=%d", pairs[i].name, (unsigned int)((reg >> pairs[i].pos) & 1));
 	}
 }
 
@@ -104,9 +104,9 @@ void UTIL_PRINT_BIT_RANGE(u32 reg, ...) {
 		const char* name = va_arg(count_args, const char*);
 		if (name == NULL) break;
 		int start = va_arg(count_args, int);
+		(void)start;
 		int end = va_arg(count_args, int);
-		(void)start = start;
-		(void)end = end;
+		(void)end;
 		field_count++;
 	}
 	va_end(count_args);
@@ -131,7 +131,7 @@ void UTIL_PRINT_BIT_RANGE(u32 reg, ...) {
 		} else {
 			// Multiple bits
 			int mask = ((1 << (fields[i].end - fields[i].start + 1)) - 1);
-			printf("%s=0x%02X", fields[i].name, (uint32_t)((reg >> fields[i].start) & mask));
+			printf("%s=0x%02X", fields[i].name, (unsigned int)((reg >> fields[i].start) & mask));
 		}
 	}
 	printf("\n");
