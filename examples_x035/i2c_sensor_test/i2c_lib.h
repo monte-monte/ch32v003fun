@@ -13,6 +13,8 @@ void i2c_init(u32 systemClock_Hz, u32 i2cSpeed_Hz) {
 
 	// Disable I2C before configuration
 	I2C1->CTLR1 &= ~I2C_CTLR1_PE;
+
+	// configure I2C clock
 	I2C1->CTLR2 = systemClock_Hz / 1000000;
 	I2C1->CKCFGR = systemClock_Hz / (i2cSpeed_Hz << 1);	// SystemClockHz / (100KHz * 2)
 	
@@ -138,12 +140,15 @@ u8 i2c_readReg_buffer(u8 i2cAddress, u8 reg, u8 *rx_buf, u8 rx_len) {
 void i2c_slave_init(u16 self_addr, u32 systemClock_Hz, u32 i2cSpeed_Hz) {
 	// Enable I2C clock
 	RCC->APB1PCENR |= RCC_APB1Periph_I2C1;
-	 // Disable I2C before configuration
+	// Disable I2C before configuration
 	I2C1->CTLR1 &= ~I2C_CTLR1_PE;
 
 	// << 1 means x2
+	// configure I2C clock
 	I2C1->CTLR2 |= (systemClock_Hz / 1000000) & I2C_CTLR2_FREQ;
 	I2C1->CKCFGR = systemClock_Hz / (i2cSpeed_Hz << 1);
+
+	// Configure the CH32 I2C slave address to make it an I2C slave
 	I2C1->OADDR1  = (self_addr << 1);
 	I2C1->OADDR2 = 0;
 
@@ -161,6 +166,7 @@ void i2c_slave_init(u16 self_addr, u32 systemClock_Hz, u32 i2cSpeed_Hz) {
 
 void I2C1_ER_IRQHandler(void) __attribute__((interrupt));
 void I2C1_ER_IRQHandler(void) {
+	// get I2C status
 	uint16_t STAR1 = I2C1->STAR1;
 
 	// Obtain and clear Bus error

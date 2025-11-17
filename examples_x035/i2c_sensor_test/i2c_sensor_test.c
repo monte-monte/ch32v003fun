@@ -2,11 +2,22 @@
  * I2C Master Communication Example
  * 
  * This example demonstrates I2C communication with an I2C slave device.
- * You can use this with:
+ * You can use this with (one or the other):
  * - BH1750 light sensor (actual hardware)
  * - Another CH32X035 running i2c_slave_test firmware
  * 
- * Target I2C address: 0x66 for the i2c_slave_test example
+ * if you are connecting a CH32X03X to a BH1750, the default slave address for the sensor is 0x23
+ * if you are connecting to another CH32X03X, the default slave address for the slave CH32X03X is 0x66
+ * For the CH32X03X slave, it needs to run the `i2c_slave_test` example
+ * 
+ * Setup for BH1750 sensor:
+ * - Connect SCL to PA10 (I2C1 SCL)
+ * - Connect SDA to PA11 (I2C1 SDA)
+ * 
+ * Setup for CH32X03X slave:
+ * - Connect both boards to the same I2C bus
+ * - Connect SCL (PA10) of both boards together
+ * - Connect SDA (PA11) of both boards together
  * 
  * 0x3x Slave Command Set:
  * 0x01 - Minick BH1750 Power on command (returns 1 byte)
@@ -148,10 +159,6 @@ int main() {
 	funPinMode(PA11, GPIO_CFGLR_OUT_50Mhz_AF_PP);  // I2C1 SDA
 
 	i2c_init(SYSTEM_CLOCK_HZ, 100000);
-	printf("\nCTLR1: 0x%04X\n", I2C1->CTLR1);	
-	printf("CTLR2: 0x%04X\n", I2C1->CTLR2);	
-	printf("CKCFGR: 0x%04X\n", I2C1->CKCFGR);
-
 	i2c_sendByte(I2C_ADDRESS, 0x01); // Power on
 	i2c_sendByte(I2C_ADDRESS, 0x23); // resolution
 
