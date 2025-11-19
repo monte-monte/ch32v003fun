@@ -40,18 +40,18 @@
 void WWDG_init(u32 PCLK1_freq, u32 prescaler, u8 window, u16 counter) {
 	u8 WDGTB = (prescaler >> 7) & 0x03;
 	printf("Prescaler: %d, WDGTB: %d\n", prescaler, WDGTB);
-    
-    u32 time_per_tick_ms = 4096 * (1 << WDGTB) * 1000 / PCLK1_freq;
-    u32 total_timeout_ms = time_per_tick_ms * (counter - 0x3F);
-    u32 window_start_ms = time_per_tick_ms * (window - 0x3F);
-    u32 window_duration_ms = time_per_tick_ms * (counter - window);
+	
+	u32 time_per_tick_ms = 4096 * (1 << WDGTB) * 1000 / PCLK1_freq;
+	u32 total_timeout_ms = time_per_tick_ms * (counter - 0x3F);
+	u32 window_start_ms = time_per_tick_ms * (window - 0x3F);
+	u32 window_duration_ms = time_per_tick_ms * (counter - window);
 
-    printf("PCLK1=%dMHz, WDGTB=/%d, Window=0x%02X, Counter=0x%02X:\n",
+	printf("PCLK1=%dMHz, WDGTB=/%d, Window=0x%02X, Counter=0x%02X:\n",
 		PCLK1_freq / 1000000, (1 << WDGTB), window, counter);
-    printf("  Time per tick: %lu ms\n", time_per_tick_ms);
-    printf("  Total timeout: %lu ms\n", total_timeout_ms);
-    printf("  Window opens: %lu ms\n", window_start_ms);
-    printf("  Window duration: %lu ms\n", window_duration_ms);
+	printf("  Time per tick: %lu ms\n", time_per_tick_ms);
+	printf("  Total timeout: %lu ms\n", total_timeout_ms);
+	printf("  Window opens: %lu ms\n", window_start_ms);
+	printf("  Window duration: %lu ms\n", window_duration_ms);
 
 	RCC->APB1PCENR |= RCC_APB1Periph_WWDG;
 
