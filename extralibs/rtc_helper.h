@@ -1,6 +1,8 @@
 // MIT License
 // Copyright (c) 2025 UniTheCat
 
+#define RTC_TICKS_PER_SECOND 32768
+
 #define SECONDS_PER_MINUTE 60
 #define SECONDS_PER_HOUR 3600
 #define SECONDS_PER_DAY 86400
@@ -79,9 +81,9 @@ rtc_time_t RTC_get_time(u32 total_seconds, u32 ms) {
 	};
 }
 
-rtc_date_t RTC_get_date(u32 total_seconds) {
+rtc_date_t RTC_get_date(u32 total_seconds, u16 year_base) {
 	rtc_date_t output = {
-		.year = 1970,
+		.year = year_base,
 		.month = 1,
 		.day = 1
 	};
@@ -101,14 +103,14 @@ rtc_date_t RTC_get_date(u32 total_seconds) {
 	for (u8 m = 0; m < 12; m++) {
 		u8 days_in_month = DAYS_IN_MONTH[m];
 		if (m == 1 && IS_LEAP_YEAR(output.year)) days_in_month = 29;
-		
-		if (days_remaining < days_in_month) {
-			output.day = days_remaining + 1;
-			break;
-		}
+		if (days_remaining < days_in_month) break;
+
 		days_remaining -= days_in_month;
 		output.month++;
 	}
+
+	// add 1 because days_remaining is 0-based
+	output.day = days_remaining + 1;
 
 	return output;	
 }

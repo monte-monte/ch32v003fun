@@ -46,7 +46,7 @@ int main() {
     printf("PLL Multiplier: %dx\n", pll_multiplier);
     printf("PLL Output: %lu MHz\n", 8000000 * pll_multiplier / 1000000);
 
-	RTC_init(32768);
+	RTC_init();
 
 	rtc_date_t date = {2025, 11, 18};
 	rtc_time_t time = {7, 10, 5};
@@ -54,7 +54,7 @@ int main() {
 
 	while(1) {
 		u32 seconds = RTC_GetCounter();
-		rtc_date_t date = RTC_get_date(seconds);
+		rtc_date_t date = RTC_get_date(seconds, 1970);
 		rtc_time_t time = RTC_get_time(seconds, 0);
 
 		printf("\n");

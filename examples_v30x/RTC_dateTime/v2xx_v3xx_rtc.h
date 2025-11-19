@@ -4,7 +4,7 @@
 //! CORE FUNCTION
 //! ####################################
 
-void RTC_init(u32 prescaler) {
+void RTC_init() {
 	// reset pheripherals
 	RCC->APB1PCENR |= RCC_APB1Periph_PWR | RCC_APB1Periph_BKP;
 
@@ -28,8 +28,8 @@ void RTC_init(u32 prescaler) {
 
 	RTC_CONFIG_CHANGE(
 		// Set prescaler value
-		RTC->PSCRH = ((prescaler-1) & PRLH_MSB_MASK) >> 16;
-		RTC->PSCRL = (prescaler-1) & RTC_LSB_MASK;
+		RTC->PSCRH = ((RTC_TICKS_PER_SECOND-1) & PRLH_MSB_MASK) >> 16;
+		RTC->PSCRL = (RTC_TICKS_PER_SECOND-1) & RTC_LSB_MASK;
 	);
 }
 
