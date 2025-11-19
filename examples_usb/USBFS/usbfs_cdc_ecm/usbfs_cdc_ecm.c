@@ -147,7 +147,7 @@ int main()
 		{
 			sfhip_accept_packet( &hip, &packet_buf, len );
 		}
-      const uint32_t now = SysTick_Ms;
+		const uint32_t now = SysTick_Ms;
 		const uint32_t delta_ms = now - last_ms;
 		last_ms = now;
 		sfhip_tick( &hip, &packet_buf, (int)delta_ms );
@@ -240,7 +240,7 @@ sfhip_length_or_tcp_code sfhip_tcp_event(
 	if ( h->state == HTP_ERROR )
 	{
 		// closed connection, maybe should be 500
-      h->state = HTP_DONE;
+		h->state = HTP_DONE;
 	}
 
 	// Phase one - if TCP send is confirmed,
@@ -269,7 +269,7 @@ sfhip_length_or_tcp_code sfhip_tcp_event(
 			if ( h->sent >= h->data_len )
 			{
 				h->state = HTP_DONE;
-            break;
+				break;
 			}
 			size_t len = h->data_len - h->sent;
 			if ( len > (size_t)max_out_payload ) len = (size_t)max_out_payload;
