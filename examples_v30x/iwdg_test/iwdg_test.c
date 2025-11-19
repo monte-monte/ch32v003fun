@@ -43,8 +43,9 @@ int main() {
 	IWDG_init(IWDG_Prescaler_64, 3124);
 
 	while(1) {
-		u8 read = funDigitalRead( PA3 );
+		int read = funDigitalRead( PA3 );
 		printf("PA3: %d\n", read);
+		
 		if (read) {
 			// Reload watchdog
 			printf("reload watchdog\n");
