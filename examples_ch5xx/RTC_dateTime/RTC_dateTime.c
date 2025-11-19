@@ -1,9 +1,8 @@
+// Simple example to show how to use the RTC to get the date and time
+
 #include "ch32fun.h"
 #include <stdio.h>
-
-#include "fun_rtc.h"
-
-// use defines to make more meaningful names for our GPIO pins
+#include "ch5xx_rtc.h"
 
 int main()
 {

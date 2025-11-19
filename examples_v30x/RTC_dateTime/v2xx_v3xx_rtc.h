@@ -1,3 +1,6 @@
+// MIT License
+// Copyright (c) 2025 UniTheCat
+
 #include "rtc_helper.h"
 
 //! ####################################
