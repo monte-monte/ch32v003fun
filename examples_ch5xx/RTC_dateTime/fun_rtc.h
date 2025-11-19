@@ -17,7 +17,7 @@ void fun_rtc_printRaw() {
 
 void _rtc_setDayCounter(u32 day_counter) {
 	SYS_SAFE_ACCESS(
-		R32_RTC_TRIG = day_counter;
+		R32_RTC_TRIG = day_counter - 1;
 		R8_RTC_MODE_CTRL |= RB_RTC_LOAD_HI;
 	);
 }
@@ -60,7 +60,7 @@ u32 _calculate_days_of_year(u16 year, u8 month, u8 day) {
 		day_of_year += DAYS_IN_MONTH[m];
 	}
 	
-	// Add extra day for February if it's a leap year
+	// Add extra day for February (full month) if it's a leap year
 	if (month > 2 && IS_LEAP_YEAR(year)) {
 		day_of_year += 1;
 	}
@@ -68,7 +68,7 @@ u32 _calculate_days_of_year(u16 year, u8 month, u8 day) {
 	// Add days in the current month
 	day_of_year += day;
 
-	return day_of_year - 1;	 // subtract 1 to make it 0-based
+	return day_of_year;
 }
 
 // the R32_RTC_CNT_DAY is only 14 bits.
@@ -86,7 +86,7 @@ void fun_rtc_setDate(rtc_date_t date) {
 		days_counter += IS_LEAP_YEAR(y) ? 366 : 365;
 	}
 
-	// Add days in the current year (0-based)
+	// Add days in the current year
 	days_counter += _calculate_days_of_year(date.year, date.month, date.day);
 	_rtc_setDayCounter(days_counter);
 }
@@ -151,14 +151,13 @@ void fun_rtc_getTime(rtc_time_t *time) {
 	// Calculate total seconds directly
 	u32 total_seconds = (seconds_2s * 2) + (ticks_32k / RTC_TICKS_PER_SECOND);
 
-	// Get remaining ticks for milliseconds
-	u32 remaining_ticks = ticks_32k % RTC_TICKS_PER_SECOND;
-
 	// Convert seconds to h:m:s
 	time->hr = total_seconds / 3600;
 	time->min = (total_seconds % 3600) / 60;
 	time->sec = total_seconds % 60;
 
+	// Get remaining ticks for milliseconds
+	u32 remaining_ticks = ticks_32k % RTC_TICKS_PER_SECOND;
 	// Calculate milliseconds
 	time->ms = (remaining_ticks * 1000UL) / RTC_TICKS_PER_SECOND;
 	
