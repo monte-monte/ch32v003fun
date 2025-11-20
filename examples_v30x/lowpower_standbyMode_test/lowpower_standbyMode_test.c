@@ -44,8 +44,7 @@ void IWDG_init(u16 prescaler, u16 reload) {
 int main() {
 	SystemInit();
 	Delay_Ms(100);
-	funGpioInitA();
-	funGpioInitB();
+	funGpioInitAll();
 
 	printf("\n~ Low Power Stop Mode Test ~\n");
 	funPinMode(LED_PIN, GPIO_CFGLR_OUT_10Mhz_PP);
