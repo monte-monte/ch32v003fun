@@ -2,6 +2,10 @@
 // and how to use the EXTI to wake up the system
 // The current consumption while sleep is around 50uA
 
+// Setup:
+// PA3 - WAKE Pin (connect to a button that goes low when pressed)
+// PB10 - LED indicator
+
 // Program behavior:
 // 1. 5 second delay to allow reprogramming
 // 2. Set all GPIOs to input pull up
