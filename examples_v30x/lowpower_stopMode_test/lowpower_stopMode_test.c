@@ -18,11 +18,14 @@
 
 #define WAKE_EXTI_LINE EXTI_Line3
 
+#define WAKE_PIN PA3
+#define LED_PIN PB10
+
 void blink_led(int time) {
 	for (int i = 0; i < time; i++) {
-		funDigitalWrite(PB10, 1);
+		funDigitalWrite(LED_PIN, 1);
 		Delay_Ms( 50 );
-		funDigitalWrite(PB10, 0);
+		funDigitalWrite(LED_PIN, 0);
 		Delay_Ms( 50 );
 	}
 }
@@ -50,10 +53,10 @@ int main() {
 	GPIOD->CFGHR = 0x88888888;
 	GPIOE->CFGHR = 0x88888888;
 
-	funDigitalWrite(PA3, 1);
-	funPinMode(PB10, GPIO_CFGLR_OUT_10Mhz_PP);
+	funDigitalWrite(WAKE_PIN, 1);
+	funPinMode(LED_PIN, GPIO_CFGLR_OUT_10Mhz_PP);
 
-	// Configure WAKE EXTI on PA3
+	// Configure WAKE EXTI on WAKE_PIN
 	AFIO->EXTICR[0] &= ~AFIO_EXTICR1_EXTI3;
 	AFIO->EXTICR[0] |= AFIO_EXTICR1_EXTI3_PA;
 
