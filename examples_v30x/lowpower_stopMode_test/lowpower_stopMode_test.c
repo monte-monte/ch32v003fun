@@ -54,7 +54,7 @@ int main() {
 	AFIO->EXTICR[0] |= AFIO_EXTICR1_EXTI3_PA;
 
 	// External interrupt trigger on falling edge
-    EXTI->INTENR |= WAKE_EXTI_LINE;
+	EXTI->INTENR |= WAKE_EXTI_LINE;
 	EXTI->FTENR |= WAKE_EXTI_LINE;
 
 	NVIC_EnableIRQ(EXTI3_IRQn);
@@ -76,14 +76,14 @@ int main() {
 
 	while(1) {
 		blink_led(3);
-        __WFE();
+		__WFE();
 		printf("Woke up from Stop Mode!\n");
 	}
 }
 
 __attribute__((interrupt)) void EXTI3_IRQHandler() {
 	// Check if EXTI0 interrupt is pending
-    if(EXTI->INTFR & WAKE_EXTI_LINE == 0) return;
+	if(EXTI->INTFR & WAKE_EXTI_LINE == 0) return;
 
 	// Clear the interrupt flag (IMPORTANT!)
 	EXTI->INTFR = WAKE_EXTI_LINE;
