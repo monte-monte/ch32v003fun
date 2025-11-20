@@ -8,9 +8,8 @@
 // 1. 5 second delay to allow reprogramming
 // 2. Set all GPIOs to input pull up
 // 3. Enter standby
-// 4. Wake up using the IWDG timer (after 8 seconds), the indicator Led will blink 5 times upon wakeup
+// 4. Wake up using the IWDG timer (after 5 seconds), the indicator Led will blink upon wakeup
 // 5. Go back to sleep and repeat
-
 
 #include "ch32fun.h"
 #include <stdio.h>
@@ -49,8 +48,14 @@ int main() {
 	funGpioInitB();
 
 	printf("\n~ Low Power Stop Mode Test ~\n");
+	funPinMode(LED_PIN, GPIO_CFGLR_OUT_10Mhz_PP);
+	blink_led(1);
+
 	//! WARNING: need 5 seconds to allow reprogramming on power up
-	Delay_Ms(5000);
+	//! DONT set GPIOA->CFGHR to pullup before the 5 seconds delay because they are used for SWCLK and SWDIO
+	// if you want to get around this 5s delay you can configure a GPIO input and check it to determine
+	// if it's in bypass mode so you can reprogram it
+	Delay_Ms(4000);
 
 	// Set all GPIOs to input pull up to reduce power consumption
 	GPIOA->CFGLR = 0x88888888;
@@ -65,9 +70,6 @@ int main() {
 	GPIOD->CFGHR = 0x88888888;
 	GPIOE->CFGHR = 0x88888888;
 
-	funPinMode(LED_PIN, GPIO_CFGLR_OUT_10Mhz_PP);
-	blink_led(5);
-
 	// Enable PWR clock
 	RCC->APB1PCENR |= RCC_APB1Periph_PWR;
 
@@ -75,8 +77,8 @@ int main() {
 	PWR->CTLR |= PWR_CTLR_PDDS;
 	NVIC->SCTLR |= (1 << 2);
 
-	// reload value for 8 second timeout = (8 * 40KHz / 128) - 1 = 2499
-	IWDG_init(IWDG_Prescaler_128, 2499);
+	// reload value for 5 second timeout = (5 * 40KHz / 128) - 1 = 1561
+	IWDG_init(IWDG_Prescaler_128, 1561);
 	__WFI();
 
 	while(1);
