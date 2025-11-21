@@ -1,62 +1,10 @@
-/**
- * I2C Master Communication Example
- * 
- * This example demonstrates I2C communication with an I2C slave device.
- * You can use this with (one or the other):
- * - BH1750 light sensor (actual hardware)
- * - Another CH32X035 running i2c_slave_test firmware
- * 
- * if you are connecting a CH32X03X to a BH1750, the default slave address for the sensor is 0x23
- * if you are connecting to another CH32X03X, the default slave address for the slave CH32X03X is 0x66
- * For the CH32X03X slave, it needs to run the `i2c_slave_test` example
- * 
- * Setup for BH1750 sensor:
- * - Connect SCL to PA10 (I2C1 SCL)
- * - Connect SDA to PA11 (I2C1 SDA)
- * 
- * Setup for CH32X03X slave:
- * - Connect both boards to the same I2C bus
- * - Connect SCL (PA10) of both boards together
- * - Connect SDA (PA11) of both boards together
- * 
- * Expected output readings from CH32X03X slave:
- * Read 1 byte (cmd 0x01): 0x11
- * Read 2 bytes (cmd 0x13): 0x5D 0x66 
- * Read 4 bytes (cmd 0x14): 0x77 0x88 0x99 0xAA 
- * write buffer (cmd 0x31): successful
- * Read buffer (cmd 0x30): 0xAA 0xBB 0xCC 0xFF 0xFF 
- * 
- * 0x3x Slave Command Set:
- * 0x01 - Minick BH1750 Power on command (returns 1 byte)
- * 0x23 - Minmick BH1750 Resolution command (returns 1 byte) 
- * 0x13 - Read 2 bytes from slave
- * 0x14 - Read 4 bytes from slave
- * 0x30 - Read from slave's writable buffer (32 bytes)
- * 0x31 - Write to slave's writable buffer (32 bytes)
- * 
- * Command 0x30: Read from writable buffer
- * Format: { 0x30, start_index }
- * - start_index: Position to start reading from (0-31)
- * Since buffer size is 32 bytes (0-31), reading from index 29:
- * - Returns bytes 29, 30, 31 (3 valid bytes)
- * - Remaining requested bytes return 0xFF (buffer boundary exceeded)
- * 
- * Command 0x31: Write to writable buffer  
- * Format: { 0x31, start_index, data0, data1, ... }
- * - start_index: Position to start writing to (0-31)
- * - dataX: Bytes to write (up to buffer boundary)
- * Since buffer ends at index 31:
- * - Writes 0xAA to index 29, 0xBB to index 30, 0xCC to index 31
- * - 0xDD is not written (buffer full)
- * - Returns success for written bytes only
- */
-
 #define FUNCONF_SYSTICK_USE_HCLK 1
 
 #include "ch32fun.h"
 #include <stdio.h>
-#include "i2c_lib.h"
+#include "lib_i2c.h"
 
+#define I2C_TARGET I2C1
 #define SYSTEM_CLOCK_HZ 48000000
 
 // #define I2C_ADDRESS 0x23		// use this for BH1750
@@ -64,27 +12,14 @@
 
 u8 read_state = 0;
 
-u32 SysTick_getCount() { return SysTick->CNT; }
-
-void SysTick_Start() {
-    SysTick->CTLR = 0x0000;
-    // Set the compare register
-    SysTick->CMP = 0xFFFFFFFF;
-    // Reset the Count Register, and the global millis counter to 0
-    SysTick->CNT = 0x00000000;
-    // Set the SysTick Configuration
-    SysTick->CTLR |= SYSTICK_CTLR_STE |  // Enable Counter
-                    SYSTICK_CTLR_STCLK ;  // Set Clock Source to HCLK/1    
-}
-
-void print_ch32_readings(u8 i2_addr) {
+void print_ch32_readings(I2C_TypeDef* I2Cx, u8 i2_addr) {
 	u8 rx_buf[8];
 	u8 read, err;
 
 	switch (read_state) {
 		case 0:
 			// read command 0x01: return 1 byte
-			err = i2c_readReg_buffer(i2_addr, 0x01, rx_buf, 1);
+			err = i2c_readReg_buffer(I2Cx, i2_addr, 0x01, rx_buf, 1);
 			if (!err) {
 				printf("\nRead 1 byte (cmd 0x01): 0x%02X", rx_buf[0]);
 			} else {
@@ -94,7 +29,7 @@ void print_ch32_readings(u8 i2_addr) {
 
 		case 1:
 			// read command 0x10: return 2 bytes
-			err = i2c_readReg_buffer(i2_addr, 0x13, rx_buf, 2);
+			err = i2c_readReg_buffer(I2Cx, i2_addr, 0x13, rx_buf, 2);
 			if (!err) {
 				printf("\nRead 2 bytes (cmd 0x13): ");
 				for (int i = 0; i < 2; i++) {
@@ -108,7 +43,7 @@ void print_ch32_readings(u8 i2_addr) {
 
 		case 2:
 			// read command 0x11: return 4 bytes
-			err = i2c_readReg_buffer(i2_addr, 0x14, rx_buf, 4);
+			err = i2c_readReg_buffer(I2Cx, i2_addr, 0x14, rx_buf, 4);
 
 			if (!err) {
 				printf("\nRead 4 bytes (cmd 0x14): ");
@@ -124,7 +59,7 @@ void print_ch32_readings(u8 i2_addr) {
 			{
 				// write command 0x31. write buffer
 				u8 write_request[] = { 0x31, 29, 0xAA, 0xBB, 0xCC, 0xDD };
-				err = i2c_sendBytes(i2_addr, &write_request, sizeof(write_request));
+				err = i2c_sendBytes(I2Cx, i2_addr, &write_request, sizeof(write_request));
 
 				if (!err) {
 					printf("\nwrite buffer (cmd 0x%02X): successful", 0x31);
@@ -139,7 +74,7 @@ void print_ch32_readings(u8 i2_addr) {
 			{
 				// read command 0x30: read buffer
 				u8 read_request[] = { 0x30, 29 };
-				err = i2c_readRegTx_buffer(i2_addr, &read_request, sizeof(read_request), &rx_buf, 5);
+				err = i2c_readRegTx_buffer(I2Cx, i2_addr, &read_request, sizeof(read_request), &rx_buf, 5);
 
 				if (!err) {
 					printf("\nRead buffer (cmd 0x30): ");
@@ -161,16 +96,19 @@ void print_ch32_readings(u8 i2_addr) {
 	if (read_state > 4) read_state = 0;
 }
 
-u16 get_bh1750_readings(u8 i2cAddress) {
+u16 get_bh1750_readings(I2C_TypeDef* I2Cx, u8 i2cAddress) {
 	u8 data[2];
-	i2c_readReg_buffer(i2cAddress, 0x13, data, 2);	// get Reading
+	i2c_readReg_buffer(I2Cx, i2cAddress, 0x13, data, 2);	// get Reading
 	u16 raw = (data[0] << 8) | data[1];
 	return raw * 12 / 10;  // Convert to lux
 }
 
+void onHandle_ping(u8 i2cAddress) {
+	printf("Found device: 0x%02X\n", i2cAddress);
+}
+
 int main() {
 	SystemInit();
-	SysTick_Start();
 	funGpioInitAll(); // Enable GPIOs
 
 	printf("\n~ I2C sensors Example ~\n");
@@ -180,21 +118,25 @@ int main() {
 	funPinMode(PA10, GPIO_CFGLR_OUT_50Mhz_AF_PP);	// I2C1 SCL
 	funPinMode(PA11, GPIO_CFGLR_OUT_50Mhz_AF_PP);  // I2C1 SDA
 
-	i2c_init(SYSTEM_CLOCK_HZ, 100000);
-	i2c_sendByte(I2C_ADDRESS, 0x01); // Power on
-	i2c_sendByte(I2C_ADDRESS, 0x23); // resolution
+	i2c_init(I2C_TARGET, FUNCONF_SYSTEM_CORE_CLOCK, 100000);
+	printf("Scanning I2C Bus...\n");
+	i2c_scan(I2C_TARGET, onHandle_ping);
+	printf("\nDone.\n");
+
+	i2c_sendByte(I2C_TARGET, I2C_ADDRESS, 0x01); // Power on
+	i2c_sendByte(I2C_TARGET, I2C_ADDRESS, 0x23); // resolution
 
 	u32 time_ref = 0;
 
 	while(1) {
-		if (TimeElapsed32(SysTick_getCount(), time_ref) > DELAY_SEC_TIME(1)) {
-			time_ref = SysTick_getCount();
+		if (TimeElapsed32(SysTick->CNT, time_ref) > DELAY_MSEC_COUNT(200)) {
+			time_ref = SysTick->CNT;
 
 			#if I2C_ADDRESS == 0x23
-				u16 lux = get_bh1750_readings(I2C_ADDRESS);
+				u16 lux = get_bh1750_readings(I2C_TARGET, I2C_ADDRESS);
 				printf("BH1750 Reading: %d lx\n", lux);
 			#else
-				print_ch32_readings(I2C_ADDRESS);
+				print_ch32_readings(I2C_TARGET, I2C_ADDRESS);
 			#endif
 		}
 	}

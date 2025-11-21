@@ -30,7 +30,7 @@
 
 #include "ch32fun.h"
 #include <stdio.h>
-#include "../i2c_sensor_test/i2c_lib.h"
+#include "lib_i2c.h"
 
 #define SYSTEM_CLOCK_HZ 48000000
 #define I2C_SELF_ADDR 0x66
@@ -58,7 +58,7 @@ int main() {
 	funPinMode(PA11, GPIO_CFGLR_OUT_50Mhz_AF_PP);  // I2C1 SDA
 
 	// Initialize I2C as slave
-	i2c_slave_init(I2C_SELF_ADDR, SYSTEM_CLOCK_HZ, 100000);
+	i2c_slave_init(I2C1, I2C_SELF_ADDR, SYSTEM_CLOCK_HZ, 100000);
 	printf("CTLR1: 0x%04X\n", I2C1->CTLR1);	
 	printf("CTLR2: 0x%04X\n", I2C1->CTLR2);	
 	printf("OADDR1: 0x%04X\n", I2C1->OADDR1);
