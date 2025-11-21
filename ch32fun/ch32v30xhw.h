@@ -1757,8 +1757,9 @@ typedef struct{
 #define I2C1_BASE                               (APB1PERIPH_BASE + 0x5400)
 #define I2C2_BASE                               (APB1PERIPH_BASE + 0x5800)
 #define CAN1_BASE                               (APB1PERIPH_BASE + 0x6400)
-#define CAN2_BASE             (APB1PERIPH_BASE + 0x6800)
+#define CAN2_BASE                               (APB1PERIPH_BASE + 0x6800)
 #define BKP_BASE                                (APB1PERIPH_BASE + 0x6C00)
+#define BKP2_BASE                               (APB1PERIPH_BASE + 0x6C40)
 #define PWR_BASE                                (APB1PERIPH_BASE + 0x7000)
 #define DAC_BASE              					(APB1PERIPH_BASE + 0x7400)
 
