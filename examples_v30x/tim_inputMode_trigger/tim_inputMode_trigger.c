@@ -1,7 +1,7 @@
 // Simple example of Timer1 Slave modes
 // This example uses Timer1 Channel1 (PA8) as external trigger input
 // You can connect PA8 to a button (other side to GND)
-// OR just run a wire to PA1 and short it to GND and release to trigger an event
+// OR just run a wire to PA8 and short it to GND and release to trigger an event
 
 // Reset Mode: Counter resets on trigger event
 // ... 8, 9, 10, (trigger low), (trigger release), 0, 1 , 2, 3 ...
