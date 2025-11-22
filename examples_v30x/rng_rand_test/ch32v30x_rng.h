@@ -1,6 +1,6 @@
 #include "ch32fun.h"
 
-void RNG_init(void) {
+static void RNG_init(void) {
 	// Enable RNG clock
 	RCC->AHBPCENR |= RCC_AHBPeriph_RNG;
 	
@@ -9,7 +9,7 @@ void RNG_init(void) {
 }
 
 // Get a random number (blocking)
-u32 RNG_rand(void) {
+static u32 RNG_rand(void) {
 	// Wait until data is ready
 	while(!(RNG->SR & RNG_SR_DRDY)) {
 		// Handle seed error
@@ -17,7 +17,6 @@ u32 RNG_rand(void) {
 
 		RNG->CR &= ~RNG_CR_RNGEN;		// Disable RNG
 		RNG->SR = 0;					// Clear error flags
-		Delay_Us(1);					// Wait
 		RNG->CR |= RNG_CR_RNGEN;		// Re-enable RNG
 	}
 	
