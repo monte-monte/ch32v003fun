@@ -3,6 +3,17 @@
 // Here the TIM1 is set as a slave to the TI1FP1 filtered TI1 signal source,
 // It is also configure as a master that triggers TIM2 via the TRGO trigger output of the ITR0 internal trigger.
 
+// In layman's terms:
+// We want an input trigger that can start both timers at the same time.
+// In order to do this, we need to configure the TIM1 as a slave to the trigger input PA8.
+// It also needs to be configured as a master as well to trigger the slave TIM2.
+
+// So PA8 trigger => TIM1 Slave => TIM1 Master - Trigger Output (TRGO) => TIM2 Slave
+// Since PA8 is configured to be triggered on falling edge, so when it goes low, it starts it's slave TIM1, 
+// since TIM1 is the master of TIM2 and it's configured to be TIM2 TRGO (Trigger Output)
+// using the Internal Trigger0 (ITR0) channel, it starts TIM2 as well.
+// this is as best as I understood it.
+
 // program behavior:
 // when the TIM1 input trigger PA8 goes low, TIM1 and TIM2 starts counting.
 
