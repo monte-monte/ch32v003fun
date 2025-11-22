@@ -927,6 +927,8 @@ typedef struct
 typedef struct
 {
     __IO uint32_t EXTEN_CTR;
+    __IO uint32_t EXTEN_CTR2;
+    __IO uint32_t FEATURE_SIGN;
 } EXTEN_TypeDef;
 
 /* The reference manual for the ch32v2xx/v3xx reference this as "CTR" field in the "EXTEND" register so adding an alias here. */

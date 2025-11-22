@@ -2,7 +2,7 @@
 
 #include "ch32fun.h"
 
-void PVD_init(u8 threshold) {
+static void PVD_init(u8 threshold) {
 	if (threshold > PVD_MAX_THRESHOLD_LVL) threshold = PVD_MAX_THRESHOLD_LVL;
 
 	// Enable PWR clock
@@ -16,11 +16,11 @@ void PVD_init(u8 threshold) {
 }
 
 // Get threshold setting: the PLS[1:0] bits
-u8 PVD_getThreshold() {
+static int PVD_getThreshold() {
 	return (PWR->CTLR & PWR_CTLR_PLS) >> 5;
 }	
 
 // return PVD flag: 1 if VDD below threshold
-u8 PVD_getAlert() {
+static int PVD_getAlert() {
 	return PWR->CSR & PWR_CSR_PVDO;
 }
