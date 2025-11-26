@@ -23,13 +23,9 @@ struct RiscVChip_s {
 	uint16_t isp_id_mask; // ID to detect model of the chip using ISP bootloader
 };
 
-static uint32_t getMemoryEnd(struct RiscVChip_s * chip, enum MemoryArea area)
-{
-	return (&chip->flash_offset)[(area-1)*2] + (&chip->flash_size)[(area-1)*2];
-}
-
 const struct RiscVChip_s* FindChip(uint32_t chip_id);
 const struct RiscVChip_s* FindChipISP(uint16_t chip_id);
+uint32_t getMemoryEnd(const struct RiscVChip_s * chip, enum MemoryArea area);
 
 extern const struct RiscVChip_s ch32v003;
 extern const struct RiscVChip_s ch32v002;
