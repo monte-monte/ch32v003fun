@@ -1483,6 +1483,7 @@ static int DefaultDetermineChipType( void * dev )
 			uint32_t flash_size_address = 0x1ffff7e0;
 			uint32_t masked_id = sevenf_id & 0xfff00000;
 			uint32_t masked_id2 = sevenf_id & 0xfff00f00;
+
 			if( masked_id == 0x3b00000 )
 			{
 				iss->target_chip = &ch32m030;
@@ -1507,6 +1508,11 @@ static int DefaultDetermineChipType( void * dev )
 			else if( masked_id == 0x00400000 )
 			{
 				iss->target_chip = &ch32v004;
+				chip_id_address = 0x1ffff704;
+			}
+			else if( masked_id == 0x00500000 )
+			{
+				iss->target_chip = &ch32v005;
 				chip_id_address = 0x1ffff704;
 			}
 			else if( masked_id == 0x00600000 )
