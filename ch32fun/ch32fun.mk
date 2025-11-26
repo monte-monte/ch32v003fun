@@ -73,7 +73,7 @@ ifeq ($(findstring CH32V00,$(TARGET_MCU)),CH32V00) # CH32V002, 3, 4, 5, 6, 7
 	else ifeq ($(findstring CH32V004, $(TARGET_MCU)), CH32V004)
 		TARGET_MCU_LD:=6
 	else ifeq ($(findstring CH32V005, $(TARGET_MCU)), CH32V005)
-		TARGET_MCU_LD:=7
+		TARGET_MCU_LD:=6
 	else ifeq ($(findstring CH32V006, $(TARGET_MCU)), CH32V006)
 		TARGET_MCU_LD:=7
 	else ifeq ($(findstring CH32V007, $(TARGET_MCU)), CH32V007)
