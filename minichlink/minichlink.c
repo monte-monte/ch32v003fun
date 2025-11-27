@@ -2387,14 +2387,17 @@ static int DefaultReadWord( void * dev, uint32_t address_to_read, uint32_t * dat
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
 	int autoincrement = 1;
-	if( address_to_read == 0x40022010 || address_to_read == 0x4002200C )  // Don't autoincrement when checking flash flag. 
+	if( address_to_read == 0x40022010 ||
+      address_to_read == 0x4002200C ||
+      address_to_read + 4 >= getMemoryEnd(iss->target_chip, iss->current_area))
 	{
+    // Don't autoincrement when checking flash flag. Or on last byte of memory area.
 		autoincrement = 0;
 	}
 
 	if( iss->statetag != STTAG( "RDSQ" ) || address_to_read != iss->currentstateval || autoincrement != iss->autoincrement )
 	{
-		if( iss->statetag != STTAG( "RDSQ" ) )
+		if( iss->statetag != STTAG( "RDSQ" ) || !autoincrement )
 		{
 			if( iss->statetag != STTAG( "WRSQ" ) )
 			{
