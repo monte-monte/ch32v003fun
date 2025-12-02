@@ -717,7 +717,7 @@ int ReadRSSI() {
 }
 
 __HIGH_CODE
-void Frame_TX(uint8_t adv[], size_t len, uint8_t channel, uint8_t phy_mode) {
+void Frame_TX(uint32_t access_address, uint8_t adv[], size_t len, uint8_t channel, uint8_t phy_mode) {
 	__attribute__((aligned(4))) uint8_t  ADV_BUF[len+2]; // for the advertisement, which is 37 bytes + 2 header bytes
 
 	BB->CTRL_TX = (BB->CTRL_TX & 0xfffffffc) | 1;
@@ -728,10 +728,10 @@ void Frame_TX(uint8_t adv[], size_t len, uint8_t channel, uint8_t phy_mode) {
 	//BB->CTRL_CFG |= (1<<6);
 	DevSetMode(DEVSETMODE_TX);
 
-	BB->ACCESSADDRESS1 = 0x8E89BED6; // access address
+	BB->ACCESSADDRESS1 = access_address; // access address
 	BB->CRCINIT1 = 0x555555; // crc init
 #ifdef CH570_CH572
-	BB->ACCESSADDRESS2 = 0x8E89BED6;
+	BB->ACCESSADDRESS2 = access_address;
 	BB->CRCINIT2 = 0x555555;
 	BB->CRCPOLY1 = (BB->CRCPOLY1 & 0xff000000) | 0x80032d; // crc poly
 	BB->CRCPOLY2 = (BB->CRCPOLY2 & 0xff000000) | 0x80032d;
@@ -796,7 +796,7 @@ void Frame_TX(uint8_t adv[], size_t len, uint8_t channel, uint8_t phy_mode) {
 }
 
 __HIGH_CODE
-void Frame_RX(uint8_t channel, uint8_t phy_mode) {
+void Frame_RX(uint32_t access_address, uint8_t channel, uint8_t phy_mode) {
 	DevSetMode(0);
 	if(LL->LL0 & 3) {
 		LL->CTRL_MOD &= CTRL_MOD_RFSTOP;
@@ -845,10 +845,10 @@ void Frame_RX(uint8_t channel, uint8_t phy_mode) {
 	BB->BB4 = (BB->BB4 & 0x00ffffff) | ((phy_mode == PHY_2M) ? 0x78000000 : 0x7f000000);
 #endif
 
-	BB->ACCESSADDRESS1 = 0x8E89BED6; // access address
+	BB->ACCESSADDRESS1 = access_address; // access address
 	BB->CRCINIT1 = 0x555555; // crc init
 #ifdef CH570_CH572
-	BB->ACCESSADDRESS2 = 0x8E89BED6;
+	BB->ACCESSADDRESS2 = access_address;
 	BB->CRCINIT2 = 0x555555;
 	BB->CRCPOLY1 = (BB->CRCPOLY1 & 0xff000000) | 0x80032d; // crc poly
 	BB->CRCPOLY2 = (BB->CRCPOLY2 & 0xff000000) | 0x80032d;

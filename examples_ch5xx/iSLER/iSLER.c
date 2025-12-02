@@ -14,7 +14,8 @@
 #else
 #define LED PA8
 #endif
-#define PHY_MODE   PHY_1M
+#define PHY_MODE       PHY_1M
+#define ACCESS_ADDRESS 0x8E89BED6 // the "BED6" address for BLE advertisements
 
 #define REPORT_ALL 1 // if 0 only report received Find My advertisements
 
@@ -58,7 +59,7 @@ void incoming_frame_handler() {
 		adv[sizeof(adv) -2] = hex_lut[(frame[7] >> 4)];
 		adv[sizeof(adv) -1] = hex_lut[(frame[7] & 0xf)];
 		for(int c = 0; c < sizeof(adv_channels); c++) {
-			Frame_TX(adv, sizeof(adv), adv_channels[c], PHY_MODE);
+			Frame_TX(ACCESS_ADDRESS, adv, sizeof(adv), adv_channels[c], PHY_MODE);
 		}
 	}
 }
@@ -77,13 +78,13 @@ int main()
 
 	// send out a first RX:?? advertisement to show we are alive
 	for(int c = 0; c < sizeof(adv_channels); c++) {
-		Frame_TX(adv, sizeof(adv), adv_channels[c], PHY_MODE);
+		Frame_TX(ACCESS_ADDRESS, adv, sizeof(adv), adv_channels[c], PHY_MODE);
 	}
 
 	while(1) {
-		// now listen for frames on channel 37. When the RF subsystem
+		// now listen for frames on channel 37 on bed6. When the RF subsystem
 		// detects and finalizes one, "rx_ready" in iSLER.h is set true
-		Frame_RX(37, PHY_MODE);
+		Frame_RX(ACCESS_ADDRESS, 37, PHY_MODE);
 		while(!rx_ready);
 
 		// we stepped over !rx_ready so we got a frame

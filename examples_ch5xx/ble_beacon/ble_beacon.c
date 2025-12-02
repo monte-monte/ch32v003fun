@@ -15,6 +15,8 @@
 #define LED PA8
 #endif
 
+#define ACCESS_ADDRESS 0x8E89BED6 // the "BED6" address for BLE advertisements
+
 #define SLEEPTIME_MS 300
 
 // The advertisement to be sent. The MAC address should be in the first 6 bytes in reversed byte order,
@@ -73,7 +75,7 @@ int main() {
 	while(1) {
 		// BLE advertisements are sent on channels 37, 38 and 39, over the 1M PHY
 		for(int c = 0; c < sizeof(adv_channels); c++) {
-			Frame_TX(adv, sizeof(adv), adv_channels[c], PHY_1M);
+			Frame_TX(ACCESS_ADDRESS, adv, sizeof(adv), adv_channels[c], PHY_1M);
 		}
 
 		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM2K | RB_PWR_RAMX | RB_PWR_EXTEND) ); // PWR_RAM can be optimized
