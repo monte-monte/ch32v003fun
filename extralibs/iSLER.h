@@ -6,13 +6,14 @@
 #ifdef CH570_CH572
 #define CRCPOLY1           BB2
 #define ACCESSADDRESS1     BB3
+#define RSSI               BB12 // ? couldn't find it, not sure
 #define CTRL_TX            BB13
 #define CRCINIT2           BB22
 #define CRCPOLY2           BB23
 #define ACCESSADDRESS2     BB24
 #define TMR                LL25
-#define TXBUF          LL30
-#define RXBUF          LL31
+#define TXBUF              LL30
+#define RXBUF              LL31
 #define CTRL_MOD_RFSTOP    0xfffff8ff
 #define DEVSETMODE_ON      ((BB->CTRL_CFG & 0xfffcffff) | 0x20000)
 #define DEVSETMODE_OFF     ((BB->CTRL_CFG & 0xfffcffff) | 0x10000)
@@ -27,9 +28,10 @@
 #define TXBUF 		       DMA4
 #define ACCESSADDRESS1     BB2
 #define CTRL_TX            BB11
+#define RSSI               BB12 // ? couldn't find it, not sure
 #define TMR                LL24
-#define TXBUF          LL28
-#define RXBUF          LL29
+#define TXBUF              LL28
+#define RXBUF              LL29
 #define RFEND_TXCTUNE_INIT 0x180000
 #define CTRL_MOD_RFSTOP    0xfffffff8
 #define DEVSETMODE_TUNE    0x5d
@@ -41,9 +43,10 @@
 #elif defined(CH582_CH583)
 #define ACCESSADDRESS1     BB2
 #define CTRL_TX            BB11
+#define RSSI               BB12
 #define TMR                LL25
-#define TXBUF          LL28
-#define RXBUF          LL29
+#define TXBUF              LL28
+#define RXBUF              LL29
 #define RFEND_TXCTUNE_INIT 0x880000
 #define CTRL_TX_TXPOWER    0x80010e78
 #define CTRL_MOD_RFSTOP    0xfffffff8
@@ -60,9 +63,10 @@
 #elif (defined(CH584_CH585) || defined(CH591_CH592))
 #define ACCESSADDRESS1     BB2
 #define CTRL_TX            BB11
+#define RSSI               BB12
 #define TMR                LL25
-#define TXBUF          LL30
-#define RXBUF          LL31
+#define TXBUF              LL30
+#define RXBUF              LL31
 #define CTRL_MOD_RFSTOP    0xfffff8ff
 #define DEVSETMODE_ON      ((BB->CTRL_CFG & 0xfffffcff) | 0x280)
 #define DEVSETMODE_OFF     ((BB->CTRL_CFG & 0xfffffcff) | 0x100)
@@ -77,9 +81,10 @@
 #define CH32V208
 #define ACCESSADDRESS1     BB2
 #define CTRL_TX            BB11
+#define RSSI               BB12
 #define TMR                LL25
-#define TXBUF          LL28
-#define RXBUF          LL29
+#define TXBUF              LL28
+#define RXBUF              LL29
 #define RFEND_TXCTUNE_INIT 0x100000
 #define CTRL_TX_TXPOWER    0x80010ec8
 #define CTRL_MOD_RFSTOP    0xfffffff8
@@ -706,6 +711,12 @@ void DevSetChannel(uint8_t channel) {
 	BB->CTRL_CFG = (BB->CTRL_CFG & 0xffffff80) | (channel & 0x7f);
 }
 
+__HIGH_CODE
+int ReadRSSI() {
+	return (BB->RSSI >> 0xf) & 0xff;
+}
+
+__HIGH_CODE
 void Frame_TX(uint8_t adv[], size_t len, uint8_t channel, uint8_t phy_mode) {
 	__attribute__((aligned(4))) uint8_t  ADV_BUF[len+2]; // for the advertisement, which is 37 bytes + 2 header bytes
 
@@ -784,7 +795,8 @@ void Frame_TX(uint8_t adv[], size_t len, uint8_t channel, uint8_t phy_mode) {
 	}
 }
 
-void Frame_RX(uint8_t frame_info[], uint8_t channel, uint8_t phy_mode) {
+__HIGH_CODE
+void Frame_RX(uint8_t channel, uint8_t phy_mode) {
 	DevSetMode(0);
 	if(LL->LL0 & 3) {
 		LL->CTRL_MOD &= CTRL_MOD_RFSTOP;
@@ -841,9 +853,6 @@ void Frame_RX(uint8_t frame_info[], uint8_t channel, uint8_t phy_mode) {
 	BB->CRCPOLY1 = (BB->CRCPOLY1 & 0xff000000) | 0x80032d; // crc poly
 	BB->CRCPOLY2 = (BB->CRCPOLY2 & 0xff000000) | 0x80032d;
 #endif
-
-	//LL->LL1 = (LL->LL1 & 0xfffffffe) | 1; // 1: AUTO mode, to swap between RX <-> TX when either happened. 0: BASIC
-	//LL->TXBUF = (uint32_t)frame_info; // also this only in AUTO mode
 
 	LL->LL0 = 1; // Not sure what this does, but on TX it's 2
 	rx_ready = 0;
