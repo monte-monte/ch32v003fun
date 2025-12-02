@@ -19,9 +19,11 @@
 
 #define REPORT_ALL 1 // if 0 only report received Find My advertisements
 
-uint8_t adv[] = {0x66, 0x55, 0x44, 0x33, 0x22, 0x11, // MAC (reversed)
-				 0x03, 0x19, 0x00, 0x00, // 0x19: "Appearance", 0x00, 0x00: "Unknown"
-				 0x06, 0x09, 'R', 'X', ':', '?', '?'}; // 0x09: "Complete Local Name"
+__attribute__((aligned(4))) uint8_t adv[] = {
+		0x02, 0x11, // header for LL: PDU + frame length
+		0x66, 0x55, 0x44, 0x33, 0x22, 0x11, // MAC (reversed)
+		0x03, 0x19, 0x00, 0x00, // 0x19: "Appearance", 0x00, 0x00: "Unknown"
+		0x06, 0x09, 'R', 'X', ':', '?', '?'}; // 0x09: "Complete Local Name"
 
 // BLE advertisements are sent on channels 37, 38 and 39
 uint8_t adv_channels[] = {37,38,39};

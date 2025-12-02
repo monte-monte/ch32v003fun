@@ -718,8 +718,6 @@ int ReadRSSI() {
 
 __HIGH_CODE
 void Frame_TX(uint32_t access_address, uint8_t adv[], size_t len, uint8_t channel, uint8_t phy_mode) {
-	__attribute__((aligned(4))) uint8_t  ADV_BUF[len+2]; // for the advertisement, which is 37 bytes + 2 header bytes
-
 	BB->CTRL_TX = (BB->CTRL_TX & 0xfffffffc) | 1;
 
 	DevSetChannel(channel);
@@ -736,16 +734,11 @@ void Frame_TX(uint32_t access_address, uint8_t adv[], size_t len, uint8_t channe
 	BB->CRCPOLY1 = (BB->CRCPOLY1 & 0xff000000) | 0x80032d; // crc poly
 	BB->CRCPOLY2 = (BB->CRCPOLY2 & 0xff000000) | 0x80032d;
 #endif
-	// LL->LL1 = (LL->LL1 & 0xfffffffe) | 1; // The "| 1" is for AUTO mode, to swap between RX <-> TX when either happened
-
-	ADV_BUF[0] = 0x02; // PDU 0x00, 0x02, 0x06 seem to work, with only 0x02 showing up on the phone
-	ADV_BUF[1] = len ;
-	memcpy(&ADV_BUF[2], adv, len);
 
 #if defined(CH571_CH573)
-	DMA->TXBUF = (uint32_t)ADV_BUF;
+	DMA->TXBUF = (uint32_t)adv;
 #else
-	LL->TXBUF = (uint32_t)ADV_BUF;
+	LL->TXBUF = (uint32_t)adv;
 #endif
 
 	// Wait for tuning bit to clear.
