@@ -712,8 +712,8 @@ void DevSetChannel(uint8_t channel) {
 }
 
 __HIGH_CODE
-int ReadRSSI() {
-	return (BB->RSSI >> 0xf) & 0xff;
+int8_t ReadRSSI() {
+	return (int8_t)(BB->RSSI >> 0xf);
 }
 
 __HIGH_CODE
