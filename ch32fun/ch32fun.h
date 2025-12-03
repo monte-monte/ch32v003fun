@@ -899,8 +899,8 @@ extern "C" {
 #define PB                            0
 #define OFFSET_FOR_GPIOB(pin)         0
 #endif
-#define GPIO_ResetBits(pin)           (*(&R32_PA_CLR + OFFSET_FOR_GPIOB(pin)) |= (pin & ~PB))
-#define GPIO_SetBits(pin)             (*(&R32_PA_OUT + OFFSET_FOR_GPIOB(pin)) |= (pin & ~PB))
+#define GPIO_ResetBits(pin)           (*(&R32_PA_CLR + OFFSET_FOR_GPIOB(pin)) =  (pin & ~PB))
+#define GPIO_SetBits(pin)             (*(&R32_PA_SET + OFFSET_FOR_GPIOB(pin)) =  (pin & ~PB))
 #define GPIO_InverseBits(pin)         (*(&R32_PA_OUT + OFFSET_FOR_GPIOB(pin)) ^= (pin & ~PB))
 #define GPIO_ReadPortPin(pin)         (*(&R32_PA_PIN + OFFSET_FOR_GPIOB(pin)) &  (pin & ~PB))
 #define funDigitalRead(pin)           GPIO_ReadPortPin(pin)
