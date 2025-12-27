@@ -4,6 +4,7 @@ requires pyusb, which should be pippable
 SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="d035", MODE="666"
 sudo udevadm control --reload-rules && sudo udevadm trigger
 """
+import os
 import argparse
 import usb.core
 import usb.util
@@ -56,11 +57,12 @@ def bootloader():
     device.write(CH_USB_EP_OUT, CH_STR_REBOOT)
 
 def echo():
+    buf = os.urandom(4)
     start = timer()
-    device.write(CH_USB_EP_OUT, [0x11, 0x22, 0x33, 0x44])
+    device.write(CH_USB_EP_OUT, buf)
     r = device.read(CH_USB_EP_IN, CH_USB_PACKET_SIZE, CH_USB_TIMEOUT_MS)
     end = timer()
-    print(f'echo {bytes(r).hex(':')} took {end - start} seconds')
+    print(f'echo {bytes(r).hex(':')} (chk:{bytes(r) == buf}) took {end - start} seconds')
 
 
 if __name__ == '__main__':
