@@ -71,7 +71,7 @@ void HandleDataOut( struct _USBState * ctx, int endp, uint8_t * data, int len ) 
 			jump_isprom();
 		}
 		else if( gs_usb_data_buf[0] == 0 ) {
-			gs_usb_data_buf[0]  = len;
+			gs_usb_data_buf[0] = len;
 			mcpy_raw(&gs_usb_data_buf[1], data, data +len);
 		}
 		else {
@@ -98,7 +98,7 @@ int main() {
 		if( gs_usb_data_buf[0] ) {
 			// Send data back to PC.
 			while( USBFSCTX.USBFS_Endp_Busy[USB_EP_TX] & 1 );
-			USBFS_SendEndpointNEW( USB_EP_TX, &gs_usb_data_buf[1], gs_usb_data_buf[0], 0 );
+			USBFS_SendEndpointNEW( USB_EP_TX, &gs_usb_data_buf[1], gs_usb_data_buf[0], /*copy=*/1 ); // USBFS needs a copy here
 			gs_usb_data_buf[0] = 0;
 		}
 	}

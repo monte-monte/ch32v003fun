@@ -65,7 +65,7 @@ void HandleDataOut( struct _USBState * ctx, int endp, uint8_t * data, int len ) 
 			jump_isprom();
 		}
 		else if( gs_usb_data_buf[0] == 0 ) {
-			gs_usb_data_buf[0]  = len;
+			gs_usb_data_buf[0] = len;
 			mcpy_raw(&gs_usb_data_buf[1], data, data +len);
 		}
 		else {
