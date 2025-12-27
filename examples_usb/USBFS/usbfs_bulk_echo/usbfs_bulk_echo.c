@@ -4,10 +4,9 @@
 #define LED               PA8
 #define USB_DATA_BUF_SIZE 64
 
-__attribute__((aligned(4))) static uint8_t gs_usb_data_buf[USB_DATA_BUF_SIZE];
+__attribute__((aligned(4))) static volatile uint8_t gs_usb_data_buf[USB_DATA_BUF_SIZE];
 
-static inline void mcpy_raw( void *dst, const void *start, void *end )
-{
+static inline void mcpy_raw( void *dst, const void *start, void *end ) {
 	__asm__ volatile ( ".insn r 0x0f, 0x7, 0, x0, %3, %0, %1"
 	      : "+r"(start), "+r"(dst)
 	      :  "r"(0), "r"(end)
@@ -54,6 +53,7 @@ int HandleSetupCustom( struct _USBState * ctx, int setup_code) {
 }
 
 int HandleInRequest( struct _USBState * ctx, int endp, uint8_t * data, int len ) {
+	UEP_CTRL_TX(endp) ^= USBFS_UEP_T_TOG;
 	return 0;
 }
 

@@ -4,7 +4,7 @@
 #define LED               PA8
 #define USB_DATA_BUF_SIZE 64
 
-__attribute__((aligned(4))) static uint8_t gs_usb_data_buf[USB_DATA_BUF_SIZE];
+__attribute__((aligned(4))) static volatile uint8_t gs_usb_data_buf[USB_DATA_BUF_SIZE];
 
 __HIGH_CODE
 void blink(int n) {
@@ -46,11 +46,13 @@ int HandleSetupCustom( struct _USBState * ctx, int setup_code) {
 }
 
 int HandleInRequest( struct _USBState * ctx, int endp, uint8_t * data, int len ) {
+	UEP_CTRL_TX(endp) ^= USBHS_UEP_T_TOG_DATA1;
 	return 0;
 }
 
 __HIGH_CODE
 void HandleDataOut( struct _USBState * ctx, int endp, uint8_t * data, int len ) {
+	UEP_CTRL_RX(endp) ^= USBHS_UEP_R_TOG_DATA1;
 	// this is actually the data rx handler
 	if ( endp == 0 ) {
 		// this is in the hsusb.c default handler
