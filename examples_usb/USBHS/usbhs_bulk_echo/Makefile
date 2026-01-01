@@ -6,5 +6,8 @@ TARGET_MCU_PACKAGE:=CH585M
 
 include ~/temp/CH570/ch32fun/ch32fun/ch32fun.mk
 
-flash : cv_flash
+bootloader :
+	./$(TARGET).py -b
+
+flash : bootloader cv_flash
 clean : cv_clean

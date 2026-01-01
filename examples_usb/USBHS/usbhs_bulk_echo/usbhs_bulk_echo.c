@@ -46,19 +46,13 @@ int HandleSetupCustom( struct _USBState * ctx, int setup_code) {
 }
 
 int HandleInRequest( struct _USBState * ctx, int endp, uint8_t * data, int len ) {
-	UEP_CTRL_TX(endp) ^= USBHS_UEP_T_TOG_DATA1;
 	return 0;
 }
 
 __HIGH_CODE
 void HandleDataOut( struct _USBState * ctx, int endp, uint8_t * data, int len ) {
-	UEP_CTRL_RX(endp) ^= USBHS_UEP_R_TOG_DATA1;
 	// this is actually the data rx handler
-	if ( endp == 0 ) {
-		// this is in the hsusb.c default handler
-		ctx->USBHS_SetupReqLen = 0; // To ACK
-	}
-	else if( endp == USB_EP_RX ) {
+	if( endp == USB_EP_RX ) {
 		if(len == 4 && ((uint32_t*)data)[0] == 0x010001a2) {
 			USBHSReset();
 			blink(2);

@@ -47,7 +47,8 @@ def main():
         print('rebooting to bootloader')
         bootloader()
     else:
-        echo()
+        for _ in range(5):
+            echo()
     
         # Release the interface when done
         usb.util.release_interface(device, intf)
