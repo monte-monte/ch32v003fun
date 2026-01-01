@@ -6,13 +6,6 @@
 
 __attribute__((aligned(4))) static volatile uint8_t gs_usb_data_buf[USB_DATA_BUF_SIZE];
 
-static inline void mcpy_raw( void *dst, const void *start, void *end ) {
-	__asm__ volatile ( ".insn r 0x0f, 0x7, 0, x0, %3, %0, %1"
-	      : "+r"(start), "+r"(dst)
-	      :  "r"(0), "r"(end)
-	      : "memory" );
-}
-
 __HIGH_CODE
 void blink(int n) {
 	for(int i = n-1; i >= 0; i--) {
@@ -53,7 +46,6 @@ int HandleSetupCustom( struct _USBState * ctx, int setup_code) {
 }
 
 int HandleInRequest( struct _USBState * ctx, int endp, uint8_t * data, int len ) {
-	UEP_CTRL_TX(endp) ^= USBFS_UEP_T_TOG;
 	return 0;
 }
 
@@ -72,7 +64,9 @@ void HandleDataOut( struct _USBState * ctx, int endp, uint8_t * data, int len ) 
 		}
 		else if( gs_usb_data_buf[0] == 0 ) {
 			gs_usb_data_buf[0] = len;
-			mcpy_raw(&gs_usb_data_buf[1], data, data +len);
+			for(int i = 0; i < len; i++) {
+				gs_usb_data_buf[i +1] = data[i];
+			}
 		}
 		else {
 			// previous usb buffer not consumed yet, what should we do?
