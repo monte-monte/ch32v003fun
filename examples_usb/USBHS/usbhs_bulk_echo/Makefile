@@ -4,7 +4,7 @@ TARGET:=usbhs_bulk_echo
 TARGET_MCU:=CH585
 TARGET_MCU_PACKAGE:=CH585M
 
-include ~/temp/CH570/ch32fun/ch32fun/ch32fun.mk
+include ../../../ch32fun/ch32fun.mk
 
 bootloader :
 	./$(TARGET).py -b
