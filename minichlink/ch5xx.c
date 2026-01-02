@@ -1056,6 +1056,7 @@ int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_si
 	
 	uint32_t spad = address_to_write - ((address_to_write / sector_size) * sector_size); // Size of data in the sector before the the adddress we are writing to
 	uint32_t epad = (address_to_write + blob_size) - (((address_to_write + blob_size) / sector_size) * sector_size); // Size of the data in the start of the last sector we will be writing to
+	if (spad + blob_size <= sector_size) epad = 0;
 	uint32_t new_blob_size = blob_size; // This will be a new blob size divisable by sector size
 #if DEBUG_CH5xx_MINICHLINK
 	fprintf(stderr, "spad = %d, epad = %d, blob_size = %d\n", spad, epad, blob_size);
@@ -1179,26 +1180,31 @@ int CH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob_si
 		if (epad) write_function(dev, (address_to_write + blob_size) - epad, end_pad, sector_size);
 
 	} else if (iss->current_area == RAM_AREA) {
+		new_blob_size = blob_size - (sector_size - spad) - epad;
+		int ssize = 0;
 		if (spad) {
-			for (int i = 0; i < spad; i++) {
+			ssize = (sector_size - spad);
+			for (int i = 0; i < ssize; i++) {
 				ret = MCF.WriteByte(dev, address_to_write+i, *((uint8_t*)(blob+i)));
 				if (ret) {
 					fprintf(stderr, "Error on WriteByte while writing to RAM.\n");
 					goto end;
 				}
 			}
-		} 
-		for (int i = 0; i < blob_size-spad-epad; i += 4) {
-			ret = MCF.WriteWord(dev, address_to_write+spad+i, *((uint32_t*)(blob+spad+i)));
-			if (ret) {
-				fprintf(stderr, "Error on WriteWord while writing to RAM.\n");
-				goto end;
+		}
+		if (new_blob_size >= 4) {
+			for (int i = 0; i < new_blob_size; i += 4) {
+				ret = MCF.WriteWord(dev, address_to_write+ssize+i, *((uint32_t*)(blob+ssize+i)));
+				if (ret) {
+					fprintf(stderr, "Error on WriteWord while writing to RAM.\n");
+					goto end;
+				}
 			}
 		}
 		if (epad) {
 			uint32_t epad_address = address_to_write + blob_size - epad;
 			for (int i = 0; i < spad; i++) {
-				ret = MCF.WriteByte(dev, epad_address + i, *((uint8_t*)(blob + epad_address + i)));
+				ret = MCF.WriteByte(dev, epad_address + i, *((uint8_t*)(blob + (blob_size - epad) + i)));
 				if (ret) {
 					fprintf(stderr, "Error on WriteByte while writing to RAM.\n");
 					goto end;
