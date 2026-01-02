@@ -30,18 +30,8 @@ def main():
     args = parser.parse_args()
 
     if device is None:
-        print("ch585 not found")
+        print("MCU not found")
         exit(0)
-
-    # Set the active configuration. With no arguments, the first configuration will be the active one
-    device.set_configuration()
-
-    # Get an endpoint instance
-    cfg = device.get_active_configuration()
-    intf = cfg[(0, 0)]
-
-    # Claim the interface
-    usb.util.claim_interface(device, intf)
 
     if args.bootloader:
         print('rebooting to bootloader')
@@ -50,8 +40,6 @@ def main():
         for _ in range(5):
             echo()
     
-        # Release the interface when done
-        usb.util.release_interface(device, intf)
     print('done')
 
 def bootloader():
