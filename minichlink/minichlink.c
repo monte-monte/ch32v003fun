@@ -428,6 +428,7 @@ keep_going:
 				}
 				if( argchar[1] == 'G' )
 				{
+					iss->debugger = 1;
 					fprintf( stderr, "GDBServer Running\n" );
 				}
 				else if( argchar[1] == 'T' )
@@ -1220,8 +1221,10 @@ static int DefaultWaitForDoneOp( void * dev, int ignore )
 int DefaultSetupInterface( void * dev )
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
+	int retries = MINICHLINK_SETUP_MAX_RETRIES;
 
 	if( MCF.Control3v3 ) MCF.Control3v3( dev, 1 );
+retry:
 	MCF.DelayUS( dev, 16000 );
 	MCF.WriteReg32( dev, DMSHDWCFGR, 0x5aa50000 | (1<<10) ); // Shadow Config Reg
 	MCF.WriteReg32( dev, DMCFGR, 0x5aa50000 | (1<<10) ); // CFGR (1<<10 == Allow output from slave)
@@ -1242,6 +1245,7 @@ int DefaultSetupInterface( void * dev )
 		if( reg == 0x00000000 || reg == 0xffffffff )
 		{
 			fprintf( stderr, "Error: Setup chip failed. Got code %08x\n", reg );
+			if (retries--) goto retry;
 			return -9;
 		}
 	}
@@ -2013,6 +2017,7 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 	//  this is only fallback functionality for really realy basic programmers.
 	//  it is also used in unbrick.
 
+	int ret = 0;
 	uint32_t rw;
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
@@ -2140,12 +2145,12 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 			for( j = 0; j < blocks_per_sector; j++ )
 			{
 				// When doing block writes, you MUST write a full sector.
-				int r = MCF.BlockWrite64( dev, address_to_write + i, blob + i );
+				ret = MCF.BlockWrite64( dev, address_to_write + i, blob + i );
 				i += 64;
-				if( r )
+				if( ret )
 				{
-					fprintf( stderr, "Error writing block at memory %08x / Error: %d\n", address_to_write, r );
-					return r;
+					fprintf( stderr, "Error writing block at memory %08x / Error: %d\n", address_to_write, ret );
+					return ret;
 				}
 			}
 		}
@@ -2173,11 +2178,11 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 				int i;
 				for( i = 0; i < sectorsize/64; i++ )
 				{
-					int r = MCF.BlockWrite64( dev, base + i*64, blob + rsofar+i*64 );
-					if( r )
+					ret = MCF.BlockWrite64( dev, base + i*64, blob + rsofar+i*64 );
+					if( ret )
 					{
-						fprintf( stderr, "Error writing block at memory %08x (error = %d)\n", base, r );
-						return r;
+						fprintf( stderr, "Error writing block at memory %08x (error = %d)\n", base, ret );
+						return ret;
 					}
 				}
 				rsofar += sectorsize;
@@ -2218,7 +2223,12 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 						MCF.WriteReg32( dev, DMDATA0, 1 );
 						MCF.WriteReg32( dev, DMCOMMAND, 0x0023100f );
 					}
-					MCF.WriteWord( dev, j*4+base, writeword );
+					ret = MCF.WriteWord( dev, j*4+base, writeword );
+					if( ret )
+					{
+						fprintf( stderr, "Error writing block at memory %08x (error = %d)\n", j*4+base, ret );
+						return ret;
+					}
 					// On the v2xx, v3xx, you also need to make sure FLASH->STATR & 2 is not set.  This is only an issue when running locally.
 
 					rsofar += 4;
@@ -2258,14 +2268,18 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 					int i;
 					for( i = 0; i < sectorsize/64; i++ )
 					{
-						int r = MCF.BlockWrite64( dev, base+i*64, tempblock+i*64 );
-						if( r ) return r;
+						ret = MCF.BlockWrite64( dev, base+i*64, tempblock+i*64 );
+						if( ret )
+						{
+							fprintf( stderr, "Error writing block at memory %08x (error = %d)\n", base+i*64, ret );
+							return ret;
+						}
 					}
 				}
 				else
 				{
-					if( !InternalIsMemoryErased( iss, base ) )
-						MCF.Erase( dev, base, sectorsize, 0 );
+					if( !InternalIsMemoryErased( iss, base ) ) MCF.Erase( dev, base, sectorsize, 0 );
+
 					if( iss->target_chip_type != CHIP_CH32V20x && iss->target_chip_type != CHIP_CH32V30x && iss->target_chip_type != CHIP_CH32H41x )
 					{
 						// V003, x035, maybe more.
@@ -2292,7 +2306,12 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 							MCF.WriteReg32( dev, DMDATA0, 1 );
 							MCF.WriteReg32( dev, DMCOMMAND, 0x0023100f );
 						}
-						MCF.WriteWord( dev, j*4+base, *(uint32_t*)(tempblock + j * 4) );
+						ret = MCF.WriteWord( dev, j*4+base, *(uint32_t*)(tempblock + j * 4) );
+						if( ret )
+						{
+							fprintf( stderr, "Error writing block at memory %08x (error = %d)\n", j*4+base, ret );
+							return ret;
+						}
 						// On the v2xx, v3xx, you also need to make sure FLASH->STATR & 2 is not set.  This is only an issue when running locally.
 					}
 
@@ -2330,7 +2349,12 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 						{
 							if( taddy >= offset_in_block && taddy < end_o_plus_one_in_block )
 							{
-								MCF.WriteByte( dev, taddy + base, *(uint32_t*)(blob + rsofar) );
+								ret = MCF.WriteByte( dev, taddy + base, *(uint32_t*)(blob + rsofar) );
+								if( ret )
+								{
+									fprintf( stderr, "Error writing block at memory %08x (error = %d)\n", taddy + base, ret );
+									return ret;
+								}
 								rsofar ++;
 							}
 							taddy++;
@@ -2344,7 +2368,12 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 						{
 							if( taddy >= offset_in_block && taddy < end_o_plus_one_in_block )
 							{
-								MCF.WriteHalfWord( dev, taddy + base, *(uint32_t*)(blob + rsofar) );
+								ret = MCF.WriteHalfWord( dev, taddy + base, *(uint32_t*)(blob + rsofar) );
+								if( ret )
+								{
+									fprintf( stderr, "Error writing block at memory %08x (error = %d)\n", taddy + base, ret );
+									return ret;
+								}
 								rsofar +=2;
 							}
 							taddy+=2;
@@ -2496,7 +2525,10 @@ int InternalUnlockFlash( void * dev, struct InternalState * iss )
 	MCF.ReadWord( dev, 0x4002201c, &rw ); //(FLASH_OBTKEYR)
 	if( rw & 2 )
 	{
-		fprintf( stderr, "WARNING: Your part appears to have flash [read] locked.  Cannot program unless unlocked.\n" );
+		fprintf( stderr, "\n-------------------------------------------------------\n");
+		fprintf( stderr, "WARNING: Your part appears to have flash locked (read protected). Cannot program unless unlocked.\n" );
+		fprintf( stderr, "You can unlock flash using 'minichlink -p' command.\n" );
+		fprintf( stderr, "-------------------------------------------------------\n\n");
 	}
 
 	iss->flash_unlocked = 1;
@@ -3362,7 +3394,7 @@ int DetectMemoryArea( void * dev, uint32_t address )
 		if( ret ) return ret;
 	}
 	const struct RiscVChip_s * chip = iss->target_chip;
-	fprintf( stderr, "Detecting Memory Area\n" );
+	if( !iss->debugger ) fprintf( stderr, "Detecting Memory Area\n" );
 	if( address < chip->flash_offset)
 	{
 		fprintf( stderr, "The starting address is lower than FLASH start. Aborting\n" );
