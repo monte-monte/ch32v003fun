@@ -34,7 +34,7 @@ static const uint8_t device_descriptor[] = {
 	0x0, //bDeviceSubClass - Device Subclass
 	0x0, //bDeviceProtocol - Device Protocol  (000 = use config descriptor)
 	64, //bMaxPacketSize - Max packet size for EP0
-  (uint8_t)(FUSB_USB_VID), (uint8_t)(FUSB_USB_VID >> 8), //idVendor - ID Vendor
+	(uint8_t)(FUSB_USB_VID), (uint8_t)(FUSB_USB_VID >> 8), //idVendor - ID Vendor
 	(uint8_t)(FUSB_USB_PID), (uint8_t)(FUSB_USB_PID >> 8), //idProduct - ID Product
 	(uint8_t)(FUSB_USB_REV), (uint8_t)(FUSB_USB_REV >> 8), //bcdDevice - Device Release Number
 	1, //iManufacturer - Index of Manufacturer string
@@ -46,24 +46,24 @@ static const uint8_t device_descriptor[] = {
 /* Configuration Descriptor Set */
 static const uint8_t config_descriptor[ ] =
 {
-  0x09,        // bLength
-  0x02,        // bDescriptorType (Configuration)
-  0x12, 0x00,  // wTotalLength
-  0x01,        // bNumInterfaces
-  0x01,        // bConfigurationValue
-  0x00,        // iConfiguration (String Index)
-  0x80,        // bmAttributes
-  0x64,        // bMaxPower 200mA
+	0x09,        // bLength
+	0x02,        // bDescriptorType (Configuration)
+	0x12, 0x00,  // wTotalLength
+	0x01,        // bNumInterfaces
+	0x01,        // bConfigurationValue
+	0x00,        // iConfiguration (String Index)
+	0x80,        // bmAttributes
+	0x64,        // bMaxPower 200mA
 
-  0x09,        // bLength
-  0x04,        // bDescriptorType - Interface
-  0x00,        // bInterfaceNumber - 0
-  0x00,        // bAlternateSetting
-  0x00,        // bNumEndpoints - 1
-  0x00,        // bInterfaceClass - CDC
-  0x00,        // bInterfaceSubClass - Abstract Control Model (Table 4 in CDC120.pdf)
-  0x00,        // bInterfaceProtocol - AT Commands: V.250 etc (Table 5)
-  0x00,        // iInterface (String Index)
+	0x09,        // bLength
+	0x04,        // bDescriptorType - Interface
+	0x00,        // bInterfaceNumber - 0
+	0x00,        // bAlternateSetting
+	0x00,        // bNumEndpoints - 1
+	0x00,        // bInterfaceClass - CDC
+	0x00,        // bInterfaceSubClass - Abstract Control Model (Table 4 in CDC120.pdf)
+	0x00,        // bInterfaceProtocol - AT Commands: V.250 etc (Table 5)
+	0x00,        // iInterface (String Index)
 };
 
 struct usb_string_descriptor_struct {
@@ -110,6 +110,4 @@ const static struct descriptor_list_struct {
 };
 #define DESCRIPTOR_LIST_ENTRIES ((sizeof(descriptor_list))/(sizeof(struct descriptor_list_struct)) )
 
-
 #endif
-
