@@ -2,6 +2,8 @@
 
 This is a ch32 port/reimplementation of [I2C-Tiny-USB](https://github.com/harbaum/I2C-Tiny-USB/) for Atmel chips (atmega328, attiny85). That one has a linux kernel driver that is present on most of modern linux distros, so it should work out of the box. Original firmware was using bit-banged USB driver, so it was only LS capable, since this is using hardware USB FS, EP buffer is larger - 64 bytes.
 
+This implementation will work on any WCH's RiscV chip with hardware USB (ch32x03x, ch32v103, ch32l103, ch32v20x, ch32v30x, ch32h41x, ch5xx). It uses USB FS peripheral.
+
 Since linux driver is hardcoded for specific VID:PID pair, this firmware uses that too. If you change it, it will stop working with ``i2c-tiny-usb`` device driver.
 
 You can change other strings in ``usb_config.h``, though.
