@@ -14,7 +14,7 @@ TARGET_MCU_PACKAGE:=CH570D
 # TARGET_MCU_PACKAGE:=CH592F
 ENABLE_FPU:=0
 ADDITIONAL_C_FILES:=
-include ../../../ch32fun/ch32fun.mk
+include ../../ch32fun/ch32fun.mk
 CFLAGS+=-D$(TARGET_MCU_PACKAGE)
 
 install_udev_rules :
