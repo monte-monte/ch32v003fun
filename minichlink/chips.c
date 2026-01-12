@@ -296,7 +296,7 @@ const struct RiscVChip_s ch32v317 = {
 	.options_offset = 0x1FFFF800,
 	.options_size = 128,
 	.interface_speed = 0x01,
-	.protocol = PROTOCOL_UNSUPPORTED,
+	.protocol = PROTOCOL_DEFAULT,
 };
 
 const struct RiscVChip_s ch32h415 = {
