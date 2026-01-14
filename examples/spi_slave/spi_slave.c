@@ -1,4 +1,4 @@
-#include "../../ch32fun/ch32fun.h"
+#include "ch32fun.h"
 #include <stdio.h>
 
 #include "../../extralibs/ch32v003_SPI.h"
