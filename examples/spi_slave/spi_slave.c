@@ -1,4 +1,4 @@
-#include "ch32fun.h"
+#include "../../ch32fun/ch32fun.h"
 #include <stdio.h>
 
 #include "../../extralibs/ch32v003_SPI.h"
@@ -40,22 +40,17 @@ void SPI_Configure()
 	RCC->APB2PCENR |= RCC_APB2Periph_GPIOC | RCC_APB2Periph_SPI1;
 
 	// PC5 is SCLK
-	GPIOC->CFGLR &= ~( 0xf << 4 * 5 );
-	GPIOC->CFGLR |= GPIO_CNF_IN_FLOATING << 4 * 5;
+	funPinMode( PC5, GPIO_CFGLR_IN_FLOAT );
 
 	// PC6 is MOSI
-	GPIOC->CFGLR &= ~( 0xf << 4 * 6 );
-	GPIOC->CFGLR |= GPIO_CNF_IN_FLOATING << 4 * 6;
+	funPinMode( PC6, GPIO_CFGLR_IN_FLOAT );
 
 	// PC7 is MISO
-	GPIOC->CFGLR &= ~( 0xf << 4 * 7 );
-	GPIOC->CFGLR |= ( GPIO_Speed_2MHz | GPIO_CNF_OUT_PP_AF ) << 4 * 7;
+	funPinMode( PC7, GPIO_Speed_2MHz | GPIO_CNF_OUT_PP_AF );
 
 	// Configure SPI
 	SPI1->CTLR1 |= SPI_CPHA_1Edge | SPI_CPOL_Low | SPI_Mode_Slave | SPI_BaudRatePrescaler_2 | SPI_DataSize_8b;
-
 	SPI1->CTLR1 |= SPI_Direction_2Lines_FullDuplex;
-
 	SPI1->CTLR1 |= CTLR1_SPE_Set;
 }
 
