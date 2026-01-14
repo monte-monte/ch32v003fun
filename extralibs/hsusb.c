@@ -970,7 +970,8 @@ static inline int USBHS_SendEndpoint( int endp, int len )
 	return 0;
 }
 
-static inline int USBHS_SendEndpointNEW( int endp, const uint8_t* data, int len, int copy)
+// If youre sending without copy, make sure data buffer is 4 bytes aligned
+static inline int USBHS_SendEndpointNEW( int endp, const uint8_t* data, int len, int copy )
 {
 	if( USBHSCTX.USBHS_errata_dont_send_endpoint_in_window || USBHSCTX.USBHS_Endp_Busy[endp] ) return -1;
 	// This prevents sending while ep0 is receiving
@@ -980,6 +981,9 @@ static inline int USBHS_SendEndpointNEW( int endp, const uint8_t* data, int len,
 	{
 		if( copy )
 		{
+			if( !endp ) USBHS->UEP0_DMA = (uintptr_t)USBHSCTX.CTRL0BUFF;
+			else UEP_DMA_TX( endp ) = (uintptr_t)USBHSCTX.ENDPOINTS[endp-1];
+
 			uint8_t* dest = (endp?USBHSCTX.ENDPOINTS[endp-1]:USBHSCTX.CTRL0BUFF);
 			copyBuffer( dest, data, len );
 		}

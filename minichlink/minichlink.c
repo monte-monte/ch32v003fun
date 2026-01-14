@@ -938,7 +938,7 @@ keep_going:
 				
 				if( MCF.HaltMode && is_flash )
 				{
-					if( offset == 0x1ffff000 || iss->current_area == BOOTLOADER_AREA )
+					if( offset == 0x1ffff000 || iss->current_area == BOOTLOADER_AREA ) // The same thing for v003, maybe remove redundant condition?
 					{
 						MCF.HaltMode( dev, HALT_MODE_HALT_BUT_NO_RESET ); // do not reset if writing bootloader, even if it is considered flash memory
 					}
@@ -951,6 +951,13 @@ keep_going:
 				
 				if( MCF.WriteBinaryBlob )
 				{
+					if( (iss->target_chip_type == CHIP_CH32V20x || iss->target_chip_type == CHIP_CH32V30x) && iss->current_area == BOOTLOADER_AREA )
+					{
+						fprintf( stderr, "Curent data in BOOTLOADER will be rewritten.\nPress Enter to continue\n");
+						while(!IsKBHit());
+						ReadKBByte();
+						MCF.Erase( dev, iss->target_chip->bootloader_offset, iss->target_chip->bootloader_size, 2 );
+					}
 					printf("Writing image\n");
 					if( MCF.WriteBinaryBlob( dev, offset, len, image ) )
 					{
@@ -1036,11 +1043,12 @@ help:
 	fprintf( stderr, " -c [serial port for Ardulink, try /dev/ttyACM0 or COM11 etc] or [VID+PID of USB for b003boot, try 0x1209b003]\n" );
 	fprintf( stderr, " -C [specified programmer, eg. b003boot, ardulink, esp32s2chfun, isp]\n" );
 	fprintf( stderr, " -u Clear all code flash - by power off (also can unbrick)\n" );
-	fprintf( stderr, " -E Erase chip\n" );
-	fprintf( stderr, " -b Reboot out of Halt\n" );
-	fprintf( stderr, " -e Resume from halt\n" );
 	fprintf( stderr, " -a Reboot into Halt\n" );
 	fprintf( stderr, " -A Go into Halt without reboot\n" );
+	fprintf( stderr, " -b Reboot out of Halt\n" );
+	fprintf( stderr, " -B Reboot into BOOTLOADER and halt\n" );
+	fprintf( stderr, " -e Resume from halt\n" );
+	fprintf( stderr, " -E Erase chip\n" );
 	fprintf( stderr, " -D Configure NRST as GPIO\n" );
 	fprintf( stderr, " -d Configure NRST as NRST\n" );
 	fprintf( stderr, " -i Show chip info\n" );
@@ -2081,7 +2089,7 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 		}
 		if( MCF.WaitForFlash ) MCF.WaitForFlash( dev );
 
-		MCF.ReadWord( dev, 0x40022010, &temp );
+		MCF.ReadWord( dev, (intptr_t)&FLASH->CTLR, &temp );
 
 		if( !(temp & (1<<9)) ) // Check OBWRE
 		{
@@ -2089,8 +2097,8 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 		}
 
 		// Perform erase.
-		MCF.WriteWord( dev, 0x40022010, FLASH_CTLR_OPTER | FLASH_CTLR_OPTWRE );
-		MCF.WriteWord( dev, 0x40022010, FLASH_CTLR_OPTER | FLASH_CTLR_OPTWRE | FLASH_CTLR_STRT );
+		MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, FLASH_CTLR_OPTER | FLASH_CTLR_OPTWRE );
+		MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, FLASH_CTLR_OPTER | FLASH_CTLR_OPTWRE | FLASH_CTLR_STRT );
 
 		if( MCF.WaitForFlash ) MCF.WaitForFlash( dev );
 
@@ -2105,8 +2113,8 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 		for( i = 0; i < 8; i++ )
 		{
 			// OBPG = FLASH_CTLR_OPTPG
-			MCF.WriteWord( dev, 0x40022010, FLASH_CTLR_OPTPG | FLASH_CTLR_OPTWRE );
-			MCF.WriteWord( dev, 0x40022010, FLASH_CTLR_OPTPG | FLASH_CTLR_STRT | FLASH_CTLR_OPTWRE );
+			MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, FLASH_CTLR_OPTPG | FLASH_CTLR_OPTWRE );
+			MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, FLASH_CTLR_OPTPG | FLASH_CTLR_STRT | FLASH_CTLR_OPTWRE );
 			uint32_t writeaddy = i*2+base;
 			uint16_t writeword = block[i*2+0] | (block[i*2+1]<<8);
 			MCF.WriteHalfWord( dev, writeaddy, writeword );
@@ -2125,7 +2133,7 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 			}
 		}
 		// Turn off OPTPG, OPTWRE.
-		MCF.WriteWord( dev, 0x40022010, 0 );
+		MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, 0 );
 		if( MCF.WaitForFlash ) MCF.WaitForFlash( dev );
 
 		return 0;
@@ -2162,6 +2170,16 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 	int eblock = ( address_to_write + blob_size + (sectorsize-1) ) / sectorsize;
 	int b;
 	int rsofar = 0;
+	// For now this is only for v20x/v30x
+	uint32_t write_cmd = CR_PAGE_PG;
+	uint32_t page_cmd = (1<<21);
+	int skip_erase = 0;
+	if( (iss->target_chip_type == CHIP_CH32V20x || iss->target_chip_type == CHIP_CH32V30x) && iss->current_area == BOOTLOADER_AREA )
+	{
+		write_cmd |= (1<<29); // Secrep bit for flashing boot area
+		page_cmd |= (1<<29); // Secrep bit for flashing boot area
+		skip_erase = 1;
+	}
 
 	for( b = sblock; b < eblock; b++ )
 	{
@@ -2191,19 +2209,19 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 			{
 				if( is_flash )
 				{
-					if( !InternalIsMemoryErased( iss, base ) )
+					if( !skip_erase && !InternalIsMemoryErased( iss, base ) )
 						MCF.Erase( dev, base, sectorsize, 0 );
 					if( iss->target_chip_type != CHIP_CH32V20x && iss->target_chip_type != CHIP_CH32V30x && iss->target_chip_type != CHIP_CH32H41x )
 					{
 						// V003, x035, maybe more.
-						MCF.WriteWord( dev, 0x40022010, CR_PAGE_PG ); // THIS IS REQUIRED, (intptr_t)&FLASH->CTLR = 0x40022010
-						MCF.WriteWord( dev, 0x40022010, CR_BUF_RST | CR_PAGE_PG );  // (intptr_t)&FLASH->CTLR = 0x40022010
+						MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, CR_PAGE_PG ); // THIS IS REQUIRED, (intptr_t)&FLASH->CTLR = 0x40022010
+						MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, CR_BUF_RST | CR_PAGE_PG );  // (intptr_t)&FLASH->CTLR = 0x40022010
 					}
 					else
 					{
 						// No bufrst on v20x, v30x
 						if( MCF.WaitForFlash ) MCF.WaitForFlash( dev );
-						MCF.WriteWord( dev, 0x40022010, CR_PAGE_PG ); // THIS IS REQUIRED, (intptr_t)&FLASH->CTLR = 0x40022010
+						MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, write_cmd ); // THIS IS REQUIRED, (intptr_t)&FLASH->CTLR = 0x40022010
 						//FTPG ==  CR_PAGE_PG   == ((uint32_t)0x00010000)
 					}
 					if( MCF.WaitForFlash ) MCF.WaitForFlash( dev );
@@ -2238,13 +2256,13 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 				{
 					if( iss->target_chip_type == CHIP_CH32V20x || iss->target_chip_type == CHIP_CH32V30x || iss->target_chip_type == CHIP_CH32H41x )
 					{
-						MCF.WriteWord( dev, 0x40022010, 1<<21 ); // Page Start
+						MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, page_cmd ); // Page Start
 					}
 					else
 					{
-						MCF.WriteWord( dev, 0x40022014, base );  //0x40022014 -> FLASH->ADDR
+						MCF.WriteWord( dev, (intptr_t)&FLASH->ADDR, base );  //0x40022014 -> FLASH->ADDR
 						if( MCF.PrepForLongOp ) MCF.PrepForLongOp( dev );  // Give the programmer a headsup this next operation could take a while.
-						MCF.WriteWord( dev, 0x40022010, CR_PAGE_PG|CR_STRT_Set ); // 0x40022010 -> FLASH->CTLR
+						MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, CR_PAGE_PG|CR_STRT_Set ); // 0x40022010 -> FLASH->CTLR
 					}
 					if( MCF.WaitForFlash ) MCF.WaitForFlash( dev );
 					InternalMarkMemoryNotErased( iss, base );
@@ -2283,14 +2301,14 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 					if( iss->target_chip_type != CHIP_CH32V20x && iss->target_chip_type != CHIP_CH32V30x && iss->target_chip_type != CHIP_CH32H41x )
 					{
 						// V003, x035, maybe more.
-						MCF.WriteWord( dev, 0x40022010, CR_PAGE_PG ); // THIS IS REQUIRED, (intptr_t)&FLASH->CTLR = 0x40022010
-						MCF.WriteWord( dev, 0x40022010, CR_BUF_RST | CR_PAGE_PG );  // (intptr_t)&FLASH->CTLR = 0x40022010
+						MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, CR_PAGE_PG ); // THIS IS REQUIRED, (intptr_t)&FLASH->CTLR = 0x40022010
+						MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, CR_BUF_RST | CR_PAGE_PG );  // (intptr_t)&FLASH->CTLR = 0x40022010
 					}
 					else
 					{
 						// No bufrst on v20x, v30x
 						if( MCF.WaitForFlash ) MCF.WaitForFlash( dev );
-						MCF.WriteWord( dev, 0x40022010, CR_PAGE_PG ); // THIS IS REQUIRED, (intptr_t)&FLASH->CTLR = 0x40022010
+						MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, write_cmd ); // THIS IS REQUIRED, (intptr_t)&FLASH->CTLR = 0x40022010
 						//FTPG ==  CR_PAGE_PG   == ((uint32_t)0x00010000)
 					}
 					if( MCF.WaitForFlash ) MCF.WaitForFlash( dev );
@@ -2317,12 +2335,12 @@ int DefaultWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32_t blob
 
 					if( iss->target_chip_type == CHIP_CH32V20x || iss->target_chip_type == CHIP_CH32V30x || iss->target_chip_type == CHIP_CH32H41x )
 					{
-						MCF.WriteWord( dev, 0x40022010, 1<<21 ); // Page Start
+						MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, page_cmd ); // Page Start
 					}
 					else
 					{
-						MCF.WriteWord( dev, 0x40022014, base );  //0x40022014 -> FLASH->ADDR
-						MCF.WriteWord( dev, 0x40022010, CR_PAGE_PG|CR_STRT_Set ); // 0x40022010 -> FLASH->CTLR
+						MCF.WriteWord( dev, (intptr_t)&FLASH->ADDR, base );  //0x40022014 -> FLASH->ADDR
+						MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, CR_PAGE_PG|CR_STRT_Set ); // 0x40022010 -> FLASH->CTLR
 					}
 					if( MCF.WaitForFlash ) MCF.WaitForFlash( dev );
 					InternalMarkMemoryNotErased( iss, base );
@@ -2569,31 +2587,43 @@ int DefaultErase( void * dev, uint32_t address, uint32_t length, int type )
 		// 16.4.7, Step 3: Check the BSY bit of the FLASH_STATR register to confirm that there are no other programming operations in progress.
 		// skip (we make sure at the end)
 		int chunk_to_erase = address;
+		int sector_size = iss->sector_size;
+		if( type == 2 ) sector_size = 4096;
 
-		chunk_to_erase = chunk_to_erase & ~(iss->sector_size-1);
+		chunk_to_erase = chunk_to_erase & ~(sector_size-1);
 		while( chunk_to_erase < address + length )
 		{
 			if( ( chunk_to_erase & 0xff000000 ) == 0x08000000 )
 			{
-				int sector = ( chunk_to_erase & 0x00ffffff ) / iss->sector_size;
+				int sector = ( chunk_to_erase & 0x00ffffff ) / sector_size;
 				if( sector < MAX_FLASH_SECTORS )
 				{
 					iss->flash_sector_status[sector] = 1;
 				}
 			}
 
-			// Step 4:  set PAGE_ER of FLASH_CTLR(0x40022010)
-			if( MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, CR_PAGE_ER ) ) goto flashoperr; // CR_PAGE_ER is FTER
-			// Step 5: Write the first address of the fast erase page to the FLASH_ADDR register.
-			if( MCF.WriteWord( dev, (intptr_t)&FLASH->ADDR, chunk_to_erase ) ) goto flashoperr;
-			if( MCF.PrepForLongOp ) MCF.PrepForLongOp( dev );  // Give the programmer a headsup this next operation could take a while.
-
-			// Step 6: Set the STAT/STRT bit of FLASH_CTLR register to '1' to initiate a fast page erase (64 bytes) action.
-			if( MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, (1<<6) | CR_PAGE_ER ) ) goto flashoperr;
+			if( type == 2 ) // Special procedure for erasing BOOT partition on ch32v20x and ch32v30x
+			{
+				// Can only erase full 4K pages
+				if( MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, (1<<30) | CR_PER_Set ) ) goto flashoperr;
+				if( MCF.WriteWord( dev, (intptr_t)&FLASH->ADDR, chunk_to_erase ) ) goto flashoperr;
+				if( MCF.PrepForLongOp ) MCF.PrepForLongOp( dev );
+				if( MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, (1<<30) | CR_PER_Set | CR_STRT_Set ) ) goto flashoperr;
+			}
+			else
+			{
+				// Step 4:  set PAGE_ER of FLASH_CTLR(0x40022010)
+				if( MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, CR_PAGE_ER ) ) goto flashoperr; // CR_PAGE_ER is FTER
+				// Step 5: Write the first address of the fast erase page to the FLASH_ADDR register.
+				if( MCF.WriteWord( dev, (intptr_t)&FLASH->ADDR, chunk_to_erase ) ) goto flashoperr;
+				if( MCF.PrepForLongOp ) MCF.PrepForLongOp( dev );  // Give the programmer a headsup this next operation could take a while.
+				// Step 6: Set the STAT/STRT bit of FLASH_CTLR register to '1' to initiate a fast page erase (64 bytes) action.
+				if( MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, CR_STRT_Set | CR_PAGE_ER ) ) goto flashoperr;
+			}
 
 			if( MCF.WaitForFlash && MCF.WaitForFlash( dev ) ) return -99;
 
-			chunk_to_erase+=iss->sector_size;
+			chunk_to_erase+=sector_size;
 		}
 	}
 

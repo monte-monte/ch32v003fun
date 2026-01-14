@@ -703,44 +703,27 @@ int ch5xx_write_flash_using_microblob2(void * dev, uint32_t start_addr, uint8_t*
 	uint32_t byte = 0;
 	while(byte < len) {
 		uint32_t current_word;
-		if (!data) current_word = data_to_write++;  // For testing purposes
+		if (!data) current_word = data_to_write++; // For testing purposes fill memory with incrementing words
 		else current_word = *((uint32_t*)(data+byte));
 
 		if (current_word) MCF.WriteReg32( dev, DMDATA0, current_word);
 		else MCF.WriteReg32( dev, DMDATA1, 2);
-		// do {
-		//   if ((timer++) > 200) {
-		//     fprintf(stderr, "Error3! Flash write timed out at byte %d\n", byte);
-		//     fprintf(stderr, "dmdata0 = %08x, byte = %d\n", dmdata0, byte);
-		//     r = -1;
-		//     goto write_end;
-		//   }
-		//   MCF.ReadReg32(dev, DMDATA0, &dmdata0);
-		// } while(dmdata0);
 		byte += 4;
-		// Wait every block to be written to flash and also new address set it takes ~1.5-2ms
-		if(!(byte & 0xFF)) {
-			fprintf(stderr, ".");
+		// Wait every block to be written to flash it takes ~1.5-2ms.
+		// Previously we were waiting for new address in DMDATA0, but it would fail sometimes
+		// because blob would loop faster than we can read it. Now we just check for the byte counter to become 0.
+		if (!(byte & 0xFF)) {
 			do {
 				if ((timer++) > 200) {
-					fprintf(stderr, "Error1! Flash write timed out on block end. At byte %d\n", byte);
+					fprintf(stderr, "Error! Flash write timed out on block end. At byte %d\n", byte);
 					fprintf(stderr, "dmdata0 = %08x, byte = %d\n", dmdata0, byte);
-					r = -1;
-					goto write_end;
-				}
-				MCF.ReadReg32(dev, DMDATA0, &dmdata0);
-			} while(dmdata0 != byte + start_addr);
-			timer = 0;
-			do {
-				if ((timer++) > 100) {
-					fprintf(stderr, "Error2! Flash write timed out on block end. At byte %d\n", byte);
-					fprintf(stderr, "dmdata0 = %08x, byte = %d\n", dmdata0, byte);
-					
 					r = -1;
 					goto write_end;
 				}
 				MCF.ReadReg32(dev, DMDATA0, &dmdata0);
 			} while(dmdata0);
+			timer = 0;
+			fprintf(stderr, ".");
 		}
 	}
 	r = 0;
@@ -1468,7 +1451,7 @@ int CH5xxPrintInfo(void* dev) {
 		printf("Bootloader pin - PB%d\n", (option_bytes&0x200)?22:11);
 		printf("Debug - %s\n", (option_bytes&0x10)?"enabled":"disabled");
 		printf("Bootloader - %s\n", (option_bytes&0x40)?"enabled":"disabled");
-		printf("UART_NO_KEY(what is that?) - %s\n", (option_bytes&0x100)?"enabled":"disabled");
+		printf("Entering UART bootloader without a button - %s\n", (option_bytes&0x100)?"enabled":"disabled");
 	}
 
 	return 0;
