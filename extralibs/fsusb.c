@@ -1037,11 +1037,27 @@ int HandleInRequest( struct _USBState *ctx, int endp, uint8_t *data, int len )
 	return 0;
 }
 
+uint8_t usb_inputbuffer[64];
+int usb_inbuf_idx;
 void HandleDataOut( struct _USBState *ctx, int endp, uint8_t *data, int len )
 {
 	if ( endp == 0 )
 	{
 		ctx->USBFS_SetupReqLen = 0; // To ACK
+	}
+	else if( endp == 2 )
+	{
+		for(int in_idx = 0; (in_idx < len) && (usb_inbuf_idx < sizeof(usb_inputbuffer)); in_idx++) {
+			usb_inputbuffer[usb_inbuf_idx++] = data[in_idx++];
+		}
+	}
+}
+
+void handle_usbfs_input( int numbytes, uint8_t * data );
+void poll_input() {
+	if(usb_inbuf_idx) {
+		handle_usbfs_input(usb_inbuf_idx, usb_inputbuffer);
+		usb_inbuf_idx = 0;
 	}
 }
 
