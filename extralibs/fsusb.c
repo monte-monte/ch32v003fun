@@ -1037,8 +1037,8 @@ int HandleInRequest( struct _USBState *ctx, int endp, uint8_t *data, int len )
 	return 0;
 }
 
-uint8_t usb_inputbuffer[64];
-int usb_inbuf_idx;
+static uint8_t usb_inputbuffer[USBFS_PACKET_SIZE]; // this can be extended if polling rate is low
+static int usb_inbuf_idx;
 void HandleDataOut( struct _USBState *ctx, int endp, uint8_t *data, int len )
 {
 	if ( endp == 0 )
@@ -1047,8 +1047,19 @@ void HandleDataOut( struct _USBState *ctx, int endp, uint8_t *data, int len )
 	}
 	else if( endp == 2 )
 	{
-		for(int in_idx = 0; (in_idx < len) && (usb_inbuf_idx < sizeof(usb_inputbuffer)); in_idx++) {
-			usb_inputbuffer[usb_inbuf_idx++] = data[in_idx++];
+		// discard oldest if polling is too slow
+		int headroom = (sizeof(usb_inputbuffer) - usb_inbuf_idx) - len;
+		if(headroom < 0) {
+			// not enough space left, free up some
+			int offset = -headroom;
+			for(int i = offset; i < sizeof(usb_inputbuffer); i++) {
+				usb_inputbuffer[i -offset] = usb_inputbuffer[i];
+			}
+			usb_inbuf_idx -= offset;
+		}
+
+		for(int i = 0; i < len; i++) {
+			usb_inputbuffer[usb_inbuf_idx++] = data[i];
 		}
 	}
 }
