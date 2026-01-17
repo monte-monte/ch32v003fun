@@ -57,6 +57,7 @@ static int LEWriteBinaryBlob( void * d, uint32_t address_to_write, uint32_t len,
 #define WCHTIMEOUT 5000
 #define WCHCHECK(x) if( (status = x) ) { fprintf( stderr, "Bad USB Operation on " __FILE__ ":%d (%d)\n", __LINE__, status ); exit( status ); }
 
+// Send a command to the LinkE debugger
 void wch_link_command( libusb_device_handle * devh, const void * command_v, int commandlen, int * transferred, uint8_t * reply, int replymax )
 {
 	uint8_t * command = (uint8_t*)command_v;
@@ -201,6 +202,29 @@ static inline libusb_device_handle * wch_link_base_setup( int inhibit_startup )
 	return devh;
 }
 
+// Handle error response from a DMI register operation.
+// Returns: 0 if fixed (was uninitialized), -1 if real error
+#define LE_HANDLE_REG_ERROR(dev, devh, op_name, reg, resp, resplen) \
+	({ \
+		int _result = 0; \
+		struct InternalState *iss = (struct InternalState *)( ( (struct ProgrammerStructBase *)dev )->internal ); \
+		if ( !iss->target_chip_id && !iss->statetag ) { \
+			fprintf( stderr, "Programmer wasn't initialized? Fixing\n" ); \
+			int _tmplen; uint8_t _tmpbuf[128]; \
+			wch_link_command( devh, "\x81\x0d\x01\x02", 4, &_tmplen, _tmpbuf, sizeof(_tmpbuf) ); \
+			iss->statetag = STTAG( "INIT" ); \
+		} else { \
+			fprintf( stderr, "Error setting " op_name " reg. Tell cnlohr. Maybe we should allow retries here?\n" ); \
+			fprintf( stderr, "Reg: %02x, RR: %d :", reg, resplen ); \
+			for ( int _i = 0; _i < resplen; _i++ ) \
+				fprintf( stderr, "%02x ", resp[_i] ); \
+			fprintf( stderr, "\n" ); \
+			_result = -1; \
+		} \
+		_result; \
+	})
+
+// Send 32-bit Write command over LinkE
 // DMI_OP decyphered From https://github.com/karlp/openocd-hacks/blob/27af153d4a373f29ad93dab28a01baffb7894363/src/jtag/drivers/wlink.c
 // Thanks, CW2 for pointing this out.  See DMI_OP for more info.
 int LEWriteReg32( void * dev, uint8_t reg_7_bit, uint32_t command )
@@ -210,40 +234,23 @@ int LEWriteReg32( void * dev, uint8_t reg_7_bit, uint32_t command )
 	const uint8_t iOP = 2; // op 2 = write
 	uint8_t req[] = {
 		0x81, 0x08, 0x06, reg_7_bit,
-        (command >> 24) & 0xff,
-        (command >> 16) & 0xff,
-        (command >> 8) & 0xff,
-        (command >> 0) & 0xff,
-        iOP };
+		(command >> 24) & 0xff,
+		(command >> 16) & 0xff,
+		(command >> 8) & 0xff,
+		(command >> 0) & 0xff,
+		iOP };
 
 	uint8_t resp[128];
 	int resplen;
 	wch_link_command( devh, req, sizeof(req), &resplen, resp, sizeof(resp) );
 	if( resplen != 9 || resp[8] == 0x02 || resp[8] == 0x03 ) //|| resp[3] != reg_7_bit )
 	{
-		struct InternalState *iss = (struct InternalState *)( ( (struct ProgrammerStructBase *)dev )->internal );
-		if ( !iss->target_chip_id && !iss->statetag )
-		{
-			fprintf( stderr, "Programmer wasn't initialized? Fixing\n" );
-			wch_link_command( devh, "\x81\x0d\x01\x02", 4, &resplen, resp, sizeof( resp ) );
-			iss->statetag = STTAG( "INIT" );
-		}
-		else
-		{
-			fprintf( stderr, "Error setting write reg. Tell cnlohr. Maybe we should allow retries here?\n" );
-			fprintf( stderr, "RR: %d :", resplen );
-			int i;
-			for ( i = 0; i < resplen; i++ )
-			{
-				fprintf( stderr, "%02x ", resp[i] );
-			}
-			fprintf( stderr, "\n" );
-		}
-		fprintf( stderr, "\n" );
+		LE_HANDLE_REG_ERROR( dev, devh, "write", reg_7_bit, resp, resplen );
 	}
 	return 0;
 }
 
+// Send 32-bit Read command over LinkE. Write the response back to 'commandresp'
 int LEReadReg32( void * dev, uint8_t reg_7_bit, uint32_t * commandresp )
 {
 	libusb_device_handle * devh = ((struct LinkEProgrammerStruct*)dev)->devh;
@@ -251,32 +258,14 @@ int LEReadReg32( void * dev, uint8_t reg_7_bit, uint32_t * commandresp )
 	uint32_t transferred;
 	uint8_t rbuff[128] = { 0 };
 	uint8_t req[] = {
-		  0x81, 0x08, 0x06, reg_7_bit,
-      0, 0, 0, 0,
-      iOP };
+		0x81, 0x08, 0x06, reg_7_bit,
+		0, 0, 0, 0,
+		iOP };
 	wch_link_command( devh, req, sizeof( req ), (int*)&transferred, rbuff, sizeof( rbuff ) );
 	*commandresp = ( rbuff[4]<<24 ) | (rbuff[5]<<16) | (rbuff[6]<<8) | (rbuff[7]<<0);
 	if( transferred != 9 || rbuff[8] == 0x02 || rbuff[8] == 0x03 ) //|| rbuff[3] != reg_7_bit )
 	{
-		struct InternalState *iss = (struct InternalState *)( ( (struct ProgrammerStructBase *)dev )->internal );
-		if ( !iss->target_chip_id && !iss->statetag )
-		{
-			fprintf( stderr, "Programmer wasn't initialized? Fixing\n" );
-			wch_link_command( devh, "\x81\x0d\x01\x02", 4, (int *)&transferred, rbuff, sizeof( rbuff ) );
-			iss->statetag = STTAG( "INIT" );
-		}
-		else
-		{
-			fprintf( stderr, "Error setting read reg. Tell cnlohr. Maybe we should allow retries here?\n" );
-			fprintf( stderr, "Reg: %08x, RR: %d :", reg_7_bit, transferred );
-			int i;
-			for ( i = 0; i < transferred; i++ )
-			{
-				fprintf( stderr, "%02x ", rbuff[i] );
-			}
-			fprintf( stderr, "\n" );
-      return -1;
-		}
+		return LE_HANDLE_REG_ERROR( dev, devh, "read", reg_7_bit, rbuff, (int)transferred );
 	}
 	/*
 	printf( "RR: %d :", transferred );
@@ -353,8 +342,9 @@ static int LESetupInterface( void * d )
 			fprintf(stderr, "Unknown WCH Programmer %02x (Ver %d.%d)\n", rbuff[5], rbuff[3], rbuff[4]);
 			break;
 	}
-  
-	wch_link_command( dev, "\x81\x0c\x02\x01\x02", 5, 0, 0, 0 );	// By default set interface speed to "normal" (4Mhz) and change that after we detect the chip
+
+	// By default set interface speed to "normal" (4Mhz) and change that after we detect the chip
+	wch_link_command( dev, "\x81\x0c\x02\x01\x02", 5, 0, 0, 0 );
 
 	// This puts the processor on hold to allow the debugger to run.
 	int already_tried_reset = 0;
@@ -672,7 +662,7 @@ struct BootloaderBlob
 	int len;
 };
 
-// Flash Bootloader for V20x and V30x series MCUs
+// Flash Bootloader for V20x
 struct BootloaderBlob bootloader_v1 = {
 	.blob = (const uint8_t*)
 	"\x93\x77\x15\x00\x41\x11\x99\xCF\xB7\x06\x67\x45\xB7\x27\x02\x40" \
@@ -710,6 +700,7 @@ struct BootloaderBlob bootloader_v1 = {
 	.len = 512
 };
 
+// Flash Bootloader for V20x and V30x series MCUs
 struct BootloaderBlob bootloader_v2 = {
 	.blob = (const uint8_t*)
 	"\x93\x77\x15\x00\x41\x11\x99\xcf\xb7\x06\x67\x45\xb7\x27\x02\x40" \
