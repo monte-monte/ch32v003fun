@@ -476,65 +476,65 @@ retry_DoneOp:
 	// Recommended to switch to 05 from 09 by Alexander M
 	//	wch_link_command( dev, "\x81\x11\x01\x09", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Chip ID + Other data (see below)
 retry_ID:
-		wch_link_command( dev, "\x81\x11\x01\x05", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Chip ID + Other data (see below)
+	wch_link_command( dev, "\x81\x11\x01\x05", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Chip ID + Other data (see below)
 
-		if( rbuff[0] == 0x00 )
-		{
-			if( timeout++ < 10 ) goto retry_ID;
-			fprintf( stderr, "Failed to get chip ID\n" );
-			return -4;
-		}
+	if( rbuff[0] == 0x00 )
+	{
+		if( timeout++ < 10 ) goto retry_ID;
+		fprintf( stderr, "Failed to get chip ID\n" );
+		return -4;
+	}
 
-		if( transferred != 20 )
-		{
-			fprintf( stderr, "Error: could not get part status\n" );
-			return -1;
-		}
-		int flash_size = (rbuff[2]<<8) | rbuff[3];
-		fprintf( stderr, "Flash Storage: %d kB\n", flash_size );
-		fprintf( stderr, "Part UUID    : %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", rbuff[4], rbuff[5], rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11] );
-		fprintf( stderr, "PFlags       : %02x-%02x-%02x-%02x\n", rbuff[12], rbuff[13], rbuff[14], rbuff[15] );
-		fprintf( stderr, "Part Type (B): %02x-%02x-%02x-%02x\n", rbuff[16], rbuff[17], rbuff[18], rbuff[19] );
-		for (int n = 0; n < transferred; n++) {
-			fprintf(stderr, "%02x ", rbuff[n]);
-		}
-		fprintf(stderr, "\n");
+	if( transferred != 20 )
+	{
+		fprintf( stderr, "Error: could not get part status\n" );
+		return -1;
+	}
+	int flash_size = (rbuff[2]<<8) | rbuff[3];
+	fprintf( stderr, "Flash Storage: %d kB\n", flash_size );
+	fprintf( stderr, "Part UUID    : %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", rbuff[4], rbuff[5], rbuff[6], rbuff[7], rbuff[8], rbuff[9], rbuff[10], rbuff[11] );
+	fprintf( stderr, "PFlags       : %02x-%02x-%02x-%02x\n", rbuff[12], rbuff[13], rbuff[14], rbuff[15] );
+	fprintf( stderr, "Part Type (B): %02x-%02x-%02x-%02x\n", rbuff[16], rbuff[17], rbuff[18], rbuff[19] );
+	for (int n = 0; n < transferred; n++) {
+		fprintf(stderr, "%02x ", rbuff[n]);
+	}
+	fprintf(stderr, "\n");
 
-		// Quirk, was fixed in LinkE version 2.12.
-		if( iss->target_chip_type == CHIP_CH32V10x && flash_size == 62 )
-		{
-			fprintf( stderr, "While the debugger reports this as a CH32V10x, it's probably a CH32X03x\n" );
-			iss->target_chip_type = CHIP_CH32X03x;
-			iss->target_chip = &ch32x035;
-		}
-		int result = checkChip(iss->target_chip_type);
-		if( result == 1 ) // Using blob write
-		{
-			fprintf( stderr, "Using binary blob write for operation.\n" );
-			MCF.WriteBinaryBlob = LEWriteBinaryBlob;
+	// Quirk, was fixed in LinkE version 2.12.
+	if( iss->target_chip_type == CHIP_CH32V10x && flash_size == 62 )
+	{
+		fprintf( stderr, "While the debugger reports this as a CH32V10x, it's probably a CH32X03x\n" );
+		iss->target_chip_type = CHIP_CH32X03x;
+		iss->target_chip = &ch32x035;
+	}
+	int result = checkChip(iss->target_chip_type);
+	if( result == 1 ) // Using blob write
+	{
+		fprintf( stderr, "Using binary blob write for operation.\n" );
+		MCF.WriteBinaryBlob = LEWriteBinaryBlob;
 
-			// iss->sector_size = 256;
-			// Why do we need this exactly? For blobed chips only?
-			wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
+		// iss->sector_size = 256;
+		// Why do we need this exactly? For blobed chips only?
+		wch_link_command( dev, "\x81\x0d\x01\x03", 4, (int*)&transferred, rbuff, 1024 ); // Reply: Ignored, 820d050900300500
 
-		} else if( result < 0 ) {
-			fprintf( stderr, "Chip type not supported. Aborting...\n" );
-			return -1;
-		}
+	} else if( result < 0 ) {
+		fprintf( stderr, "Chip type not supported. Aborting...\n" );
+		return -1;
+	}
 
-		// Check for read protection
-		wch_link_command( dev, "\x81\x06\x01\x01", 4, (int*)&transferred, rbuff, 1024 );
-		if(transferred != 4) {
-			fprintf(stderr, "Error: could not get read protection status\n");
-			return -1;
-		}
+	// Check for read protection
+	wch_link_command( dev, "\x81\x06\x01\x01", 4, (int*)&transferred, rbuff, 1024 );
+	if(transferred != 4) {
+		fprintf(stderr, "Error: could not get read protection status\n");
+		return -1;
+	}
 
-		if(rbuff[3] == 0x01) {
-			fprintf(stderr, "Read protection: enabled\n");
-		} else {
-			fprintf(stderr, "Read protection: disabled\n");
-		}
-		if(flash_size) iss->flash_size = flash_size*1024;
+	if(rbuff[3] == 0x01) {
+		fprintf(stderr, "Read protection: enabled\n");
+	} else {
+		fprintf(stderr, "Read protection: disabled\n");
+	}
+	if(flash_size) iss->flash_size = flash_size*1024;
 #endif
 	return 0;
 }
