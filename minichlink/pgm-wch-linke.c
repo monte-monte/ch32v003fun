@@ -227,7 +227,7 @@ static inline libusb_device_handle * wch_link_base_setup( int inhibit_startup )
 // Send 32-bit Write command over LinkE
 // DMI_OP decyphered From https://github.com/karlp/openocd-hacks/blob/27af153d4a373f29ad93dab28a01baffb7894363/src/jtag/drivers/wlink.c
 // Thanks, CW2 for pointing this out.  See DMI_OP for more info.
-int LEWriteReg32( void * dev, uint8_t reg_7_bit, uint32_t command )
+static int LEWriteReg32( void * dev, uint8_t reg_7_bit, uint32_t command )
 {
 	libusb_device_handle * devh = ((struct LinkEProgrammerStruct*)dev)->devh;
 
@@ -251,7 +251,7 @@ int LEWriteReg32( void * dev, uint8_t reg_7_bit, uint32_t command )
 }
 
 // Send 32-bit Read command over LinkE. Write the response back to 'commandresp'
-int LEReadReg32( void * dev, uint8_t reg_7_bit, uint32_t * commandresp )
+static int LEReadReg32( void * dev, uint8_t reg_7_bit, uint32_t * commandresp )
 {
 	libusb_device_handle * devh = ((struct LinkEProgrammerStruct*)dev)->devh;
 	const uint8_t iOP = 1; // op 1 = read
@@ -280,12 +280,12 @@ int LEReadReg32( void * dev, uint8_t reg_7_bit, uint32_t * commandresp )
 	return 0;
 }
 
-int LEFlushLLCommands( void * dev )
+static int LEFlushLLCommands( void * dev )
 {
 	return 0;
 }
 
-int LEResetInterface( void * d )
+static int LEResetInterface( void * d )
 {
 	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
 	wch_link_command( dev, "\x81\x0d\x01\xff", 4, 0, 0, 0 );
@@ -619,7 +619,7 @@ static int LEConfigureReadProtection( void * d, int one_if_yes_protect )
 	return 0;
 }
 
-int LEExit( void * d )
+static int LEExit( void * d )
 {
 	libusb_device_handle * dev = ((struct LinkEProgrammerStruct*)d)->devh;
 	wch_link_command( (libusb_device_handle *)dev, "\x81\x0d\x01\xff", 4, 0, 0, 0);
