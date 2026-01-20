@@ -4,8 +4,34 @@
 #include "ch5xx.h"
 #include "chips.h"
 
-#define PROGRAMMER_TYPE_ESP32S2 0
-#define PROGRAMMER_TYPE_CH32V003 1
+#define CURRENT_VERSION 520
+
+#define PROGRAMMER_TYPE_UNKNOWN  0
+#define PROGRAMMER_TYPE_ESP32S2  1
+#define PROGRAMMER_TYPE_CH32V003 2
+#define PROGRAMMER_TYPE_CH570    3
+#define PROGRAMMER_TYPE_ESP32    4
+#define PROGRAMMER_TYPE_SWADGE   5
+
+#define HAS_BLE                  (1 << 11)
+#define HAS_WEB_UI               (1 << 10)
+#define HAS_WEBSOCKET            (1 << 9)
+#define HAS_USB_VENDOR           (1 << 8)
+#define HAS_USB_HID              (1 << 7)
+#define HAS_UPDI_SUPPORT         (1 << 5)
+#define HAS_CH5xx_UNLOCK         (1 << 3)
+#define HAS_CH5xx_OPTIONS        (1 << 2)
+#define HAS_CH5xx_EEPROM         (1 << 1)
+#define HAS_CH5xx_SUPPORT        (1 << 0)
+
+char * programmer_name_string[6] = {
+	"Unknown programmer",
+	"ESP32S2-funprog",
+	"rv003-funprog",
+	"CH570-funprog",
+	"ESP32-funprog",
+	"ESP32S2-swadge",
+};
 
 #define DETAILED_DEBUG 0
 
@@ -25,6 +51,7 @@ struct ESP32ProgrammerStruct
 	int replylen; // Reply length of received report
 
 	int dev_version;
+	int capabilities;
 };
 
 int ESPFlushLLCommands( void * dev );
@@ -69,7 +96,7 @@ static int ESPWriteReg32( void * dev, uint8_t reg_7_bit, uint32_t value )
 
 	if( SRemain( eps ) < 5 ) ESPFlushLLCommands( eps );
 
-	if( eps->dev_version > 4 ) reg_7_bit -= 1;
+	if( (eps->dev_version >> 8) > 4 ) reg_7_bit -= 1;
 	Write1( eps, (reg_7_bit<<1) | 1 );
 	Write4LE( eps, value );
 	return 0;
@@ -79,7 +106,7 @@ int ESPReadReg32( void * dev, uint8_t reg_7_bit, uint32_t * commandresp )
 {
 	struct ESP32ProgrammerStruct * eps = (struct ESP32ProgrammerStruct *)dev;
 
-	if( eps->dev_version > 4 ) reg_7_bit -= 1;
+	if( (eps->dev_version >> 8) > 4 ) reg_7_bit -= 1;
 	ESPFlushLLCommands( eps );
 	Write1( eps, (reg_7_bit<<1) | 0 );
 
@@ -117,7 +144,7 @@ int ESPReadAllCPURegisters( void * dev, uint32_t * regret )
 	}
 	ESPWriteReg32( dev, DMCOMMAND, 0x00220000 | 0x7b1 ); // Read xN into DATA0.
 	Write1( eps, (DMDATA0<<1) | 0 );
-  eps->replysize = iss->nr_registers_for_debug;
+	eps->replysize = iss->nr_registers_for_debug;
 	ESPFlushLLCommands( eps );
 	if( eps->replylen - 1 != (iss->nr_registers_for_debug+1)*5 )
 	{
@@ -229,7 +256,7 @@ int ESPFlushLLCommands( void * dev )
 	uint8_t descriptor = 0xad;
 	int buffer_size = eps->commandbuffersize;
 
-	if( eps->dev_version > 4 )
+	if( (eps->dev_version >> 8) >= 5 && !(eps->capabilities&(PROGRAMMER_TYPE_SWADGE<<12)) )
 	{
 		if( eps->commandplace <= 7 )
 		{
@@ -241,12 +268,25 @@ int ESPFlushLLCommands( void * dev )
 			descriptor = 0xab;
 			buffer_size = 64;
 		}
+		else if ( eps->commandplace <= 78 )
+		{
+			descriptor = 0xad;
+			buffer_size = 79;
+		}
 		else if ( eps->commandplace <= 127 )
 		{
 			descriptor = 0xac;
 			buffer_size = 128;
 		}
-		else if ( eps->commandplace <= 78 )
+		else
+		{
+			descriptor = 0xae;
+			buffer_size = 264;
+		}
+	}
+	else if( (eps->dev_version >> 8) >= 5 && (eps->capabilities&(PROGRAMMER_TYPE_SWADGE<<12)) )
+	{
+		if ( eps->commandplace <= 78 )
 		{
 			descriptor = 0xad;
 			buffer_size = 79;
@@ -298,7 +338,6 @@ retry:
 	#endif
 
 	if( eps->replybuffer[0] == 0xff ) goto retry;
-	//printf( ">:::%d: %02x %02x %02x %02x %02x %02x\n", eps->replylen, eps->reply[0], eps->reply[1], eps->reply[2], eps->reply[3], eps->reply[4], eps->reply[5] );
 	if( r < 0 )
 	{
 		fprintf( stderr, "Error: Got error %d when getting hid feature report. (Size %d/%d)\n", r, eps->commandbuffersize, eps->replybuffersize );
@@ -341,6 +380,7 @@ int ESPReadWord( void * dev, uint32_t address_to_read, uint32_t * data )
 	}
 	int tail = eps->replylen-5;
 	memcpy( data, eps->replybuffer + tail + 1, 4 );
+	// printf( ">:::%d: %02x %02x %02x %02x %02x %02x\n", eps->replylen, (int8_t)eps->replybuffer[0], eps->replybuffer[1], eps->replybuffer[2], eps->replybuffer[3], eps->replybuffer[4], eps->replybuffer[5] );
 	return (int8_t)eps->replybuffer[tail];
 }
 
@@ -350,11 +390,11 @@ int ESPWriteWord( void * dev, uint32_t address_to_write, uint32_t data )
 
 	if( SRemain( eps ) < 10 )
 		ESPFlushLLCommands( eps );
-  
+
 	Write2LE( eps, 0x08fe );
 	Write4LE( eps, address_to_write );
 	Write4LE( eps, data );
-  eps->replysize += 2;
+	eps->replysize += 2;
 	return 0;
 }
 
@@ -406,7 +446,7 @@ int ESPBlockWrite64( void * dev, uint32_t address_to_write, const uint8_t * data
 
 retry:
 
-	if( eps->dev_version >= 2 && InternalIsMemoryErased( (struct InternalState*)eps->internal, address_to_write ) )
+	if( (eps->dev_version >> 8) >= 2 && InternalIsMemoryErased( (struct InternalState*)eps->internal, address_to_write ) )
 		Write2LE( eps, 0x0efe );
 	else
 		Write2LE( eps, 0x0bfe );
@@ -529,7 +569,7 @@ int ESPPollTerminal( void * dev, uint8_t * buffer, int maxlen, uint32_t leavefla
 	Write4LE( dev, leaveflagB );
 	Write1( dev, 0xff );
 
-  eps->replysize = eps->replybuffersize;
+	eps->replysize = eps->replybuffersize;
 	ESPFlushLLCommands( dev );
 
 	int rlen = eps->replybuffer[0];
@@ -570,46 +610,81 @@ void esp_ch570_disable_read_protection( void * dev )
 int esp_ch5xx_read_eeprom( void * dev, uint32_t addr, uint8_t* buffer, uint8_t len )
 {
 	struct ESP32ProgrammerStruct * eps = (struct ESP32ProgrammerStruct *)dev;
-
-	if( SRemain( eps ) < 7 )
-		ESPFlushLLCommands( eps );
-
-	Write2LE( eps, 0x23fe );
-	Write4LE( eps, addr );
-	Write1( eps, len );
-	eps->replysize = len + 2;
-	ESPFlushLLCommands( eps );
-
-	if( eps->replylen < len + 2 )
+	
+	if( len == 0 )
 	{
-		return -9;
+		return 0;
 	}
-	int tail = eps->replylen - len + 1;
-	memcpy( buffer, eps->replybuffer + tail + 1, len );
-	return (int8_t)eps->replybuffer[tail];
+
+	int to_read = len;
+	int pos = 0;
+
+	ESPFlushLLCommands( dev );
+	while( to_read )
+	{
+		uint16_t read_len = (len > (eps->replybuffersize - 2))?(eps->replybuffersize - 2):len;
+		Write2LE( eps, 0x23fe );
+		Write4LE( eps, addr + pos );
+		Write2LE( eps, read_len );
+		eps->replysize = read_len + 1;
+		ESPFlushLLCommands( dev );
+
+		if( eps->replylen < read_len + 1 )
+		{
+			// fprintf(stderr, "reply = %02x, %d\n", eps->replybuffer[0], (int8_t)eps->replybuffer[1]);
+			return -9;
+		}
+
+		if( eps->replybuffer[1] ) {
+			return (int8_t)eps->replybuffer[1];
+		}
+
+		memcpy( buffer, &eps->replybuffer[2], read_len );
+		to_read -= read_len;
+		pos += read_len;
+	}
+
+	return 0;
 }
 
-int esp_ch5xx_read_options_bulk( void * dev, uint32_t addr, uint8_t* buffer, uint8_t len )
+int esp_ch5xx_read_options_bulk( void * dev, uint32_t addr, uint8_t* buffer, uint32_t len )
 {
 	struct ESP32ProgrammerStruct * eps = (struct ESP32ProgrammerStruct *)dev;
-
-	if( SRemain( eps ) < 7 )
-		ESPFlushLLCommands( eps );
-
-	Write2LE( eps, 0x24fe );
-	Write4LE( eps, addr );
-	Write1( eps, len );
-  eps->replysize = len + 2;
-	ESPFlushLLCommands( eps );
-
-	if( eps->replylen < len + 2 )
+	
+	if( len == 0 )
 	{
-		return -9;
+		return 0;
 	}
 
-	int tail = eps->replylen - len + 1;
-	memcpy( buffer, eps->replybuffer + tail + 1, len );
-	return (int8_t)eps->replybuffer[tail];
+	int to_read = len;
+	int pos = 0;
+
+	ESPFlushLLCommands( dev );
+	while( to_read )
+	{
+		uint16_t read_len = (len > (eps->replybuffersize - 2))?(eps->replybuffersize - 2):len;
+		Write2LE( eps, 0x24fe );
+		Write4LE( eps, addr + pos );
+		Write2LE( eps, read_len );
+		eps->replysize = read_len + 1;
+		ESPFlushLLCommands( dev );
+
+		if( eps->replylen < read_len + 1 )
+		{
+			// fprintf(stderr, "reply = %02x, %d\n", eps->replybuffer[0], (int8_t)eps->replybuffer[1]);
+			return -9;
+		}
+
+		if( eps->replybuffer[1] ) {
+			return (int8_t)eps->replybuffer[1];
+		}
+
+		memcpy( buffer, &eps->replybuffer[2], read_len );
+		to_read -= read_len;
+		pos += read_len;
+	}
+
+	return 0;
 }
 
 int ESPCH5xxReadUUID( void * dev, uint8_t* buffer )
@@ -629,7 +704,7 @@ int ESPCH5xxReadUUID( void * dev, uint8_t* buffer )
 	}
 
 	int tail = eps->replylen-9;
-	// fprintf( stderr, "len = %d, %02x %02x %02x %02x %02x %02x %02x %02x\n", eps->replylen, eps->reply[tail], eps->reply[tail+1], eps->reply[tail+2], eps->reply[tail+3], eps->reply[tail+4], eps->reply[tail+5], eps->reply[tail+6], eps->reply[tail+7] );
+	// fprintf( stderr, "len = %d, %d %02x %02x %02x %02x %02x %02x %02x\n", eps->replylen, (int8_t)eps->replybuffer[tail], eps->replybuffer[tail+1], eps->replybuffer[tail+2], eps->replybuffer[tail+3], eps->replybuffer[tail+4], eps->replybuffer[tail+5], eps->replybuffer[tail+6], eps->replybuffer[tail+7] );
 	
 	memcpy( buffer, eps->replybuffer + tail + 1, 8 );
 	return (int8_t)eps->replybuffer[tail];
@@ -669,7 +744,7 @@ retry:
 				fprintf( stderr, "Error: Timed out writhing flash to ch5xx\n" );
 				return -49;
 			}
-			// fprintf( stderr, "len = %d, %02x %02x %02x %02x %02x %02x %02x %02x\n", eps->replylen, eps->reply[0], eps->reply[1], eps->reply[2], eps->reply[3], eps->reply[4], eps->reply[5], eps->reply[6], eps->reply[7] );
+			// fprintf( stderr, "len = %d, %02x %02x %02x %02x %02x %02x %02x %02x\n", eps->replylen, eps->replybuffer[0], eps->replybuffer[1], eps->replybuffer[2], eps->replybuffer[3], eps->replybuffer[4], eps->replybuffer[5], eps->replybuffer[6], eps->replybuffer[7] );
 		} while( eps->replylen < 2 );
 
 		if( eps->replybuffer[1] )
@@ -696,19 +771,22 @@ void esp_ch5xx_end_write( void * dev )
 	ESPFlushLLCommands( eps );
 }
 
-int ESPSetClock( void * dev, uint32_t clock)
+int ESPSetClock( void * dev, uint32_t clock )
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
+	if( iss->debugger ) return 0;
 	struct ESP32ProgrammerStruct * eps = (struct ESP32ProgrammerStruct *)dev;
 	if( iss->target_chip->protocol == PROTOCOL_CH5xx )
 	{
-		if( SRemain( eps ) < 2 )
+		if( SRemain( eps ) < 6 )
 			ESPFlushLLCommands( eps );
 
 		Write2LE( eps, 0x28fe );
+		Write4LE( eps, clock );
 		eps->replysize += 2;
 		ESPFlushLLCommands( eps );
-		return (int8_t)eps->replybuffer[eps->replylen];
+		// fprintf(stderr, "setclock = %d\n", (int8_t)eps->replybuffer[1]);
+		return (int8_t)eps->replybuffer[1];
 	}
 	return 0;
 }
@@ -752,7 +830,7 @@ int ESPCH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob
 
 	if (blob_size == 0) return 0;
 
-	if (!iss->current_area) DetectMemoryArea(dev, address_to_write);
+	if (!iss->current_area || iss->debugger) DetectMemoryArea(dev, address_to_write);
 	if (!CheckMemoryLocation(dev, 0, address_to_write, blob_size)) {
 		fprintf(stderr, "Data doesn't fit into memory location\n");
 		return -1;
@@ -772,16 +850,29 @@ int ESPCH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob
 	uint32_t new_blob_size = blob_size;
 
 	if (iss->target_chip_type == CHIP_CH570) {
-		uint32_t options;
+		uint32_t options = 0;
 		MCF.ReadWord(dev, 0x40001058, &options);
 		if ((options&0x800000) || (options&0x200000)) {
-			printf("Flash is write/read protected. You may need to remove protection using 'minichlink -p'\n"); 
+			printf("Flash is write/read protected. You may need to remove protection using 'minichlink -p' %08x\n", options); 
+			return -1;
 		}
 	}
 
-	if (iss->current_area == PROGRAM_AREA) {
-		// if (blob_size > 4096)
-		write_mode = 1; // Always use microblob for program flash for now
+	if (iss->current_area == PROGRAM_AREA || iss->current_area == BOOTLOADER_AREA) {
+		if (iss->current_area == BOOTLOADER_AREA) {
+			uint8_t info_reg = 0;
+			MCF.ReadByte(dev, R8_GLOB_CFG_INFO, &info_reg);
+			if (!(info_reg & (1<<5))) {
+				fprintf(stderr, "You need to be in bootloader mode to flash to BOOTLOADER partition.\n R8_GLOB_CFG_INFO = %02x\n", info_reg);
+				ret = -2;
+				goto end;
+			} else {
+				write_mode = 0;
+			}
+		} else {
+			if (!iss->debugger) write_mode = 1;
+			else write_mode = 0;
+		}
 		
 		if (spad) {
 			if (spad + blob_size <= sector_size) {
@@ -802,13 +893,12 @@ int ESPCH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob
 			else new_blob_size = 0;
 		}
 
+		ESPCH5xxErase(dev, address_to_write, blob_size, 0);
 		if (spad) {
-			ESPCH5xxErase(dev, ((address_to_write + spad) - sector_size), new_blob_size + spad + epad, 0);
 			esp_ch5xx_write_flash(dev, address_to_write - spad, start_pad, sector_size, write_mode);
 			if (spad + blob_size > sector_size)
 				esp_ch5xx_write_flash(dev, address_to_write + (sector_size - spad), (uint8_t*)(blob + (sector_size - spad)), new_blob_size, write_mode);
 		} else {
-			ESPCH5xxErase(dev, address_to_write, new_blob_size + epad, 0);
 			esp_ch5xx_write_flash(dev, address_to_write, (uint8_t*)(blob), new_blob_size, write_mode);
 		}
 		if (epad) esp_ch5xx_write_flash(dev, (address_to_write + blob_size) - epad, end_pad, sector_size, write_mode);
@@ -839,13 +929,12 @@ int ESPCH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob
 			else new_blob_size = 0;
 		}
 
+		ESPCH5xxErase(dev, address_to_write, blob_size, 0);
 		if (spad) {
-			ESPCH5xxErase(dev, ((address_to_write + spad) - sector_size), new_blob_size + spad + epad, 0);
 			esp_ch5xx_write_flash(dev, address_to_write - spad, start_pad, sector_size, write_mode);
 			if (spad + blob_size > sector_size)
 				esp_ch5xx_write_flash(dev, address_to_write + (sector_size - spad), (uint8_t*)(blob + (sector_size - spad)), new_blob_size, write_mode);
 		} else {
-			ESPCH5xxErase(dev, address_to_write, new_blob_size + epad, 0);
 			esp_ch5xx_write_flash(dev, address_to_write, (uint8_t*)(blob), new_blob_size, write_mode);
 		}
 		if (epad) esp_ch5xx_write_flash(dev, (address_to_write + blob_size) - epad, end_pad, sector_size, write_mode);
@@ -871,13 +960,12 @@ int ESPCH5xxWriteBinaryBlob(void * dev, uint32_t address_to_write, uint32_t blob
 			else new_blob_size = 0;
 		}
 
+		ESPCH5xxErase(dev, address_to_write, blob_size, 0);
 		if (spad) {
-			ESPCH5xxErase(dev, ((address_to_write + spad) - sector_size), new_blob_size + spad + epad, 0);
 			esp_ch5xx_write_flash(dev, address_to_write - spad, start_pad, sector_size, write_mode);
 			if (spad + blob_size > sector_size)
 				esp_ch5xx_write_flash(dev, address_to_write + (sector_size - spad), (uint8_t*)(blob + (sector_size - spad)), new_blob_size, write_mode);
 		} else {
-			ESPCH5xxErase(dev, address_to_write, new_blob_size + epad, 0);
 			esp_ch5xx_write_flash(dev, address_to_write, (uint8_t*)(blob), new_blob_size, write_mode);
 		}
 		if (epad) esp_ch5xx_write_flash(dev, (address_to_write + blob_size) - epad, end_pad, sector_size, write_mode);
@@ -927,6 +1015,7 @@ end:
 
 int ESPCH5xxReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t read_size, uint8_t* blob )
 {
+	struct ESP32ProgrammerStruct * eps = (struct ESP32ProgrammerStruct*)dev;
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	int ret = 0;
 	
@@ -937,20 +1026,24 @@ int ESPCH5xxReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t 
 		goto end;
 	}
 	if (iss->current_area == OPTIONS_AREA) {
-		esp_ch5xx_read_options_bulk(dev, address_to_read_from, blob, read_size);
+		if( eps->capabilities & HAS_CH5xx_OPTIONS )
+			ret = esp_ch5xx_read_options_bulk(dev, address_to_read_from, blob, read_size);
+		else
+			ret = ch5xx_read_options_bulk(dev, address_to_read_from, blob, read_size);
 	} else if (iss->current_area == EEPROM_AREA) {
-		esp_ch5xx_read_eeprom(dev, address_to_read_from, blob, read_size);
-	} else if (iss->current_area == BOOTLOADER_AREA) {
-		esp_ch5xx_read_eeprom(dev, address_to_read_from, blob, read_size);
-	} else if (iss->current_area == PROGRAM_AREA || iss->current_area == RAM_AREA) {
-			ret = ESPReadBinaryBlob( dev, address_to_read_from, read_size, blob );
+		if( eps->capabilities & HAS_CH5xx_EEPROM )
+			ret = esp_ch5xx_read_eeprom(dev, address_to_read_from, blob, read_size);
+		else
+			ret = ch5xx_read_eeprom(dev, address_to_read_from, blob, read_size);
+	} else if (iss->current_area == PROGRAM_AREA || iss->current_area == RAM_AREA || iss->current_area == BOOTLOADER_AREA) {
+		ret = ESPReadBinaryBlob( dev, address_to_read_from, read_size, blob );
 	} else {
 		fprintf(stderr, "Unknown memory region. Not reading.\n");
 		ret = -2;
 		goto end;
 	}
 
-	fprintf(stderr, "Done reading\n");
+	if (!ret) fprintf(stderr, "Done reading\n");
 end:
 	return ret;
 }
@@ -1105,8 +1198,8 @@ int ESPDetermineChipTypeOLD( void * dev )
 			iss->sector_size = iss->target_chip->sector_size;
 			iss->nr_registers_for_debug = 32; // Maybe add a core type variable to RiscVChip_s?
 			if( iss->target_chip_type == CHIP_CH32V00x ||
-				iss->target_chip_type == CHIP_CH32V003 ||
-				iss->target_chip_type == CHIP_CH641 )
+			    iss->target_chip_type == CHIP_CH32V003 ||
+			    iss->target_chip_type == CHIP_CH641 )
 			{
 				iss->nr_registers_for_debug = 16;
 			}
@@ -1335,8 +1428,8 @@ int ESPDetermineChipType( void * dev )
 			iss->sector_size = iss->target_chip->sector_size;
 			iss->nr_registers_for_debug = 32; // Maybe add a core type variable to RiscVChip_s?
 			if( iss->target_chip_type == CHIP_CH32V00x || 
-				iss->target_chip_type == CHIP_CH32V003 ||  
-				iss->target_chip_type == CHIP_CH641 )
+			    iss->target_chip_type == CHIP_CH32V003 ||  
+			    iss->target_chip_type == CHIP_CH641 )
 			{
 				iss->nr_registers_for_debug = 16;
 			}
@@ -1345,8 +1438,7 @@ int ESPDetermineChipType( void * dev )
 				MCF.WriteBinaryBlob = ESPCH5xxWriteBinaryBlob;
 				MCF.Erase = ESPCH5xxErase;
 				MCF.ReadBinaryBlob = ESPCH5xxReadBinaryBlob;
-				MCF.GetUUID = ESPCH5xxReadUUID;
-        MCF.ConfigureNRSTAsGPIO = CH5xxConfigureNRSTAsGPIO;
+				MCF.ConfigureNRSTAsGPIO = CH5xxConfigureNRSTAsGPIO;
 			}
 
 			uint8_t * part_type = (uint8_t*)&iss->target_chip_id;
@@ -1390,6 +1482,12 @@ void * TryInit_ESP32S2CHFUN()
 		eps->replybuffersize = 79;
 		eps->programmer_type = PROGRAMMER_TYPE_CH32V003;
 	}
+	else if( !!( hd = hid_open( 0x303a, 0x4004, 0) ) ||
+	         !!( hd = hid_open( 0x1206, 0x5D10, 0) ) )
+	{
+		eps->commandbuffersize = 79;
+		eps->replybuffersize = 79;
+	}
 	else
 	{
 		free( eps );
@@ -1412,7 +1510,7 @@ void * TryInit_ESP32S2CHFUN()
 	MCF.ResetInterface = ESPResetInterface;
 
 #if 1
-	// These are optional. Disabling these is a good mechanismto make sure the core functions still work.
+	// These are optional. Disabling these is a good mechanism to make sure the core functions still work.
 	// Comment these out to test the reference algorithm.
 	// DO NOT Comment them out piecemeal because there are state assumptions built into these functions.
 	MCF.PollTerminal = ESPPollTerminal;
@@ -1431,14 +1529,36 @@ void * TryInit_ESP32S2CHFUN()
 	Write1( eps, 0xfe );
 	Write1( eps, 0xfd );
 	Write1( eps, 0x00 );
-  eps->replysize = 2;
+	eps->replysize = 5;
 	ESPFlushLLCommands( eps );
+
 	if( eps->replylen > 1 )
 	{
-		eps->dev_version = eps->replybuffer[1];
-		printf( "Dev Version: %d\n", eps->dev_version );
+		if( (eps->replylen > 3) && ((eps->replybuffer[1] > 4) && (eps->replybuffer[3] > 0)) )
+		{
+			eps->dev_version = (eps->replybuffer[1] << 8) | eps->replybuffer[3];
+			eps->capabilities = (eps->replybuffer[4] << 8) | eps->replybuffer[5];
+			eps->programmer_type = eps->replybuffer[4] >> 4;
+		}
+		else
+		{
+			eps->dev_version = eps->replybuffer[1] << 8;
+			eps->capabilities = (eps->programmer_type << 12) | ((eps->replybuffer[1] > 4)?0x1f:0);
+		}
+		fprintf( stderr, "Found %s\n", programmer_name_string[eps->programmer_type] );
+		printf( "Programmer firmware version %d.%02d-%04x\n", (uint8_t)(eps->dev_version >> 8), (uint8_t)eps->dev_version&0xff, eps->capabilities );
+		if( (uint16_t)(((uint8_t)(eps->dev_version >> 8) * 100) + (uint8_t)(eps->dev_version&0xff)) < (uint16_t)CURRENT_VERSION )
+		{
+			printf( "There is newer version of programmer firmware available - v.%d.%d\n", CURRENT_VERSION/100, CURRENT_VERSION%100 );
+		}
 	}
-	if( eps->dev_version > 4 )
+	else if( eps->replylen <= 1 || !eps->programmer_type )
+	{
+		fprintf( stderr, "Error. Couldn't determine programmer type/version.\n Exiting...\n" );
+		return 0;
+	}
+
+	if( (eps->dev_version >> 8) > 4 )
 	{
 		eps->commandbuffersize = 264;
 		eps->replybuffersize = 264;
@@ -1449,6 +1569,7 @@ void * TryInit_ESP32S2CHFUN()
 	{
 		MCF.DetermineChipType = ESPDetermineChipTypeOLD;
 	}
+
 	Write2LE( eps, 0x0efe ); // Trigger Init.
 	ESPFlushLLCommands( eps );
 	Write2LE( eps, 0x0afe ); 	// Reset programmer internals
