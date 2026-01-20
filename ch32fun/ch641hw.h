@@ -105,6 +105,7 @@ typedef struct
     uint32_t RESERVED1;
 } SysTick_Type;
 
+#define funSysTick32() (SysTick->CNT)
 
 #endif /* __ASSEMBLER__*/
 

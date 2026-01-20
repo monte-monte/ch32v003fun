@@ -167,16 +167,50 @@ typedef struct __attribute__((packed))
 	uint8_t RESERVED0[4];
 #elif defined(CH571_CH573)
 	__IO uint32_t CTLR;
-	__IO uint64_t CNT;
-	__IO uint64_t CMP;
+	union
+	{
+		struct
+		{
+			__IO uint32_t CNTL;
+			__IO uint32_t CNTH;
+			__IO uint32_t CMPL;
+			__IO uint32_t CMPH;
+		};
+		struct
+		{
+			__IO uint64_t CNT;
+			__IO uint64_t CMP;
+		};
+	};
 	__IO uint32_t CNTFG;
 #else
 	__IO uint32_t CTLR;
 	__IO uint32_t SR;
-	__IO uint64_t CNT;
-	__IO uint64_t CMP;
+	union
+	{
+		struct
+		{
+			__IO uint32_t CNTL;
+			__IO uint32_t CNTH;
+			__IO uint32_t CMPL;
+			__IO uint32_t CMPH;
+		};
+		struct
+		{
+			__IO uint64_t CNT;
+			__IO uint64_t CMP;
+		};
+	};
 #endif
 } SysTick_Type;
+
+
+#if (defined(CH570_CH572) || defined(CH584_CH585))
+#define funSysTick32() (SysTick->CNT)
+#else
+#define funSysTick32() (SysTick->CNTL)
+#define funSysTickHigh() (SysTick->CNTH)
+#endif
 
 /* memory mapped structure for Program Fast Interrupt Controller (PFIC) */
 typedef struct

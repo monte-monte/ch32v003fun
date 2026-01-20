@@ -149,6 +149,8 @@ typedef struct
   };
 } SysTick_Type;
 
+#define funSysTick32() (SysTick->CNTL)
+#define funSysTickHigh() (SysTick->CNTH)
 
 #endif /* __ASSEMBLER__*/
 

@@ -260,6 +260,7 @@ typedef struct
 	__IO uint64_t CMP;
 } SysTick_Type;
 
+#define funSysTick32() (SysTick->CNT)
 
 #endif /* __ASSEMBLER__*/
 

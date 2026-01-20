@@ -299,17 +299,30 @@ typedef enum IRQn
 
 #define DEFAULT_INTERRUPT_VECTOR_CONTENTS BASE_VECTOR "\n.option pop;\n"
 
-
-
 /* memory mapped structure for SysTick */
 typedef struct
 {
 	__IO uint32_t CTLR;
 	__IO uint32_t SR;
-	__IO uint64_t CNT;
-	uint32_t RESERVED0;
-	__IO uint64_t CMP;
+	union
+	{
+		struct
+		{
+			__IO uint32_t CNTL;
+			__IO uint32_t CNTH;
+			__IO uint32_t CMPL;
+			__IO uint32_t CMPH;
+		};
+		struct
+		{
+			__IO uint64_t CNT;
+			__IO uint64_t CMP;
+		};
+	};
 } SysTick_Type;
+
+#define funSysTick32() (SysTick->CNTL)
+#define funSysTickHigh() (SysTick->CNTH)
 
 
 #endif /* __ASSEMBLER__*/

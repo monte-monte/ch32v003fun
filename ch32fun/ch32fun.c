@@ -1868,6 +1868,45 @@ void DelaySysTick( uint32_t n )
 #endif
 }
 
+
+// Computes a 64-bit SysTick timestamp from the current CPU.
+// If the CPU supports a 64-bit SysTick, then it will make sure it
+// did not race condition.  If it's a 32-bit SysTick, a virtual
+// high word will be generated and incremented any time a wraparound
+// is detected. 
+//
+// In general, please do not use this function.  In 99% of cases, using 32-bit
+// functions with proper rollover is better. For instance you can use
+// TimeElapsed32( start, end ).
+//
+// This should only be used when you must act on time periods exceeding 2^31
+// ticks.
+//
+uint64_t funSysTick64( void )
+{
+	uint32_t base = funSysTick32();
+#ifdef funSysTickHigh
+
+	uint32_t high = funSysTickHigh();
+	uint32_t check = funSysTick32();
+
+	// If and only if check is higher than base can we guarantee high is
+	// valid and matches the check.
+	if( check >= base )
+		return ((uint64_t)high<<32) | check;
+
+	// Else we need a new high.
+	return (((uint64_t)(funSysTickHigh()))<<32) | check;
+#else
+	static uint32_t lastBase;
+	static uint32_t high;
+	if( base < lastBase ) { printf( "Trigger\n" );high++; }
+	lastBase = base;
+printf( "%d %d\n", lastBase, high );
+	return ((uint64_t)high<<32) | base;
+#endif
+}
+
 #if defined(CH32H41x)
 void StartV5F(v5f_main function)
 {
