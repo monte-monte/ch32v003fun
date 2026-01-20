@@ -1,13 +1,6 @@
 #include "ch32fun.h"
 #include <stdio.h>
 
-#define CH32V003_SPI_SPEED_HZ 1000000
-#define CH32V003_SPI_DIRECTION_2LINE_TXRX
-#define CH32V003_SPI_CLK_MODE_POL0_PHA0
-#define CH32V003_SPI_NSS_SOFTWARE_ANY_MANUAL
-
-#include "../../extralibs/ch32v003_SPI.h"
-
 #define PIN_CS PC1
 // Useful to determine the cycle duration with a scope. Goes high the moment CS goes low, and back to low at the last
 // action within the while loop. Can be removed otherwise.
@@ -34,6 +27,16 @@ void wait_for_state( SpiState desired_state )
 	while ( spi_state != desired_state )
 	{
 	}
+}
+
+static uint8_t SPI_read_8()
+{
+	return SPI1->DATAR;
+}
+
+static void SPI_write_8( uint8_t data )
+{
+	SPI1->DATAR = data;
 }
 
 void SPI_Configure()
