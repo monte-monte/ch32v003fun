@@ -48,7 +48,7 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 			dev = TryInit_WCHLinkE();
 		else if( strcmp( specpgm, "isp" ) == 0 )
 			dev = TryInit_WCHISP();
-		else if( strcmp( specpgm, "esp32s2chfun" ) == 0 )
+		else if( !strcmp( specpgm, "esp32s2chfun" ) || !strcmp( specpgm, "funprog" ) )
 			dev = TryInit_ESP32S2CHFUN();
 		else if( strcmp( specpgm, "nchlink" ) == 0 )
 			dev = TryInit_NHCLink042();
@@ -69,7 +69,8 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 		}
 		else if( (dev = TryInit_ESP32S2CHFUN()) )
 		{
-			fprintf( stderr, "Found ESP32S2-Style Programmer\n" );
+			// Will print the exact programmer type in init
+			// fprintf( stderr, "Found ESP32S2-Style Programmer\n" );
 		}
 		else if ((dev = TryInit_NHCLink042()))
 		{
@@ -89,7 +90,7 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 	{
 		if ( specpgm )
 		{
-			fprintf( stderr, "Error: Could not initialize %s programmer\n", specpgm );	
+			fprintf( stderr, "Error: Could not initialize %s programmer\n", specpgm );
 		} else
 		{
 			fprintf( stderr, "Error: Could not initialize any supported programmers\n" );
@@ -1041,7 +1042,7 @@ help:
 	fprintf( stderr, " -f Disable 5V\n" );
 	fprintf( stderr, " -k Skip programmer initialization\n" );
 	fprintf( stderr, " -c [serial port for Ardulink, try /dev/ttyACM0 or COM11 etc] or [VID+PID of USB for b003boot, try 0x1209b003]\n" );
-	fprintf( stderr, " -C [specified programmer, eg. b003boot, ardulink, esp32s2chfun, isp]\n" );
+	fprintf( stderr, " -C [specified programmer, eg. b003boot, ardulink, esp32s2chfun, funprog, isp]\n" );
 	fprintf( stderr, " -u Clear all code flash - by power off (also can unbrick)\n" );
 	fprintf( stderr, " -a Reboot into Halt\n" );
 	fprintf( stderr, " -A Go into Halt without reboot\n" );
@@ -1063,7 +1064,7 @@ help:
 	fprintf( stderr, " -S set FLASH/SRAM split [FLASH kbytes] [SRAM kbytes]\n" );
 	fprintf( stderr, " -w [binary image to write] [address, decimal or 0x, try0x08000000]\n" );
 	fprintf( stderr, " -r [output binary image] [memory address, decimal or 0x, try 0x08000000] [size, decimal or 0x, try 16384]\n" );
-	fprintf( stderr, "   Note: for memory addresses, you can use 'flash' 'launcher' 'bootloader' 'option' 'ram' and say \"ram+0x10\" for instance\n" );
+	fprintf( stderr, "   Note: for memory addresses, you can use 'flash' 'bootloader' 'option' 'eeprom' 'ram' and say \"ram+0x10\" for instance\n" );
 	fprintf( stderr, "   For filename, you can use - for raw (terminal) or + for hex (inline).\n" );
 	fprintf( stderr, " -X [programmer-specific command, for esp32-s2 programmer, -X ECLK:1:0:0:8:3 for 24MHz clock out]\n" );
 
@@ -1133,11 +1134,23 @@ static int64_t StringToMemoryAddress( void * dev, const char * number )
 		number += 6;
 		iss->current_area = OPTIONS_AREA;
 	}
+	if( strncmp( number, "options", 7 ) == 0 )
+	{
+		base = iss->target_chip->options_offset;
+		number += 7;
+		iss->current_area = OPTIONS_AREA;
+	}
 	if( strncmp( number, "user", 4 ) == 0 )
 	{
 		base = iss->target_chip->options_offset;
 		number += 4;
 		iss->current_area = OPTIONS_AREA;
+	}
+	if( strncmp( number, "eeprom", 6 ) == 0 )
+	{
+		base = iss->target_chip->eeprom_offset;
+		number += 6;
+		iss->current_area = EEPROM_AREA;
 	}
 	if( strncmp( number, "ram", 3 ) == 0 )
 	{
