@@ -1529,7 +1529,7 @@ void * TryInit_ESP32S2CHFUN()
 	Write1( eps, 0xfe );
 	Write1( eps, 0xfd );
 	Write1( eps, 0x00 );
-  eps->replysize = 5;
+	eps->replysize = 5;
 	ESPFlushLLCommands( eps );
 
 	if( eps->replylen > 1 )
