@@ -7,7 +7,6 @@
 
 uint8_t buf_compare[] = SOMETHING_NICE;
 uint8_t buf[] = SOMETHING_NICE;
-__HIGH_CODE
 int check_buffers() {
 	int result = 1;
 	for(int i = 0; i < sizeof(buf); i++) {

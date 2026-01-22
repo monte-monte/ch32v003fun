@@ -99,7 +99,6 @@ uint8_t ch5xx_flash_rom_wait() {
 	return 0; // timeout
 }
 
-__HIGH_CODE
 void ch5xx_flash_cmd_unlock(uint8_t cmd) {
 	// cmd: 0 - unlock all, 0x44 - lock boot code, 0x50 - lock all code and flash, 0x3c - lock something, unclear what exactly
 	ch5xx_flash_rom_open_erase_write();
@@ -113,7 +112,6 @@ void ch5xx_flash_cmd_unlock(uint8_t cmd) {
 	ch5xx_flash_rom_close();
 }
 
-__HIGH_CODE
 void ch5xx_flash_cmd_reset() {
 	ch5xx_flash_rom_open_erase_write();
 	ch5xx_flash_rom_begin(0x66);
@@ -122,7 +120,6 @@ void ch5xx_flash_cmd_reset() {
 	ch5xx_flash_rom_close();
 }
 
-__HIGH_CODE
 void ch5xx_flash_cmd_read(uint32_t addr, uint8_t *buf, int len) {
 	uint32_t *buf32 = (uint32_t*)buf;
 	int len32 = (len +3) >> 2;
@@ -133,7 +130,6 @@ void ch5xx_flash_cmd_read(uint32_t addr, uint8_t *buf, int len) {
 	}
 }
 
-__HIGH_CODE
 uint32_t ch5xx_flash_cmd_write(uint32_t addr, uint8_t *buf, int len ) {
 	uint32_t *buf32 = (uint32_t*)buf;
 	int len32 = (len +3) >> 2;
@@ -165,7 +161,6 @@ uint32_t ch5xx_flash_cmd_write(uint32_t addr, uint8_t *buf, int len ) {
 	return 0;
 }
 
-__HIGH_CODE
 uint32_t ch5xx_flash_cmd_erase(uint32_t addr, int len) {
 	addr &= 0xfffff000; // start at a Sector boundary
 	len = (len + (addr & 0xfff) + 0xfff) & 0xfffff000; // adjust length to Sector boundaries
@@ -212,7 +207,6 @@ uint32_t ch5xx_flash_cmd_erase(uint32_t addr, int len) {
 	return 0;
 }
 
-__HIGH_CODE
 uint32_t ch5xx_flash_cmd_verify(uint32_t addr, uint8_t *buf, int len) {
 	uint32_t *buf32 = (uint32_t*)buf;
 	int len32 = (len +3) >> 2;
@@ -234,21 +228,18 @@ uint32_t ch5xx_flash_cmd_verify(uint32_t addr, uint8_t *buf, int len) {
 	return 0;
 }
 
-__HIGH_CODE
 void ch5xx_flash_cmd_powerup() {
 	ch5xx_flash_rom_open_erase_write();
 	ch5xx_flash_rom_begin(0xab);
 	ch5xx_flash_rom_close();
 }
 
-__HIGH_CODE
 void ch5xx_flash_cmd_powerdown() {
 	ch5xx_flash_rom_open_erase_write();
 	ch5xx_flash_rom_begin(0xb9);
 	ch5xx_flash_rom_close();
 }
 
-__HIGH_CODE
 void ch5xx_flash_cmd_get_rom_info(uint32_t addr, uint8_t *buf) {
 	uint32_t *buf32 = (uint32_t*)buf;
 
