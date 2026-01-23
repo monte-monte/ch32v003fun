@@ -896,18 +896,6 @@ extern "C" {
 #define TimeElapsed32(now,start)  ((int32_t)((uint32_t)(now)-(uint32_t)(start)))
 #define TimeElapsed32u(now,start)  ((uint32_t)((uint32_t)(now)-(uint32_t)(start)))
 
-// #define funSysTick32() is defined per-architecture.
-
-// Get a 64-bit timestamp.  Please in general try to use 32-bit timestamps
-// whenever possible.  Use functions that automatically handle rollover
-// correctly like TimeElapsed32( start, end ).  Only use this in cases where
-// you must act on time periods exceeding 2^31 ticks.
-//
-// Also, if you are on a platform without a hardware 64-bit timer, you must
-// call this function at least once every 2^32 ticks to make sure MSBs aren't
-// lost.
-uint64_t funSysTick64( void );
-
 // Add a certain number of nops.  Note: These are usually executed in pairs
 // and take two cycles, so you typically would use 0, 2, 4, etc.
 #define ADD_N_NOPS( n ) asm volatile( ".rept " #n "\nc.nop\n.endr" );
@@ -1045,6 +1033,17 @@ void DefaultIRQHandler( void ) __attribute__((section(VECTOR_HANDLER_SECTION))) 
 
 void DelaySysTick( uint32_t n );
 
+// #define funSysTick32() is defined per-architecture.
+
+// Get a 64-bit timestamp.  Please in general try to use 32-bit timestamps
+// whenever possible.  Use functions that automatically handle rollover
+// correctly like TimeElapsed32( start, end ).  Only use this in cases where
+// you must act on time periods exceeding 2^31 ticks.
+//
+// Also, if you are on a platform without a hardware 64-bit timer, you must
+// call this function at least once every 2^32 ticks to make sure MSBs aren't
+// lost.
+uint64_t funSysTick64( void );
 
 // Depending on a LOT of factors, it's about 6 cycles per n.
 // **DO NOT send it zero or less.**
