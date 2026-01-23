@@ -22,7 +22,7 @@ int main() {
 	u32 time_ref = 0;
 
 	while(1) {
-		if (TimeElapsed32(SysTick->CNT, time_ref) > DELAY_MSEC_COUNT(1000)) {
+		if (TimeElapsed32u(SysTick->CNT, time_ref) > DELAY_MSEC_COUNT(1000)) {
 			time_ref = SysTick->CNT;
 			printf("send: %s\r\n", send_msg);
 			sprintf(send_msg, "hello bee %d\r\n", i++);

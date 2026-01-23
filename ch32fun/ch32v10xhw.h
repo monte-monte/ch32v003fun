@@ -168,6 +168,9 @@ typedef struct __attribute__((packed))
   };
 } SysTick_Type;
 
+#define funSysTick32() (SysTick->CNTL)
+#define funSysTickHigh() (SysTick->CNTH)
+
 #endif /* __ASSEMBLER__*/
 
 #define HardFault_IRQn    EXC_IRQn

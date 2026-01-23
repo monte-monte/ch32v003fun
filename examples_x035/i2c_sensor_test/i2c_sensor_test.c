@@ -129,7 +129,7 @@ int main() {
 	u32 time_ref = 0;
 
 	while(1) {
-		if (TimeElapsed32(SysTick->CNT, time_ref) > DELAY_MSEC_COUNT(200)) {
+		if (TimeElapsed32u(SysTick->CNT, time_ref) > DELAY_MSEC_COUNT(200)) {
 			time_ref = SysTick->CNT;
 
 			#if I2C_ADDRESS == 0x23
