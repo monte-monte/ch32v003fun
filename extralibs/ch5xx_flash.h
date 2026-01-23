@@ -1,6 +1,55 @@
 /*
   Flash library for ch5xx
+
+  The FUNCONF_CH5XXFLASHLIB_SECTION macro is available for tight RAM situations,
+  some critical functions need to be ran from RAM. This takes 480 bytes when
+  compiled on my machine. With the macro you could do something like this:
+
+  in funconfig.h:
+  #define FUNCONF_CH5XXFLASHLIB_SECTION __attribute__( ( section( ".manual_ram" ) ) )
+
+  in the project's linker file:
+  .manual_ram_inflash :
+  {
+    . = ALIGN(4);
+    PROVIDE(_flash_manual_ram_start = .);
+  } >FLASH AT>FLASH
+
+  .manual_ram :
+  {
+    . = ALIGN(4);
+    PROVIDE(_manual_ram_vma_start = .);
+    *(.manual_ram*)
+    . = ALIGN(4);
+    PROVIDE(_manual_ram_vma_end = .);
+  } >RAM AT>FLASH
+
+  in any C source:
+  extern const uint32_t _manual_ram_vma_start;
+  extern const uint32_t _manual_ram_vma_end;
+  extern const uint32_t _flash_manual_ram_start;
+
+  void load_manual_ram_section( void )
+  {
+    const size_t manual_ram_size = (size_t)( &_manual_ram_vma_end - &_manual_ram_vma_start );
+    memcpy( (void *)&_manual_ram_vma_start, (void *)&_flash_manual_ram_start, manual_ram_size );
+  }
+
+  // when you don't use the function, you can use the ram area as scratch
+  uint8_t *scratch = (uint8_t *)&_manual_ram_vma_start;
+
+  // when need to write to flash:
+  load_manual_ram_section();
+
+  // all ch5xx_flash_cmd_* work now:
+  ch5xx_flash_cmd_erase(...);
+
+  // when done, just continue using the "scratch" buffer for whatever
 */
+#ifdef FUNCONF_CH5XXFLASHLIB_SECTION
+#undef __HIGH_CODE
+#define __HIGH_CODE FUNCONF_CH5XXFLASHLIB_SECTION
+#endif
 
 __HIGH_CODE
 uint8_t ch5xx_flash_rom_in() {

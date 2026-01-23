@@ -1,3 +1,23 @@
+/*
+  Flash read and write demo for ch5xx
+
+  The flash on ch5xx is accessed through some funny flash controller,
+  a library to talk to that is implemented in extralibs/ch5xx_flash.h
+  Some functions in that library, and the user function must be run
+  from RAM otherwise the chip locks up.
+  By default these are automatically and always loaded into RAM which
+  takes about 480 bytes of it, but it's possible to load them on demand
+  into a special RAM section by using FUNCONF_CH5XXFLASHLIB_SECTION.
+  The top comment in extralibs/ch5xx_flash.h explains how to do that.
+
+  IMPORTANT NOTE ON ERASE:
+  Flash erase is done in Sectors of 4kB, when you want to write something
+  to flash you first need to erase the sector it is on.
+  The ch5xx_flash_cmd_erase(addr, len) function takes care of aligning
+  the start and end addresses to sector boundaries, so it will erase
+  more than just [addr, addr+len]!
+*/
+
 #include <stdio.h>
 #include "ch32fun.h"
 #include "ch5xx_flash.h"
