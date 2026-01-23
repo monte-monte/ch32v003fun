@@ -416,8 +416,11 @@ $(TARGET).elf : $(FILES_TO_COMPILE) $(LINKER_SCRIPT) $(EXTRA_ELF_DEPENDENCIES)
 ch32fun.o : $(SYSTEM_C)
 	$(PREFIX)-gcc -c -o $@ $(SYSTEM_C) $(CFLAGS)
 
-cv_flash : $(TARGET).bin
+# Only rebuild minichlink if it doesn't exist at all.
+$(MINICHLINK)/minichlink :
 	make -C $(MINICHLINK) all
+
+cv_flash : $(TARGET).bin $(MINICHLINK)/minichlink
 	$(FLASH_COMMAND)
 
 cv_flash_ext : $(TARGET)_ext.bin
