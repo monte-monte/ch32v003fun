@@ -193,20 +193,20 @@ int HandleSetupCustom(struct _USBState * ctx, int setup_code) {
 		DEBUG_PRINT("SETUP Custom\n");
 	} else if (ctx->USBFS_SetupReqType & USB_REQ_TYP_VENDOR) {
 		uint8_t* ctrl0buff = ctx->ENDPOINTS[0];
-		ctx->pCtrlPayloadPtr = dev.buffer;
+		ctx->pCtrlPayloadPtr = 0; // Ensure no extra copying of buffers
 
 		DEBUG_PRINT("SETUP Vendor %02x %02x %02x %02x %02x %02x %02x %02x\n", ctrl0buff[0], ctrl0buff[1], ctrl0buff[2], ctrl0buff[3], ctrl0buff[4], ctrl0buff[5], ctrl0buff[6], ctrl0buff[7]);
 
 		switch(ctrl0buff[1]) {
 
 			case CMD_ECHO:
-				dev.buffer[0] = ctrl0buff[2];
-				dev.buffer[1] = ctrl0buff[3];
+				ctrl0buff[0] = ctrl0buff[2];
+				ctrl0buff[1] = ctrl0buff[3];
 				return 2;
 				break;
 
 			case CMD_GET_FUNC:
-				memcpy(dev.buffer, (uint8_t*)&func, 4);
+				memcpy(ctrl0buff, (uint8_t*)&func, 4);
 				return 4;
 				break;
 
@@ -228,7 +228,7 @@ int HandleSetupCustom(struct _USBState * ctx, int setup_code) {
 				break;
 
 			case CMD_GET_STATUS:
-				dev.buffer[0] = dev.status;
+				ctrl0buff[0] = dev.status;
 				return 1;
 				break;
 		}
