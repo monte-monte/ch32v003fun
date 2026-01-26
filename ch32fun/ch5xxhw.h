@@ -810,11 +810,7 @@ typedef enum
 #define  RB_ROM_CODE_OFS    0x10                      // RWA, code offset address selection in Flash ROM: 0=start address 0x000000, 1=start address 0x040000
 #define  RB_ROM_CTRL_EN     0x20                      // RWA, enable flash ROM control interface enable: 0=disable access, 1=enable access control register
 #define  RB_ROM_DATA_WE     0x40                      // RWA, enable flash ROM data & code area being erase/write: 0=all writing protect, 1=enable data area program and erase
-#ifdef CH570_CH572
 #define  RB_ROM_CODE_WE     0xC0                      // RWA, enable flash ROM code area being erase/write: 0=code writing protect, 1=enable code area program and erase
-#else
-#define  RB_ROM_CODE_WE     0x80                      // RWA, enable flash ROM code area being erase/write: 0=code writing protect, 1=enable code area program and erase
-#endif
 #define R8_GLOB_CFG_INFO    (*((vu8*)0x40001045))     // RO, global configuration information and status
 #define  RB_CFG_ROM_READ    0x01                      // RO, indicate protected status of Flash ROM code and data: 0=reading protect, 1=enable read by external programmer
 #define  RB_CFG_RESET_EN    0x04                      // RO, manual reset input enable status
