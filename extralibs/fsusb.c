@@ -366,9 +366,12 @@ void USBFS_IRQHandler()
 								else
 								{
 									ctx->USBFS_SetupReqLen = len;
-									copyBuffer( ctrl0buff, ctx->pCtrlPayloadPtr, len );
-									// printf("%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", ctrl0buff[0], ctrl0buff[1], ctrl0buff[2], ctrl0buff[3], ctrl0buff[4], ctrl0buff[5], ctrl0buff[6]);
-									ctx->pCtrlPayloadPtr += len;
+									if( ctx->pCtrlPayloadPtr )
+									{
+										copyBuffer( ctrl0buff, ctx->pCtrlPayloadPtr, len );
+										// printf("%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", ctrl0buff[0], ctrl0buff[1], ctrl0buff[2], ctrl0buff[3], ctrl0buff[4], ctrl0buff[5], ctrl0buff[6]);
+										ctx->pCtrlPayloadPtr += len;
+									}
 								}
 								
 								if( ctx->USBFS_SetupReqType & DEF_UEP_IN || ctx->USBFS_SetupReqLen == 0)

@@ -73,27 +73,30 @@ typedef struct
 	__IO uint32_t Reserved23;
 	__IO uint32_t Reserved24;
 	__IO uint16_t UEP5_DMA;
+	__IO uint16_t Reserved25;
 	__IO uint16_t UEP6_DMA;
+	__IO uint16_t Reserved26;
 	__IO uint16_t UEP7_DMA;
-	__IO uint32_t Reserved25;
+	__IO uint16_t Reserved27;
+	__IO uint32_t Reserved28;
 	__IO uint8_t UEP5_TX_LEN;
-	__IO uint8_t Reserved26;
-	__IO uint8_t  UEP5_TX_CTRL;
-	__IO uint8_t Reserved27;
-	__IO uint8_t UEP6_TX_LEN;
-	__IO uint8_t Reserved28;
-	__IO uint8_t  UEP6_TX_CTRL;
 	__IO uint8_t Reserved29;
+	__IO uint8_t  UEP5_TX_CTRL;
+	__IO uint8_t Reserved30;
+	__IO uint8_t UEP6_TX_LEN;
+	__IO uint8_t Reserved31;
+	__IO uint8_t  UEP6_TX_CTRL;
+	__IO uint8_t Reserved32;
 	__IO uint8_t UEP7_TX_LEN;
 	__IO uint8_t  UEP7_TX_CTRL;
-	__IO uint8_t Reserved30;
+	__IO uint8_t Reserved33;
 	__IO uint32_t EPX_MODE;
 } USBFS_TypeDef;
 
 #define UEP_CTRL_LEN(n) (((uint8_t*)&USBFS->UEP0_TX_LEN)[n*4])
 #define UEP_CTRL_TX(n)  (((uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4])
 #define UEP_CTRL_RX(n)  (((uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4])
-#define UEP_DMA(n)      (((uint16_t*)&USBFS->UEP0_DMA)[n*2])
+#define UEP_DMA(n)      (((uint16_t*)&USBFS->UEP0_DMA)[n*2]) // On ch5xx works only for EP0-3
 #endif
 
 #if defined(CH32V10x)
@@ -218,11 +221,17 @@ typedef struct
 #define USBFS_UEP2_RX_EN RB_UEP2_RX_EN
 #define USBFS_UEP3_RX_EN RB_UEP3_RX_EN
 #define USBFS_UEP4_RX_EN RB_UEP4_RX_EN
+#define USBFS_UEP5_RX_EN RB_UEP5_RX_EN
+#define USBFS_UEP6_RX_EN RB_UEP6_RX_EN
+#define USBFS_UEP7_RX_EN RB_UEP7_RX_EN
 
 #define USBFS_UEP1_TX_EN RB_UEP1_TX_EN
 #define USBFS_UEP2_TX_EN RB_UEP2_TX_EN
 #define USBFS_UEP3_TX_EN RB_UEP3_TX_EN
 #define USBFS_UEP4_TX_EN RB_UEP4_TX_EN
+#define USBFS_UEP5_TX_EN RB_UEP5_TX_EN
+#define USBFS_UEP6_TX_EN RB_UEP6_TX_EN
+#define USBFS_UEP7_TX_EN RB_UEP7_TX_EN
 
 #define CHECK_USBFS_UEP_AUTO_TOG RB_UEP_AUTO_TOG
 #define CHECK_USBFS_UEP_T_AUTO_TOG RB_UEP_AUTO_TOG
@@ -271,11 +280,17 @@ typedef struct
 #define USBFS_UEP2_RX_EN USBOTG_UEP2_RX_EN
 #define USBFS_UEP3_RX_EN USBOTG_UEP3_RX_EN
 #define USBFS_UEP4_RX_EN USBOTG_UEP4_RX_EN
+#define USBFS_UEP5_RX_EN USBOTG_UEP5_RX_EN
+#define USBFS_UEP6_RX_EN USBOTG_UEP6_RX_EN
+#define USBFS_UEP7_RX_EN USBOTG_UEP7_RX_EN
 
 #define USBFS_UEP1_TX_EN USBOTG_UEP1_TX_EN
 #define USBFS_UEP2_TX_EN USBOTG_UEP2_TX_EN
 #define USBFS_UEP3_TX_EN USBOTG_UEP3_TX_EN
 #define USBFS_UEP4_TX_EN USBOTG_UEP4_TX_EN
+#define USBFS_UEP5_TX_EN USBOTG_UEP5_TX_EN
+#define USBFS_UEP6_TX_EN USBOTG_UEP6_TX_EN
+#define USBFS_UEP7_TX_EN USBOTG_UEP7_TX_EN
 
 #define USBFS_UC_RESET_SIE USBOTG_UC_RESET_SIE
 #define USBFS_UC_CLR_ALL USBOTG_UC_CLR_ALL
