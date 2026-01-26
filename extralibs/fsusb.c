@@ -812,7 +812,12 @@ void USBFS_InternalFinishSetup()
 
 	for( int i = 0; i < FUSB_CONFIG_EPS; i++ )
 	{
+#if defined(CH5xx) || defined(CH32X03x)
+		if (i < 4) UEP_DMA(i) = (uintptr_t)USBFSCTX.ENDPOINTS[i];
+		else if (i > 4) UEP_DMA_H(i) = (uintptr_t)USBFSCTX.ENDPOINTS[i];
+#else
 		UEP_DMA(i) = (uintptr_t)USBFSCTX.ENDPOINTS[i];
+#endif
 	}
 	
 #if defined (CH5xx) || defined (CH32X03x) || defined (CH32V10x)
@@ -998,11 +1003,24 @@ int USBFS_SendEndpointNEW( int endp, uint8_t* data, int len, int copy)
 	{
 		if( copy )
 		{
+#if defined(CH5xx) || defined(CH32X03x)
+			if ( endp < 4 ) UEP_DMA( endp ) = (uintptr_t)USBFSCTX.ENDPOINTS[endp];
+			else if ( endp > 4 ) UEP_DMA_H( endp ) = (uintptr_t)USBFSCTX.ENDPOINTS[endp];
+#else
 			UEP_DMA( endp ) = (uintptr_t)USBFSCTX.ENDPOINTS[endp];
+#endif
 			copyBuffer( USBFSCTX.ENDPOINTS[endp], data, len );
 			copyBufferComplete();
 		}
-		else UEP_DMA( endp ) = (uintptr_t)data;
+		else 
+		{
+#if defined(CH5xx) || defined(CH32X03x)
+			if ( endp < 4 ) UEP_DMA( endp ) = (uintptr_t)data;
+			else if ( endp > 4 ) UEP_DMA_H( endp ) = (uintptr_t)data;
+#else
+			UEP_DMA( endp ) = (uintptr_t)data;
+#endif
+		}
 	}
 	// NVIC_DisableIRQ( USB_IRQn );
 	UEP_CTRL_LEN( endp ) = len;

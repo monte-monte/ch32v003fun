@@ -92,11 +92,14 @@ typedef struct
 	__IO uint8_t Reserved33;
 	__IO uint32_t EPX_MODE;
 } USBFS_TypeDef;
+#endif
 
+#if !defined(CH32V10x)
 #define UEP_CTRL_LEN(n) (((uint8_t*)&USBFS->UEP0_TX_LEN)[n*4])
 #define UEP_CTRL_TX(n)  (((uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4])
 #define UEP_CTRL_RX(n)  (((uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4])
-#define UEP_DMA(n)      (((uint16_t*)&USBFS->UEP0_DMA)[n*2]) // On ch5xx works only for EP0-3
+#define UEP_DMA(n)      (((uint16_t*)&USBFS->UEP0_DMA)[n*2]) // On ch5xx and ch32x03x works only for EP0-3
+#define UEP_DMA_H(n)    (((uint16_t*)&USBFS->UEP5_DMA)[(n-5)*2]) // DMA for EP4 is tied to EP0 DMA on these chips
 #endif
 
 #if defined(CH32V10x)
