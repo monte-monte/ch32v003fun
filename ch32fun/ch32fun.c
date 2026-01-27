@@ -1654,14 +1654,22 @@ WEAK int putchar(int c)
 extern int USBFS_SendEndpointNEW( int endp, uint8_t* data, int len, int copy);
 WEAK int _write(int fd, const char *buf, int size)
 {
-	while(USBFS_SendEndpointNEW(3, (uint8_t*)buf, size, 1) == -1); // -1 == busy
+	if(USBFS_SendEndpointNEW(3, (uint8_t*)buf, size, /*copy*/1) == -1) { // -1 == busy
+		// wait for 1ms to try again once more
+		Delay_Ms(1);
+		USBFS_SendEndpointNEW(3, (uint8_t*)buf, size, /*copy*/1);
+	}
 	return size;
 }
 
 WEAK int putchar(int c)
 {
 	uint8_t single = c;
-	while(USBFS_SendEndpointNEW(3, &single, 1, 1) == -1); // -1 == busy
+	if(USBFS_SendEndpointNEW(3, &single, 1, /*copy*/1) == -1) { // -1 == busy
+		// wait for 1ms to try again once more
+		Delay_Ms(1);
+		USBFS_SendEndpointNEW(3, &single, 1, /*copy*/1);
+	}
 	return 1;
 }
 #endif
