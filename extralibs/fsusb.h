@@ -99,7 +99,6 @@ typedef struct
 #define UEP_CTRL_TX(n)  (((uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4 +((n>4) ? UEP_JMP : 0)])
 #define UEP_CTRL_RX(n)  (((uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4 +((n>4) ? UEP_JMP : 0)])
 #define UEP_DMA(n)      (((uint16_t*)&USBFS->UEP0_DMA)[n*2 +((n>4) ? (UEP_JMP /2) : 0)]) // BREAKS FOR EP4!!!
-#define UEP_DMA_H(n)    (((volatile uint16_t*)&USBFS->UEP5_DMA)[(n-5)*2]) // DMA for EP4 is tied to EP0 DMA on these chips
 #endif
 
 #if defined(CH32V10x)

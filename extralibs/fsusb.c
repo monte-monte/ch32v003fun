@@ -725,9 +725,9 @@ void USBFS_InternalFinishSetup()
 #if FUSB_EP1_MODE
 	USBFSCTX.endpoint_mode[1] = FUSB_EP1_MODE;
 #if FUSB_EP1_MODE > 0 
-	USBFS->UEP4_1_MOD = USBFS_UEP1_TX_EN;
+	USBFS->UEP4_1_MOD |= USBFS_UEP1_TX_EN;
 #else
-	USBFS->UEP4_1_MOD = USBFS_UEP1_RX_EN;
+	USBFS->UEP4_1_MOD |= USBFS_UEP1_RX_EN;
 #endif
 #endif
 #if FUSB_EP4_MODE
@@ -742,9 +742,9 @@ void USBFS_InternalFinishSetup()
 #if FUSB_EP2_MODE
 	USBFSCTX.endpoint_mode[2] = FUSB_EP2_MODE;
 #if FUSB_EP2_MODE > 0 
-	USBFS->UEP2_3_MOD = USBFS_UEP2_TX_EN;
+	USBFS->UEP2_3_MOD |= USBFS_UEP2_TX_EN;
 #else
-	USBFS->UEP2_3_MOD = USBFS_UEP2_RX_EN;
+	USBFS->UEP2_3_MOD |= USBFS_UEP2_RX_EN;
 #endif
 #endif
 #if FUSB_EP3_MODE
@@ -760,15 +760,15 @@ void USBFS_InternalFinishSetup()
 	USBFSCTX.endpoint_mode[5] = FUSB_EP5_MODE;
 #if FUSB_EP5_MODE > 0
 #if defined (CH5xx) || defined (CH32X03x)
-	USBFS->UEP567_MOD = USBFS_UEP5_TX_EN;
+	USBFS->UEP567_MOD |= USBFS_UEP5_TX_EN;
 #else
-	USBFS->UEP5_6_MOD = USBFS_UEP5_TX_EN;
+	USBFS->UEP5_6_MOD |= USBFS_UEP5_TX_EN;
 #endif
 #else
 #if defined (CH5xx) || defined (CH32X03x)
-	USBFS->UEP567_MOD = USBFS_UEP5_RX_EN;
+	USBFS->UEP567_MOD |= USBFS_UEP5_RX_EN;
 #else
-	USBFS->UEP5_6_MOD = USBFS_UEP5_RX_EN;
+	USBFS->UEP5_6_MOD |= USBFS_UEP5_RX_EN;
 #endif
 #endif
 #endif
@@ -776,7 +776,7 @@ void USBFS_InternalFinishSetup()
 	USBFSCTX.endpoint_mode[6] = FUSB_EP6_MODE;
 #if FUSB_EP6_MODE > 0 
 #if defined (CH5xx) || defined (CH32X03x)
-	USBFS->UEP567_MOD = USBFS_UEP6_TX_EN;
+	USBFS->UEP567_MOD |= USBFS_UEP6_TX_EN;
 #else
 	USBFS->UEP5_6_MOD |= USBFS_UEP6_TX_EN;
 #endif
@@ -795,13 +795,13 @@ void USBFS_InternalFinishSetup()
 #if defined (CH5xx) || defined (CH32X03x)
 	USBFS->UEP567_MOD |= USBFS_UEP7_TX_EN;
 #else
-	USBFS->UEP7_MOD = USBFS_UEP1_TX_EN;
+	USBFS->UEP7_MOD |= USBFS_UEP1_TX_EN;
 #endif
 #else
 #if defined (CH5xx) || defined (CH32X03x)
 	USBFS->UEP567_MOD |= USBFS_UEP7_RX_EN;
 #else
-	USBFS->UEP7_MOD = USBFS_UEP1_RX_EN;
+	USBFS->UEP7_MOD |= USBFS_UEP1_RX_EN;
 #endif
 #endif
 #endif
@@ -813,8 +813,7 @@ void USBFS_InternalFinishSetup()
 	for( int i = 0; i < FUSB_CONFIG_EPS; i++ )
 	{
 #if defined(CH5xx) || defined(CH32X03x)
-		if (i < 4) UEP_DMA(i) = (uintptr_t)USBFSCTX.ENDPOINTS[i];
-		else if (i > 4) UEP_DMA_H(i) = (uintptr_t)USBFSCTX.ENDPOINTS[i];
+		if (i != 4) UEP_DMA(i) = (uintptr_t)USBFSCTX.ENDPOINTS[i];
 #else
 		UEP_DMA(i) = (uintptr_t)USBFSCTX.ENDPOINTS[i];
 #endif
@@ -1004,8 +1003,7 @@ int USBFS_SendEndpointNEW( int endp, uint8_t* data, int len, int copy)
 		if( copy )
 		{
 #if defined(CH5xx) || defined(CH32X03x)
-			if ( endp < 4 ) UEP_DMA( endp ) = (uintptr_t)USBFSCTX.ENDPOINTS[endp];
-			else if ( endp > 4 ) UEP_DMA_H( endp ) = (uintptr_t)USBFSCTX.ENDPOINTS[endp];
+			if ( endp != 4 ) UEP_DMA( endp ) = (uintptr_t)USBFSCTX.ENDPOINTS[endp];
 #else
 			UEP_DMA( endp ) = (uintptr_t)USBFSCTX.ENDPOINTS[endp];
 #endif
@@ -1015,8 +1013,7 @@ int USBFS_SendEndpointNEW( int endp, uint8_t* data, int len, int copy)
 		else 
 		{
 #if defined(CH5xx) || defined(CH32X03x)
-			if ( endp < 4 ) UEP_DMA( endp ) = (uintptr_t)data;
-			else if ( endp > 4 ) UEP_DMA_H( endp ) = (uintptr_t)data;
+			if ( endp != 4 ) UEP_DMA( endp ) = (uintptr_t)data;
 #else
 			UEP_DMA( endp ) = (uintptr_t)data;
 #endif
