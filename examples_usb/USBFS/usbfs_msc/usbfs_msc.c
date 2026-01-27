@@ -73,10 +73,10 @@ const uint8_t RootDirEntry[32] = {
 	0x21, 0x00,                                                 // 0x16: WrtTime
 	0x21, 0x00,                                                 // 0x18: WrtDate
 	0x02, 0x00,                                                 // 0x1A: Low Cluster (2)
-	(sizeof(INDEX_HTM) & 0xFF),
-	(sizeof(INDEX_HTM) >> 8),
-	(sizeof(INDEX_HTM) >> 16),
-	(sizeof(INDEX_HTM) >> 24),                                  // 0x1C: Size (Little Endian)
+	((sizeof(INDEX_HTM) -1) & 0xFF),
+	((sizeof(INDEX_HTM) -1) >> 8),
+	((sizeof(INDEX_HTM) -1) >> 16),
+	((sizeof(INDEX_HTM) -1) >> 24),                             // 0x1C: Size (Little Endian)
 };
 
 // -----------------------------------------------------------------------------
@@ -225,7 +225,7 @@ void MSC_PrepareDataIn(void) {
 			uint32_t byte_offset_in_sector = (cbw.DataTransferLength - msc_bytes_remaining) % 512;
 
 			// Construct the first few bytes of the FAT table on the fly
-			// Entry 0: F8 FF, Entry 1: FF FF, Entry 2: FF FF (EOF for main.py)
+			// Entry 0: F8 FF, Entry 1: FF FF, Entry 2: FF FF (EOF for INDEX.HTM)
 			const uint8_t fat_head[] = { 0xF8, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
 			// Only relevant if we are reading the very first sector of FAT1 or FAT2
@@ -240,12 +240,12 @@ void MSC_PrepareDataIn(void) {
 
 		// --- 3. Root Directory (Sectors 33..64) ---
 		else if (current_lba >= START_ROOT && current_lba < START_DATA) {
-			// First entry is Volume Label (Optional), Second is main.py
+			// First entry is Volume Label (Optional), Second is INDEX.HTM
 			uint32_t byte_offset_in_sector = (cbw.DataTransferLength - msc_bytes_remaining) % 512;
 
 			// Only the first sector of Root Dir contains our entry
 			if (current_lba == START_ROOT) {
-				// If requesting bytes 0..31 -> Main.py entry
+				// If requesting bytes 0..31 -> INDEX.HTM entry
 				for(int i=0; i<len_to_send; i++) {
 					int pos = byte_offset_in_sector + i;
 					if (pos < 32) {
@@ -459,7 +459,7 @@ void HandleDataOut(struct _USBState *ctx, int endp, uint8_t *data, int len) {
 			uint32_t virtual_addr = msc_current_offset;
 			uint32_t data_start_addr = START_DATA * 512;
 
-			// Only capture if it's inside the Data Area corresponding to main.py
+			// Only capture if it's inside the Data Area corresponding to INDEX.HTM
 			if (virtual_addr >= data_start_addr) {
 				uint32_t ram_addr = virtual_addr - data_start_addr;
 
