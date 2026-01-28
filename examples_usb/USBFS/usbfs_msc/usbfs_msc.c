@@ -23,6 +23,7 @@
 #define MSC_BLOCK_SIZE      512
 #define MSC_BLOCK_COUNT     (MSC_RAM_DISK_SIZE / MSC_BLOCK_SIZE)
 #define MSC_TOTAL_SECTORS   0x4000
+#define FILE_CLUSTER        2
 
 // RAM Disk Storage
 uint8_t msc_ram_disk[MSC_RAM_DISK_SIZE] __attribute__((aligned(4)));
@@ -61,7 +62,10 @@ const uint8_t BootSector[512] = {
 // -----------------------------------------------------------------------------
 // 8.3 Filename, Attr 0x20 (Archive), Cluster High 0, Time/Date, Cluster Low 2
 const uint8_t INDEX_HTM[] = "<!doctype html>\n<html><body><script>location.replace(\"https://github.com/cnlohr/ch32fun\")</script></body></html>\n";
-const uint8_t RootDirEntry[32] = {
+static volatile int file_changed;
+static volatile uint16_t active_file_cluster = FILE_CLUSTER;
+static volatile uint32_t active_file_size = sizeof(INDEX_HTM) -1;
+uint8_t RootDirEntry[32] = {
 	'I', 'N', 'D', 'E', 'X', ' ', ' ', ' ', 'H', 'T', 'M',      // 0x00: Name (11)
 	0x20,                                                       // 0x0B: Attributes
 	0x00,                                                       // 0x0C: Reserved (NT)
@@ -72,7 +76,8 @@ const uint8_t RootDirEntry[32] = {
 	0x00, 0x00,                                                 // 0x14: High Cluster
 	0x21, 0x00,                                                 // 0x16: WrtTime
 	0x21, 0x00,                                                 // 0x18: WrtDate
-	0x02, 0x00,                                                 // 0x1A: Low Cluster (2)
+	(FILE_CLUSTER & 0xFF),
+	(FILE_CLUSTER >> 8),                                        // 0x1A: Low Cluster (2)
 	((sizeof(INDEX_HTM) -1) & 0xFF),
 	((sizeof(INDEX_HTM) -1) >> 8),
 	((sizeof(INDEX_HTM) -1) >> 16),
@@ -165,13 +170,21 @@ void GPIOB_IRQHandler() {
 
 // USB stuff
 int _write(int fd, const char *buf, int size) {
-	while(USBFS_SendEndpointNEW(EP_CDC_IN, (uint8_t*)buf, size, 1) == -1); // -1 == busy
+	if(USBFS_SendEndpointNEW(EP_CDC_IN, (uint8_t*)buf, size, /*copy*/1) == -1) { // -1 == busy
+		// wait for 1ms to try again once more
+		Delay_Ms(1);
+		USBFS_SendEndpointNEW(EP_CDC_IN, (uint8_t*)buf, size, /*copy*/1);
+	}
 	return size;
 }
 
 int putchar(int c) {
 	uint8_t single = c;
-	while(USBFS_SendEndpointNEW(EP_CDC_IN, &single, 1, 1) == -1); // -1 == busy
+	if(USBFS_SendEndpointNEW(EP_CDC_IN, &single, 1, /*copy*/1) == -1) { // -1 == busy
+		// wait for 1ms to try again once more
+		Delay_Ms(1);
+		USBFS_SendEndpointNEW(EP_CDC_IN, &single, 1, /*copy*/1);
+	}
 	return 1;
 }
 
@@ -243,10 +256,16 @@ void MSC_PrepareDataIn(void) {
 			// First entry is Volume Label (Optional), Second is INDEX.HTM
 			uint32_t byte_offset_in_sector = (cbw.DataTransferLength - msc_bytes_remaining) % 512;
 
+			// We are sending the Root Directory with active file cluster = 2
+			if (current_lba == START_ROOT) {
+				active_file_cluster = FILE_CLUSTER;
+				*(uint32_t*)(RootDirEntry +28) = active_file_size;
+			}
+
 			// Only the first sector of Root Dir contains our entry
 			if (current_lba == START_ROOT) {
 				// If requesting bytes 0..31 -> INDEX.HTM entry
-				for(int i=0; i<len_to_send; i++) {
+				for(int i = 0; i < len_to_send; i++) {
 					int pos = byte_offset_in_sector + i;
 					if (pos < 32) {
 						msc_response_buffer[i] = RootDirEntry[pos];
@@ -381,9 +400,6 @@ void HandleDataOut(struct _USBState *ctx, int endp, uint8_t *data, int len) {
 	}
 	else if( endp == EP_CDC_OUT ) {
 		// cdc tty input
-		if(len == 1 && data[0] > '0' && data[0] <= '9') {
-			blink(data[0] -'0');
-		}
 		cdc_input = data[0];
 	}
 	else if (endp == EP_MSC_OUT) {
@@ -447,28 +463,56 @@ void HandleDataOut(struct _USBState *ctx, int endp, uint8_t *data, int len) {
 				break;
 			}
 		} 
-		
+
 		// --- 2. DATA OUT State: Receiving Data from PC ---
 		else if (msc_state == MSC_DATA_OUT) {
 			uint32_t write_len = (len < msc_bytes_remaining) ? len : msc_bytes_remaining;
 
-			// Calculate which sector we are currently writing to
-			// Note: msc_current_offset was set in the WRITE_10 case based on LBA * 512
-			// But we need to translate that "Virtual Disk Address" to "RAM Address"
+			uint32_t current_lba = msc_current_offset / 512;
 
-			uint32_t virtual_addr = msc_current_offset;
-			uint32_t data_start_addr = START_DATA * 512;
+			// --- CASE A: Root Directory Update (Snoop for Filename) ---
+			if (current_lba >= START_ROOT && current_lba < START_DATA) {
+				// The OS is writing to the Directory. We need to see if it's moving our file.
+				// Each entry is 32 bytes.
+				for (int i = 0; i < write_len; i += 32) {
+					// Check for "INDEX   HTM" (11 chars) at offset 0
+					if (memcmp(data + i, "INDEX   HTM", 11) == 0) {
+						// Found our file! Extract the Starting Cluster (Offset 0x1A / 26)
 
-			// Only capture if it's inside the Data Area corresponding to INDEX.HTM
-			if (virtual_addr >= data_start_addr) {
-				uint32_t ram_addr = virtual_addr - data_start_addr;
+						uint16_t new_cluster = data[i + 26] | (data[i + 27] << 8);
+						// If the OS sets cluster to 0, it's deleting/truncating. Ignore that.
+						if (new_cluster != 0) {
+							active_file_cluster = new_cluster;
 
-				if (ram_addr + write_len <= MSC_RAM_DISK_SIZE) {
-					memcpy(&msc_ram_disk[ram_addr], data, write_len);
-
-					// TODO: Set a flag here "FILE_CHANGED = 1"
-					// Main loop detects this flag, waits for USB idle, then writes RAM -> LittleFS
+							// Snoop Size (Offset 0x1C)
+							uint32_t new_size = *(uint32_t*)&data[i + 0x1C];
+							active_file_size = (new_size > MSC_RAM_DISK_SIZE) ? MSC_RAM_DISK_SIZE : new_size;
+							file_changed = 1;
+						}
+					}
 				}
+				// We don't actually store directory writes in this Ghost FS, we just observe them.
+			}
+
+			// --- CASE B: Data Area Write (Filter by Cluster) ---
+			else if (current_lba >= START_DATA) {
+				// Calculate which cluster this write belongs to.
+				// BPB says 8 sectors per cluster.
+				// Cluster 2 starts at START_DATA.
+				uint32_t target_cluster = 2 + (current_lba - START_DATA) / 8;
+
+				// FILTER: Only allow write if it matches the cluster the OS assigned to our file.
+				if (target_cluster >= active_file_cluster) {
+					// Calculate offset within the 4KB RAM buffer
+					// (LBA % 8) gives sector offset within the cluster
+					uint32_t sector_offset = (current_lba - START_DATA) % 8;
+					uint32_t byte_offset = (sector_offset * 512) + (msc_current_offset % 512);
+
+					if (byte_offset + write_len <= MSC_RAM_DISK_SIZE) {
+						memcpy(&msc_ram_disk[byte_offset], data, write_len);
+					}
+				}
+				// If target_cluster != active_file_cluster, it's garbage (metadata), ignore it.
 			}
 
 			msc_current_offset += write_len;
@@ -546,12 +590,33 @@ int main() {
 	while(1) {
 		if(cdc_input) { // echo the input
 			putchar(cdc_input);
+			if(cdc_input > '0' && cdc_input <= '9') {
+				blink(cdc_input -'0');
+			}
+			else if(cdc_input == '?') {
+				printf("\n\r");
+				printf("Active file (len=%ld) on cluster %d:\n\r", active_file_size, active_file_cluster);
+				for(int i = 0; i < active_file_size; i += 64) {
+					_write(0, (char*)msc_ram_disk +i, (((active_file_size -i) > 64) ? 64 : (active_file_size -i)));
+				}
+				printf("\n\r");
+			}
 			cdc_input = 0;
 		}
 
 		if (msc_state == MSC_DATA_IN) {
 			// Host grabbed the previous packet. Load the next one.
 			MSC_PrepareDataIn();
+		}
+
+		if (file_changed) {
+			printf("Active file (len=%ld) on cluster %d:\n\r", active_file_size, active_file_cluster);
+			for(int i = 0; i < active_file_size; i += 64) {
+				_write(0, (char*)msc_ram_disk +i, (((active_file_size -i) > 64) ? 64 : (active_file_size -i)));
+			}
+			printf("\n\r");
+			blink(2);
+			file_changed = 0;
 		}
 	}
 }

@@ -1,8 +1,8 @@
 all : flash
 
 TARGET:=usbfs_msc
-TARGET_MCU:=CH585
-TARGET_MCU_PACKAGE:=CH585M
+TARGET_MCU:=CH570
+TARGET_MCU_PACKAGE:=CH570D
 
 include ../../../ch32fun/ch32fun.mk
 

@@ -2,8 +2,8 @@
 #define _FUNCONFIG_H
 
 #define FUNCONF_USE_HSI             0 // CH5xx does not have HSI
-#define CLK_SOURCE_CH5XX            CLK_SOURCE_HSE_PLL_62_4MHz // default so not really needed
-#define FUNCONF_SYSTEM_CORE_CLOCK   624 * 100 * 1000     // keep in line with CLK_SOURCE_CH5XX
+#define CLK_SOURCE_CH5XX            CLK_SOURCE_PLL_60MHz // default so not really needed
+#define FUNCONF_SYSTEM_CORE_CLOCK   60 * 1000 * 1000     // keep in line with CLK_SOURCE_CH5XX
 #define FUNCONF_DEBUG_HARDFAULT     0
 #define FUNCONF_USE_CLK_SEC         0
 
