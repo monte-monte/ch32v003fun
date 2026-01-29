@@ -67,37 +67,38 @@ typedef struct
 	__IO uint32_t Reserved17;
 	__IO uint32_t Reserved18;
 	__IO uint32_t Reserved19;
-	__IO uint32_t Reserved20;
+	__IO uint32_t EP_JMPR;        // Nothing here, but used for UEP 5,6,7 jump in UEP_(n) macros
 	__IO uint32_t Reserved21;
 	__IO uint32_t Reserved22;
 	__IO uint32_t Reserved23;
-	__IO uint32_t Reserved24;
-	__IO uint16_t UEP5_DMA;
-	__IO uint16_t Reserved25;
-	__IO uint16_t UEP6_DMA;
-	__IO uint16_t Reserved26;
-	__IO uint16_t UEP7_DMA;
-	__IO uint16_t Reserved27;
-	__IO uint32_t Reserved28;
-	__IO uint8_t  UEP5_TX_LEN;
-	__IO uint8_t  Reserved29;
-	__IO uint8_t  UEP5_TX_CTRL;
-	__IO uint8_t  Reserved30;
-	__IO uint8_t  UEP6_TX_LEN;
-	__IO uint8_t  Reserved31;
-	__IO uint8_t  UEP6_TX_CTRL;
-	__IO uint8_t  Reserved32;
-	__IO uint8_t  UEP7_TX_LEN;
-	__IO uint8_t  UEP7_TX_CTRL;
-	__IO uint8_t  Reserved33;
-	__IO uint32_t EPX_MODE;
+	__IO uint32_t Reserved24;     // 0x50
+	__IO uint16_t UEP5_DMA;       // 0x54
+	__IO uint16_t Reserved25;     // 0x56
+	__IO uint16_t UEP6_DMA;       // 0x58
+	__IO uint16_t Reserved26;     // 0x5A
+	__IO uint16_t UEP7_DMA;       // 0x5C
+	__IO uint16_t Reserved27;     // 0x5E
+	__IO uint32_t Reserved28;     // 0x60
+	__IO uint8_t  UEP5_TX_LEN;    // 0x64
+	__IO uint8_t  Reserved29;     // 0x65
+	__IO uint8_t  UEP5_TX_CTRL;   // 0x66
+	__IO uint8_t  Reserved30;     // 0x67
+	__IO uint8_t  UEP6_TX_LEN;    // 0x68
+	__IO uint8_t  Reserved31;     // 0x69
+	__IO uint8_t  UEP6_TX_CTRL;   // 0x6A
+	__IO uint8_t  Reserved32;     // 0x6B
+	__IO uint8_t  UEP7_TX_LEN;    // 0x6C
+	__IO uint8_t  Reserved33;     // 0x6D
+	__IO uint8_t  UEP7_TX_CTRL;   // 0x6E
+	__IO uint8_t  Reserved34;     // 0x6F
+	__IO uint32_t EPX_MODE;       // 0x70
 } USBFS_TypeDef;
 
-#define UEP_CTRL_LEN(n) (((volatile uint8_t*)&USBFS->UEP0_TX_LEN)[n*4])
-#define UEP_CTRL_TX(n)  (((volatile uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4])
-#define UEP_CTRL_RX(n)  (((volatile uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4])
-#define UEP_DMA(n)      (((volatile uint16_t*)&USBFS->UEP0_DMA)[n*2]) // On ch5xx and ch32x03x works only for EP0-3
-#define UEP_DMA_H(n)    (((volatile uint16_t*)&USBFS->UEP5_DMA)[(n-5)*2]) // DMA for EP4 is tied to EP0 DMA on these chips
+#define UEP_JMP         ((void*)&(USBFS->EP_JMPR) - (void*)&(USBFS->UEP0_DMA))
+#define UEP_CTRL_LEN(n) (((uint8_t*)&USBFS->UEP0_TX_LEN)[n*4 +((n>4) ? UEP_JMP : 0)])
+#define UEP_CTRL_TX(n)  (((uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4 +((n>4) ? UEP_JMP : 0)])
+#define UEP_CTRL_RX(n)  (((uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4 +((n>4) ? UEP_JMP : 0)])
+#define UEP_DMA(n)      (((uint16_t*)&USBFS->UEP0_DMA)[n*2 +((n>4) ? (UEP_JMP /2) : 0)]) // BREAKS FOR EP4!!!
 #endif
 
 #if defined(CH32V10x)
@@ -230,7 +231,7 @@ typedef struct
 #define USBFS_UEP2_TX_EN      RB_UEP2_TX_EN
 #define USBFS_UEP3_TX_EN      RB_UEP3_TX_EN
 #define USBFS_UEP4_TX_EN      RB_UEP4_TX_EN
-#define USBFS_UEP5_TX_EN      RB_EP5_TX_EN
+#define USBFS_UEP5_TX_EN      RB_UEP5_TX_EN
 #define USBFS_UEP6_TX_EN      RB_UEP6_TX_EN
 #define USBFS_UEP7_TX_EN      RB_UEP7_TX_EN
 
