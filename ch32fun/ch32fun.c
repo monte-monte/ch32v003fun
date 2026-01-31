@@ -1910,7 +1910,6 @@ uint64_t funSysTick64( void )
 	static uint32_t high;
 	if( base < lastBase ) { printf( "Trigger\n" );high++; }
 	lastBase = base;
-printf( "%d %d\n", lastBase, high );
 	return ((uint64_t)high<<32) | base;
 #endif
 }
