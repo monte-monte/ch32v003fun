@@ -44,6 +44,20 @@
 #include <stdio.h>
 #include <string.h>
 
+// common fields
+#define CTRL_CFG           BB0
+#define CRCINIT1           BB1
+#define STATUS             LL2
+#define INT_EN             LL3
+#define CTRL_MOD           LL20
+#define TXTUNE_CTRL        RF14
+#define TXCTUNE_CO_CTRL    RF36
+#define TXCTUNE_GA_CTRL    RF37
+#define RXTUNE             RF39
+#define TXCTUNE_CO         RF40
+#define TXCTUNE_GA         RF50
+
+// chip specific fields
 #ifdef CH570_CH572
 #define CRCPOLY1           BB2
 #define ACCESSADDRESS1     BB3
@@ -182,9 +196,8 @@ typedef struct {
 	// bit 20 = settable, but unknown effect.
 	// bit 24 = set at end of tx routine
 	// bit 29-31 = settable, but unknown effect.
-	volatile uint32_t CTRL_CFG;
-
-	volatile uint32_t CRCINIT1;
+	volatile uint32_t BB0; // CTRL_CFG
+	volatile uint32_t BB1; // CRCINIT1
 	volatile uint32_t BB2; // ch570/2: CRCPOLY1, [ch582/3 ch591/2]: ACCESSADDRESS1
 	volatile uint32_t BB3; // ch570/2 ACCESSADDRESS1
 	volatile uint32_t BB4;
@@ -223,8 +236,8 @@ typedef struct {
 typedef struct {
 	volatile uint32_t LL0;
 	volatile uint32_t LL1;
-	volatile uint32_t STATUS;
-	volatile uint32_t INT_EN;
+	volatile uint32_t LL2; // STATUS
+	volatile uint32_t LL3; // INT_EN
 	volatile uint32_t LL4;
 	volatile uint32_t LL5;
 	volatile uint32_t LL6;
@@ -252,7 +265,7 @@ typedef struct {
 	// Bit 9: If 0, no output.
 	// Bit 10: Somehow required for TX?
 	// Bit 16-17: Normally 1, unknown effect. Seems to suppress odd carrier burst after message.
-	volatile uint32_t CTRL_MOD;
+	volatile uint32_t LL20; // CTRL_MOD
 	volatile uint32_t LL21;
 	volatile uint32_t LL22;
 	volatile uint32_t LL23;
@@ -281,7 +294,7 @@ typedef struct {
 	volatile uint32_t RF11;
 	volatile uint32_t RF12;
 	volatile uint32_t RF13;
-	volatile uint32_t TXTUNE_CTRL;
+	volatile uint32_t RF14; // TXTUNE_CTRL
 	volatile uint32_t RF15;
 	volatile uint32_t RF16;
 	volatile uint32_t RF17;
@@ -303,12 +316,12 @@ typedef struct {
 	volatile uint32_t RF33;
 	volatile uint32_t RF34;
 	volatile uint32_t RF35;
-	volatile uint32_t TXCTUNE_CO_CTRL;
-	volatile uint32_t TXCTUNE_GA_CTRL;
+	volatile uint32_t RF36; // TXCTUNE_CO_CTRL
+	volatile uint32_t RF37; // TXCTUNE_GA_CTRL
 	volatile uint32_t RF38;
-	volatile uint32_t RXTUNE;
-	volatile uint32_t TXCTUNE_CO[10];
-	volatile uint32_t TXCTUNE_GA[3];
+	volatile uint32_t RF39; // RXTUNE
+	volatile uint32_t RF40[10]; // TXCTUNE_CO[10]
+	volatile uint32_t RF50[3]; // TXCTUNE_GA[3]
 } RF_Type;
 
 uint8_t channel_map[] = {1,2,3,4,5,6,7,8,9,10,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,0,11,39};
