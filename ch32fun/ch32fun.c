@@ -1908,7 +1908,7 @@ uint64_t funSysTick64( void )
 #else
 	static uint32_t lastBase;
 	static uint32_t high;
-	if( base < lastBase ) { printf( "Trigger\n" );high++; }
+	if( base < lastBase ) { high++; }
 	lastBase = base;
 	return ((uint64_t)high<<32) | base;
 #endif
