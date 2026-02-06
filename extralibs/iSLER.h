@@ -44,6 +44,20 @@
 #include <stdio.h>
 #include <string.h>
 
+// define the linker section where the "highcode" functions live
+// on ch5xx this is a section of RAM for quicker execution,
+// but for example in funcongif.h
+//  #define FUNCONF_ISLER_SECTION __attribute__( ( section( ".manual_ram" ) ) )
+// you can put it where you want
+#if defined(FUNCONF_ISLER_SECTION)
+#ifdef __HIGH_CODE
+#undef __HIGH_CODE
+#endif
+#define __HIGH_CODE FUNCONF_ISLER_SECTION
+#elif !defined(__HIGH_CODE)
+#define __HIGH_CODE
+#endif
+
 // common fields
 #define CTRL_CFG           BB0
 #define CRCINIT1           BB1
