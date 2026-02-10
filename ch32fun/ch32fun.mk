@@ -322,9 +322,9 @@ else ifeq ($(findstring CH32H41,$(TARGET_MCU)),CH32H41)
 	MCU_PACKAGE?=1
 
 	ifeq ($(ENABLE_FPU), 1)
-		CFLAGS_ARCH+= -march=rv32imafc -mabi=ilp32f
+		CFLAGS_ARCH+= -march=rv32imafc -mabi=ilp32f -DCH32H41x=1
 	else
-		CFLAGS_ARCH+= -march=rv32imac -mabi=ilp32 -DDISABLED_FLOAT
+		CFLAGS_ARCH+= -march=rv32imac -mabi=ilp32 -DDISABLED_FLOAT -DCH32H41x=1
 	endif
 
 	ifeq ($(findstring 416, $(TARGET_MCU_PACKAGE)), 416)
@@ -334,7 +334,6 @@ else ifeq ($(findstring CH32H41,$(TARGET_MCU)),CH32H41)
 	endif
 
 	CFLAGS+=-DMCU_PACKAGE=$(MCU_PACKAGE)
-	CFLAGS+=-DCH32H41x
 	TARGET_MCU_LD:=11
 else
 	ERROR:=$(error Unknown MCU $(TARGET_MCU))
