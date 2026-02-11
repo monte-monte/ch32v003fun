@@ -1304,19 +1304,19 @@ void handle_reset( void )
 .option push\n\
 .option norelax\n\
 	la gp, __global_pointer$\n\
-.option pop\n\
-	csrr a7, mhartid\n\
-	bnez a7, 5f\n\
-	la sp, _v3f_stack\n\
-	j 3f\n\
-5:	la sp, _v5f_stack\n"
-"3:\n"
+.option pop\n"
 	);
 
 	asm volatile(
 #if __GNUC__ > 10
 "	.option arch, +zicsr\n"
 #endif
+"	csrr a7, mhartid\n\
+	bnez a7, 5f\n\
+	la sp, _v3f_stack\n\
+	j 3f\n\
+5:	la sp, _v5f_stack\n"
+"3:\n"
 	);
 
 	// Careful: Use registers to prevent overwriting of self-data.
