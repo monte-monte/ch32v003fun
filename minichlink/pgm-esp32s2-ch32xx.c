@@ -174,7 +174,7 @@ int ESPReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t read_
 	uint32_t address_to_read_from_2 = address_to_read_from;
 	uint8_t * blob_2 = blob;
 	int r = 0;
-	
+
 	if( read_size == 0 )
 	{
 		return 0;
@@ -797,7 +797,6 @@ int ESPCH5xxErase( void * dev, uint32_t addr, uint32_t len, int type )
 	struct ESP32ProgrammerStruct * eps = (struct ESP32ProgrammerStruct *)dev;
 	
 	enum MemoryArea area = DEFAULT_AREA;
-	fprintf( stderr, "Erasing\n" );
 	if( type == 1 )
 	{
 		printf("Whole-chip erase\n");
@@ -1025,6 +1024,7 @@ int ESPCH5xxReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t 
 		ret = -1;
 		goto end;
 	}
+	MCF.SetClock(dev, 0);
 	if (iss->current_area == OPTIONS_AREA) {
 		if( eps->capabilities & HAS_CH5xx_OPTIONS )
 			ret = esp_ch5xx_read_options_bulk(dev, address_to_read_from, blob, read_size);
@@ -1563,7 +1563,8 @@ void * TryInit_ESP32S2CHFUN()
 		eps->commandbuffersize = 264;
 		eps->replybuffersize = 264;
 		MCF.DetermineChipType = ESPDetermineChipType;
-		MCF.SetClock = ESPSetClock;
+		// MCF.SetClock = ESPSetClock;
+		MCF.SetClock = CH5xxSetClock; // Temporary fallback to generic function, untill we update the programmer firmware
 	}
 	else
 	{
