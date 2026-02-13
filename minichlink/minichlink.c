@@ -786,10 +786,12 @@ keep_going:
 					}
 				}
 
-				if( iss->target_chip_type != CHIP_CH570 && iss->current_area != RAM_AREA )
+				if( iss->target_chip_type != CHIP_CH570 || iss->current_area == RAM_AREA )
 				{
 					if( MCF.HaltMode ) MCF.HaltMode( dev, HALT_MODE_HALT_BUT_NO_RESET ); //No need to reboot.
-				} else {
+				}
+				else
+				{
 					if( MCF.HaltMode ) MCF.HaltMode( dev, HALT_MODE_HALT_AND_RESET ); //Need to reboot.
 				}
 
