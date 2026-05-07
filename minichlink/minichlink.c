@@ -41,6 +41,10 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 {
 	void * dev = 0;
 	
+#ifdef VERSION
+	char * version = VERSION;
+	fprintf(stderr, "minichlink version - %s\n", version);
+#endif
 	const char * specpgm = init_hints->specific_programmer;
 	if( specpgm )
 	{
@@ -1459,7 +1463,8 @@ static int DefaultDetermineChipType( void * dev )
 					}
 					else
 					{
-						iss->target_chip = &ch585;
+						if (chip_id == 0x84) iss->target_chip = &ch584;
+						else iss->target_chip = &ch585;
 						iss->target_chip_id = chip_id << 24;
 					}
 				}
