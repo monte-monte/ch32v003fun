@@ -567,15 +567,21 @@ static int B003FunSetupInterface( void * dev )
 	if( r != 8 ) eps->no_eight_byte = 1;
 	else eps->no_eight_byte = 0;
 	// Check for the maximum buffer size available
-	eps->respbuffer[0] = 0xb0;
-	r = hid_get_feature_report( eps->hd, eps->respbuffer, 6144+128 );
+	eps->respbuffer[0] = 0xad;
+	// 4096 is the maximum size for windows and mac
+	r = hid_get_feature_report( eps->hd, eps->respbuffer, 4096 );
 	if( r >= 0 ) // If not on Windows, or guessed the first time
 	{
 		eps->scratchpad_size = r;
+		// Check once more, if we can go higher
+		// On windows and mac it will fail, on linux we will get an actual maximum HID report size
+		eps->respbuffer[0] = 0xb0;
+		r = hid_get_feature_report( eps->hd, eps->respbuffer, 6144+128 );
+		if( r > eps->scratchpad_size ) eps->scratchpad_size = r;
 	}
 	else
 	{
-		for( int i = 0xaf; i > 0xaa; i-- )
+		for( int i = 0xac; i > 0xaa; i-- )
 		{
 			int id_size = 5120 - (1024*(0xaf - i)) + 128;
 			eps->respbuffer[0] = i;
@@ -587,7 +593,7 @@ static int B003FunSetupInterface( void * dev )
 			}
 		}
 	}
-	if( eps->scratchpad_size >= (128 + 1024) ) eps->scratchpad_data_size = 1024*(eps->scratchpad_size/1024);
+	if( eps->scratchpad_size >= (128 + 1024) ) eps->scratchpad_data_size = eps->scratchpad_size - 128;
 
 	uint32_t one;
 	int two;
