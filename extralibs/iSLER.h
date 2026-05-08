@@ -810,14 +810,10 @@ int iSLERRSSI() {
 
 __HIGH_CODE
 int iSLERCRCOK() {
-#ifdef CH570_CH572
+#if defined(CH570_CH572) || defined(CH584_CH585)
 	uint8_t *tx_buf = (uint8_t*)LLE_BUF;
 	int len = tx_buf[1];
 	return (int8_t)!(tx_buf[len + 5] & 0x10);
-#elif defined(CH584_CH585)
-	uint8_t *tx_buf = (uint8_t*)LLE_BUF;
-	int len = tx_buf[1];
-	return (int8_t)((tx_buf[len + 5] & 0x11) == 0x01);
 #else
 	// Unimplemented!
 	return -1;
