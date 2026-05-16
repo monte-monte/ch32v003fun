@@ -167,16 +167,50 @@ typedef struct __attribute__((packed))
 	uint8_t RESERVED0[4];
 #elif defined(CH571_CH573)
 	__IO uint32_t CTLR;
-	__IO uint64_t CNT;
-	__IO uint64_t CMP;
+	union
+	{
+		struct
+		{
+			__IO uint32_t CNTL;
+			__IO uint32_t CNTH;
+			__IO uint32_t CMPL;
+			__IO uint32_t CMPH;
+		};
+		struct
+		{
+			__IO uint64_t CNT;
+			__IO uint64_t CMP;
+		};
+	};
 	__IO uint32_t CNTFG;
 #else
 	__IO uint32_t CTLR;
 	__IO uint32_t SR;
-	__IO uint64_t CNT;
-	__IO uint64_t CMP;
+	union
+	{
+		struct
+		{
+			__IO uint32_t CNTL;
+			__IO uint32_t CNTH;
+			__IO uint32_t CMPL;
+			__IO uint32_t CMPH;
+		};
+		struct
+		{
+			__IO uint64_t CNT;
+			__IO uint64_t CMP;
+		};
+	};
 #endif
 } SysTick_Type;
+
+
+#if (defined(CH570_CH572) || defined(CH584_CH585))
+#define funSysTick32() (SysTick->CNT)
+#else
+#define funSysTick32() (SysTick->CNTL)
+#define funSysTickHigh() (SysTick->CNTH)
+#endif
 
 /* memory mapped structure for Program Fast Interrupt Controller (PFIC) */
 typedef struct
@@ -206,6 +240,25 @@ typedef struct
 	__IO uint32_t SCTLR;            // D10H
 } PFIC_Type;
 #endif /* __ASSEMBLER__*/
+
+typedef struct {
+    __IO uint8_t MCR;
+    __IO uint8_t IER;
+    __IO uint8_t FCR;
+    __IO uint8_t LCR;
+    __IO uint8_t IIR;
+    __IO uint8_t LSR;
+    __IO uint8_t MSR;
+    uint8_t RESERVED1;
+    __IO uint8_t THR_RBR;
+    uint8_t RESERVED2;
+    __IO uint8_t RFC;
+    __IO uint8_t TFC;
+    __IO uint16_t DL;
+    __IO uint8_t DIV;
+    __IO uint8_t ADR;
+} UART_Typedef;
+
 
 #ifdef __ASSEMBLER__
 #define CORE_PERIPH_BASE           (0xE0000000) /* System peripherals base address in the alias region */
@@ -322,7 +375,6 @@ typedef enum
 
 	CLK_SOURCE_HSE_PLL_78MHz = (0x300 | 0x40 | 4), // RTC does not work at this speed, so low power sleep also not!
 	CLK_SOURCE_HSE_PLL_62_4MHz = (0x300 | 0x40 | 5),
-	#define CLK_SOURCE_PLL_60MHz "The ch584/5 does not support an exact 60MHz setting. Please pick an availabe clock source from the SYS_CLKTypeDef struct in ch5xxhw.h"
 	CLK_SOURCE_HSE_PLL_52MHz = (0x300 | 0x40 | 6),
 	CLK_SOURCE_HSE_PLL_39MHz = (0x300 | 0x40 | 8),
 	CLK_SOURCE_HSE_PLL_26MHz = (0x300 | 0x40 | 12),
@@ -345,6 +397,10 @@ typedef enum
 	CLK_SOURCE_PLL_24MHz =  (0x40 | 20),
 #endif
 } SYS_CLKTypeDef;
+
+#if (defined(CH570_CH572))
+#define ROM_CFG_MAC_ADDR		((const u32*)0x0003f018)
+#endif
 
 // For debug writing to the debug interface, and USB ISP.
 #if (defined(CH570_CH572) || defined(CH584_CH585))
@@ -753,11 +809,7 @@ typedef enum
 #define  RB_ROM_CODE_OFS    0x10                      // RWA, code offset address selection in Flash ROM: 0=start address 0x000000, 1=start address 0x040000
 #define  RB_ROM_CTRL_EN     0x20                      // RWA, enable flash ROM control interface enable: 0=disable access, 1=enable access control register
 #define  RB_ROM_DATA_WE     0x40                      // RWA, enable flash ROM data & code area being erase/write: 0=all writing protect, 1=enable data area program and erase
-#ifdef CH570_CH572
 #define  RB_ROM_CODE_WE     0xC0                      // RWA, enable flash ROM code area being erase/write: 0=code writing protect, 1=enable code area program and erase
-#else
-#define  RB_ROM_CODE_WE     0x80                      // RWA, enable flash ROM code area being erase/write: 0=code writing protect, 1=enable code area program and erase
-#endif
 #define R8_GLOB_CFG_INFO    (*((vu8*)0x40001045))     // RO, global configuration information and status
 #define  RB_CFG_ROM_READ    0x01                      // RO, indicate protected status of Flash ROM code and data: 0=reading protect, 1=enable read by external programmer
 #define  RB_CFG_RESET_EN    0x04                      // RO, manual reset input enable status
@@ -1378,6 +1430,12 @@ typedef enum
 #define UART_II_THR_EMPTY   0x02                      // RO, UART interrupt by THR empty
 #define UART_II_MODEM_CHG   0x00                      // RO, UART0 interrupt by modem status change
 #define UART_II_NO_INTER    0x01                      // RO, no UART interrupt is pending
+
+#define UART                ((UART_Typedef*)BA_UART)
+#define UART0                ((UART_Typedef*)BA_UART0)
+#define UART1                ((UART_Typedef*)BA_UART1)
+#define UART2                ((UART_Typedef*)BA_UART2)
+#define UART3                ((UART_Typedef*)BA_UART3)
 
 /* SPI0 register */
 #define R32_SPI0_CONTROL    (*((vu32*)0x40004000))    // RW, SPI0 control
@@ -2443,168 +2501,6 @@ typedef enum
 #define LL_TX_POWER_6_DBM           0x2D
 #define LL_TX_POWER_7_DBM           0x3B
 
-
-RV_STATIC_INLINE void LSIEnable() 
-{
-	SYS_SAFE_ACCESS
-	(
-#ifdef CH570_CH572
-		R8_LSI_CONFIG |= RB_CLK_LSI_PON; //turn on LSI
-#else
-		R8_CK32K_CONFIG &= ~(RB_CLK_OSC32K_XT | RB_CLK_XT32K_PON); // turn off LSE
-		R8_CK32K_CONFIG |= RB_CLK_INT32K_PON; // turn on LSI
-#endif
-	);
-}
-RV_STATIC_INLINE void DCDCEnable()
-{
-#ifndef CH570_CH572 // CH570/2 has no DCDC.
-	SYS_SAFE_ACCESS
-	(
-		R16_AUX_POWER_ADJ |= RB_DCDC_CHARGE;
-		R16_POWER_PLAN |= RB_PWR_DCDC_PRE;
-	);
-
-	RTC_WAIT_TICKS(2);
-
-	SYS_SAFE_ACCESS
-	(
-		R16_POWER_PLAN |= RB_PWR_DCDC_EN;
-	);
-#endif
-}
-
-RV_STATIC_INLINE void SleepInit()
-{
-	SYS_SAFE_ACCESS
-	(
-		R8_RTC_MODE_CTRL |= RB_RTC_TRIG_EN;  //enable RTC trigger
-   		R8_SLP_WAKE_CTRL |= RB_SLP_RTC_WAKE; // enable wakeup control
-	);
-	//enable RTC interrupt
-	NVIC->IENR[((uint32_t)(RTC_IRQn) >> 5)] = (1 << ((uint32_t)(RTC_IRQn) & 0x1F));
-}
-
-//clear RTC counters.
-//probabily not needed for most cases, waking up from
-//power off resets the RTC anyway.
-RV_STATIC_INLINE void RTCInit() 
-{
-	SYS_SAFE_ACCESS
-	(
-		R32_RTC_TRIG = 0;
-		R32_RTC_CTRL |= RB_RTC_LOAD_HI;
-		R32_RTC_CTRL |= RB_RTC_LOAD_LO;
-		R8_RTC_MODE_CTRL |= RB_RTC_TRIG_EN;  //enable RTC trigger
-	);
-
-}
-
-//Set RTC to generate an interrupt after cyc ticks.
-RV_STATIC_INLINE void RTCTrigger(uint32_t cyc) 
-{
-	//get the rtc current time
-	uint32_t alarm = (uint32_t) R16_RTC_CNT_LSI | ( (uint32_t) R16_RTC_CNT_DIV1 << 16 );
-
-	alarm += cyc;
-
-	if( alarm > RTC_MAX_COUNT )
-	{
-		alarm -= RTC_MAX_COUNT;
-	}
-
-	SYS_SAFE_ACCESS
-	(
-		R32_RTC_TRIG = alarm;
-	);
-}
-
-// enter idle state
-RV_STATIC_INLINE void LowPowerIdle(uint32_t cyc)
-{
-	RTCTrigger(cyc);
-
-	NVIC->SCTLR &= ~(1 << 2); // don't deep sleep
-	NVIC->SCTLR &= ~(1 << 3); // wfi
-	asm volatile ("wfi\nnop\nnop" );
-}
-
-// This macro defines which power pin 
-// to use. If not defined correctly, sleep current
-// will be higher than expected.
-#ifndef FUNCONF_POWERED_BY_V5PIN
-#define FUNCONF_POWERED_BY_V5PIN 0
-#endif
-
-RV_STATIC_INLINE void LowPowerSleep(uint32_t cyc, uint16_t power_plan) 
-{
-#if defined(CH570_CH572) && (FUNCONF_POWERED_BY_V5PIN == 1)
-	power_plan |= RB_PWR_LDO5V_EN;
-#endif
-
-	RTCTrigger(cyc);
-
-#ifdef CH570_CH572
-#if ( CLK_SOURCE_CH5XX == CLK_SOURCE_PLL_75MHz ) || ( CLK_SOURCE_CH5XX == CLK_SOURCE_PLL_100MHz )
-	//if system clock is higher than 60Mhz, it need to be reduced before sleep.
-	SYS_SAFE_ACCESS
-	(
-		R8_CLK_SYS_CFG = CLK_SOURCE_PLL_60MHz;
-	);
-#endif
-#else
-	SYS_SAFE_ACCESS
-	(
-		R8_BAT_DET_CTRL = 0;
-		R8_XT32K_TUNE = (R16_RTC_CNT_32K > 0x3fff) ? (R8_XT32K_TUNE & 0xfc) | 0x01 : R8_XT32K_TUNE;
-		R8_XT32M_TUNE = (R8_XT32M_TUNE & 0xfc) | 0x03;
-	);
-#endif
-
-	NVIC->SCTLR |= (1 << 2); //deep sleep
-	SYS_SAFE_ACCESS
-	(
-		R8_SLP_POWER_CTRL |= RB_RAM_RET_LV;
-		R16_POWER_PLAN = RB_PWR_PLAN_EN | RB_PWR_CORE | power_plan;
-		R8_PLL_CONFIG |= (1 << 5);
-	);
-	
-	NVIC->SCTLR &= ~(1 << 3); // wfi
-	asm volatile ("wfi\nnop\nnop" );
-
-#ifdef CH570_CH572
-#if ( CLK_SOURCE_CH5XX == CLK_SOURCE_PLL_75MHz ) || ( CLK_SOURCE_CH5XX == CLK_SOURCE_PLL_100MHz )
-	//machine delay for a while.
-	uint16_t i = 400;
-	do {
-		asm volatile("nop");
-	} while(i--);
-
-	//get system clock back to normal
-	SYS_SAFE_ACCESS
-	(
-		R8_CLK_SYS_CFG = CLK_SOURCE_CH5XX;
-	);
-#endif
-#else
-	SYS_SAFE_ACCESS
-	(
-		R16_POWER_PLAN &= ~RB_XT_PRE_EN;
-		R8_PLL_CONFIG &= ~(1 << 5);
-		R8_XT32M_TUNE = (R8_XT32M_TUNE & 0xfc) | 0x01;
-	);
-#endif
-}
-
-RV_STATIC_INLINE void LowPower(uint32_t time, uint16_t power_plan) 
-{
-	if( time > 500){
-		LowPowerSleep( time, power_plan );
-	} else {
-		LowPowerIdle( time );
-	}
-
-}
 
 RV_STATIC_INLINE void jump_isprom()
 {

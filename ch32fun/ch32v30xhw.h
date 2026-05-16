@@ -260,6 +260,7 @@ typedef struct
 	__IO uint64_t CMP;
 } SysTick_Type;
 
+#define funSysTick32() (SysTick->CNT)
 
 #endif /* __ASSEMBLER__*/
 
@@ -430,7 +431,9 @@ typedef struct
 	__IO uint32_t              INTENR;
 	__IO uint32_t              ERRSR;
 	__IO uint32_t              BTIMR;
-	uint32_t                   RESERVED0[88];
+	__IO uint32_t              TTCTLR;
+	__IO uint32_t              TTCNT;
+	uint32_t                   RESERVED0[86];
 	CAN_TxMailBox_TypeDef      sTxMailBox[3];
 	CAN_FIFOMailBox_TypeDef    sFIFOMailBox[2];
 	uint32_t                   RESERVED1[12];
@@ -927,6 +930,8 @@ typedef struct
 typedef struct
 {
     __IO uint32_t EXTEN_CTR;
+    __IO uint32_t EXTEN_CTR2;
+    __IO uint32_t FEATURE_SIGN;
 } EXTEN_TypeDef;
 
 /* The reference manual for the ch32v2xx/v3xx reference this as "CTR" field in the "EXTEND" register so adding an alias here. */
@@ -1757,8 +1762,9 @@ typedef struct{
 #define I2C1_BASE                               (APB1PERIPH_BASE + 0x5400)
 #define I2C2_BASE                               (APB1PERIPH_BASE + 0x5800)
 #define CAN1_BASE                               (APB1PERIPH_BASE + 0x6400)
-#define CAN2_BASE             (APB1PERIPH_BASE + 0x6800)
+#define CAN2_BASE                               (APB1PERIPH_BASE + 0x6800)
 #define BKP_BASE                                (APB1PERIPH_BASE + 0x6C00)
+#define BKP2_BASE                               (APB1PERIPH_BASE + 0x6C40)
 #define PWR_BASE                                (APB1PERIPH_BASE + 0x7000)
 #define DAC_BASE              					(APB1PERIPH_BASE + 0x7400)
 
@@ -8601,7 +8607,7 @@ typedef struct
 #define PWR_FLAG_WU               ((uint32_t)0x00000001)
 #define PWR_FLAG_SB               ((uint32_t)0x00000002)
 #define PWR_FLAG_PVDO             ((uint32_t)0x00000004)
-
+#define PVD_MAX_THRESHOLD_LVL     7
 
 
 /* ch32v00x_rcc.h ------------------------------------------------------------*/
@@ -9014,6 +9020,18 @@ typedef struct
 #define RTC_FLAG_OW       ((uint16_t)0x0004) /* Overflow flag */
 #define RTC_FLAG_ALR      ((uint16_t)0x0002) /* Alarm flag */
 #define RTC_FLAG_SEC      ((uint16_t)0x0001) /* Second flag */
+
+// Wait for last write operation to complete, enter configuration mode
+// perform configuration
+// wait for last write operation to complete,exit configuration mode
+#define RTC_CONFIG_CHANGE(a) do { \
+	while (!(RTC->CTLRL & RTC_FLAG_RTOFF)); \
+	RTC->CTLRL |= RTC_CTLRL_CNF; \
+	{a} \
+	while (!(RTC->CTLRL & RTC_FLAG_RTOFF)); \
+	RTC->CTLRL &= ~RTC_CTLRL_CNF; \
+} while (0)
+
 
 #if defined(CH32V20x_D8) || defined(CH32V20x_D8W)
 #define RB_OSC32K_HTUNE       (0x1FE0)
@@ -10568,6 +10586,22 @@ typedef struct
 #define PD13 61
 #define PD14 62
 #define PD15 63
+#define	PE0	64
+#define	PE1	65
+#define	PE2	66
+#define	PE3	67
+#define	PE4	68
+#define	PE5	69
+#define	PE6	70
+#define	PE7	71
+#define	PE8	72
+#define	PE9	73
+#define	PE10 74
+#define	PE11 75
+#define	PE12 76
+#define	PE13 77
+#define	PE14 78
+#define	PE15 79
 
 /*
  * This file contains various parts of the official WCH EVT Headers which

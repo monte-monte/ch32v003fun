@@ -1,12 +1,13 @@
 #include "hsusb.h"
 #include "ch32fun.h"
 #include <string.h>
+#include <stdio.h>
 
 struct _USBState USBHSCTX;
 volatile uint8_t usb_debug = 0;
 
 #ifdef CH584_CH585
-static inline void mcpy_raw( void *dst, void *start, void *end )
+static inline void mcpy_raw( void *dst, const void *start, void *end )
 {
 	__asm__ volatile ( ".insn r 0x0f, 0x7, 0, x0, %3, %0, %1"
 	      : "+r"(start), "+r"(dst)
@@ -14,9 +15,9 @@ static inline void mcpy_raw( void *dst, void *start, void *end )
 	      : "memory" );
 }
 
-void * fast_memcpy( void *dst, void *src, uint32_t size )
+void * fast_memcpy( void *dst, const void *src, uint32_t size )
 {
-	uint32_t * end = src + size;
+	uint32_t * end = (void *)src + size;
 	mcpy_raw( dst, src, (void *)end );
 
 	return dst;
@@ -27,10 +28,18 @@ void * fast_memcpy( void *dst, void *src, uint32_t size )
 #define copyBuffer memcpy
 #endif
 
+#if (FUSB_OUT_FLOW_CONTROL > 0) && (FUSB_USER_HANDLERS < 1)
+#error FUSB_OUT_FLOW_CONTROL requires FUSB_USER_HANDLERS
+#endif
+
 #if (USBHS_IMPL==2)
 #define USBHS_IRQHandler USB2_DEVICE_IRQHandler
 #define USBHS_IRQn USB2_DEVICE_IRQn
 #endif
+
+#define ANYPRINTF	(defined( FUNCONF_USE_DEBUGPRINTF ) && FUNCONF_USE_DEBUGPRINTF) || \
+					(defined( FUNCONF_USE_UARTPRINTF ) && FUNCONF_USE_UARTPRINTF) || \
+					(defined( FUNCONF_USE_USBPRINTF ) && FUNCONF_USE_USBPRINTF)
 
 #if FUSB_USE_HPE // Will it ever work?
 // There is an issue with some registers apparently getting lost with HPE, just do it the slow way.
@@ -84,7 +93,9 @@ void USBHS_IRQHandler()
 		int USBHS_SetupReqLen = USBHSCTX.USBHS_SetupReqLen    = pUSBHS_SetupReqPak->wLength;
 		int USBHS_SetupReqIndex = pUSBHS_SetupReqPak->wIndex;
 		int USBHS_IndexValue = USBHSCTX.USBHS_IndexValue = ( pUSBHS_SetupReqPak->wIndex << 16 ) | pUSBHS_SetupReqPak->wValue;
+#if ANYPRINTF
 		if( usb_debug ) printf( "[USB] SETUP: %02x %02x %d %04x %08x\n", USBHS_SetupReqType, USBHS_SetupReqCode, USBHS_SetupReqLen, USBHS_SetupReqIndex, USBHS_IndexValue );
+#endif
 
 		if( ( USBHS_SetupReqType & USB_REQ_TYP_MASK ) != USB_REQ_TYP_STANDARD )
 		{
@@ -251,6 +262,11 @@ void USBHS_IRQHandler()
 				case USB_SET_CONFIGURATION:
 					ctx->USBHS_DevConfig = (uint8_t)( ctx->USBHS_IndexValue & 0xFF );
 					ctx->USBHS_DevEnumStatus = 0x01;
+					for(int ep = 1; ep < FUSB_CONFIG_EPS; ep++) {
+						// reset all DATAx
+						UEP_CTRL_RX(ep) &= ~USBHS_UEP_R_TOG_DATA1;
+						UEP_CTRL_TX(ep) &= ~USBHS_UEP_T_TOG_DATA1;
+					}
 					break;
 
 				/* Clear or disable one usb feature */
@@ -438,7 +454,9 @@ replycomplete:
 		int token = ( intfgst & CMASK_UIS_TOKEN ) >> 12;
 		int ep = ( intfgst & CMASK_UIS_ENDP ) >> 8;
 		
+#if ANYPRINTF
 		if( usb_debug ) printf( "[USB] TRANSFER, token = %02x, ep = %d, bmRequestType = %02x, bRequest = %02x\n", token, ep, pUSBHS_SetupReqPak->bmRequestType, pUSBHS_SetupReqPak->bRequest );
+#endif
 		switch ( token )
 		{
 		case CUIS_TOKEN_IN:
@@ -615,10 +633,14 @@ replycomplete:
 					if( UEP_CTRL_RX(ep) & (1<<4) ) // RB_UEP_R_TOG_MATCH
 #endif
 					{
-						UEP_CTRL_RX(ep) ^= USBHS_UEP_R_TOG_DATA1;
-#if (USBHS_IMPL==2)
-						UEP_CTRL_RX(ep) = ( UEP_CTRL_RX(ep) & ~USBHS_UEP_R_RES_MASK) | USBHS_UEP_R_RES_ACK; // clear
+						uint_fast8_t rx_ctrl = UEP_CTRL_RX(ep) & ~USBHS_UEP_R_RES_MASK;
+						rx_ctrl ^= USBHS_UEP_R_TOG_DATA1;
+#if FUSB_OUT_FLOW_CONTROL > 0
+						rx_ctrl |= USBHS_UEP_R_RES_NAK; // ACK later when receiver is ready
+#else
+						rx_ctrl |= USBHS_UEP_R_RES_ACK;
 #endif
+						UEP_CTRL_RX(ep) = rx_ctrl;
 #if FUSB_USER_HANDLERS
 						HandleDataOut( ctx, ep, ctx->ENDPOINTS[ep-1], len );
 #endif
@@ -659,7 +681,9 @@ replycomplete:
 	}
 	else if( intfgst & CRB_UIF_BUS_RST )
 	{
+#if ANYPRINTF
 		if( usb_debug ) printf( "[USB] RESET\n" );
+#endif
 		/* usb reset interrupt processing */
 		ctx->USBHS_DevConfig = 0;
 		ctx->USBHS_DevAddr = 0;
@@ -672,7 +696,9 @@ replycomplete:
 	}
 	else if( intfgst & CRB_UIF_SUSPEND )
 	{
+#if ANYPRINTF
 		if( usb_debug ) printf( "[USB] SUSPEND\n" );
+#endif
 		USBHS->INT_FG = CRB_UIF_SUSPEND;
 		Delay_Us(10);
 		/* usb suspend interrupt processing */
@@ -847,6 +873,14 @@ void USBHS_InternalFinishSetup()
 	}
 }
 
+#if FUSB_OUT_FLOW_CONTROL > 0
+void USBHS_RxReady(int endp)
+{
+	// Just ACK previous transfer for the RX to get ready
+	UEP_CTRL_RX(endp) &= ~USBHS_UEP_R_RES_MASK;
+}
+#endif
+
 int USBHSSetup()
 {
 #if defined (CH584_CH585)
@@ -905,6 +939,21 @@ int USBHSSetup()
 	return 0;
 }
 
+void USBHSReset()
+{
+	NVIC_DisableIRQ( USBHS_IRQn );
+#if (USBHS_IMPL == 1) // CH32V30x CH565_CH569
+	USBHS->BASE_CTRL = USBHS_UC_CLR_ALL | USBHS_UC_RESET_SIE;
+	Delay_Us(10);
+	USBHS->BASE_CTRL = 0;
+	USBHS->HOST_CTRL = USBHS_UH_PHY_SUSPENDM;
+#else // CH584_CH585
+	USBHS->BASE_CTRL = USBHS_UD_RST_LINK | USBHS_UD_PHY_SUSPENDM;
+	Delay_Us(10);
+	USBHS->BASE_CTRL = 0;
+#endif
+}
+
 static inline uint8_t * USBHS_GetEPBufferIfAvailable( int endp )
 {
 	if( USBHSCTX.USBHS_Endp_Busy[endp] ) return 0;
@@ -926,7 +975,8 @@ static inline int USBHS_SendEndpoint( int endp, int len )
 	return 0;
 }
 
-static inline int USBHS_SendEndpointNEW( int endp, uint8_t* data, int len, int copy)
+// If youre sending without copy, make sure data buffer is 4 bytes aligned
+static inline int USBHS_SendEndpointNEW( int endp, const uint8_t* data, int len, int copy )
 {
 	if( USBHSCTX.USBHS_errata_dont_send_endpoint_in_window || USBHSCTX.USBHS_Endp_Busy[endp] ) return -1;
 	// This prevents sending while ep0 is receiving
@@ -936,6 +986,9 @@ static inline int USBHS_SendEndpointNEW( int endp, uint8_t* data, int len, int c
 	{
 		if( copy )
 		{
+			if( !endp ) USBHS->UEP0_DMA = (uintptr_t)USBHSCTX.CTRL0BUFF;
+			else UEP_DMA_TX( endp ) = (uintptr_t)USBHSCTX.ENDPOINTS[endp-1];
+
 			uint8_t* dest = (endp?USBHSCTX.ENDPOINTS[endp-1]:USBHSCTX.CTRL0BUFF);
 			copyBuffer( dest, data, len );
 		}

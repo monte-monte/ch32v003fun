@@ -4,6 +4,7 @@ ifeq ($(OS),Windows_NT)
 else
 	WHICH:=which
 	NULLDEV:=/dev/null
+	OS_NAME := $(shell uname -s | tr A-Z a-z)
 endif
 
 # Default/fallback prefix
@@ -13,6 +14,15 @@ ifneq ($(shell $(WHICH) riscv64-unknown-elf-gcc 2>$(NULLDEV)),)
 	PREFIX_DEFAULT:=riscv64-unknown-elf
 else ifneq ($(shell $(WHICH) riscv-none-elf-gcc 2>$(NULLDEV)),)
 	PREFIX_DEFAULT:=riscv-none-elf
+else ifneq ($(shell $(WHICH) riscv64-linux-gnu-gcc 2>$(NULLDEV)),)
+	PREFIX_DEFAULT:=riscv64-linux-gnu
+else ifeq ($(OS_NAME),netbsd)
+	# assume using pkgsrc/cross/riscv64-none-elf-gcc and
+	# pkgsrc/cross/riscv64-none-elf-binutils
+	PKGSRC_LOCALBASE ?= /usr/pkg
+	ifneq ($(wildcard $(PKGSRC_LOCALBASE)/cross-riscv64-none-elf/bin/riscv64-none-elf-gcc),)
+		PREFIX_DEFAULT := $(PKGSRC_LOCALBASE)/cross-riscv64-none-elf/bin/riscv64-none-elf
+	endif
 endif
 
 PREFIX?=$(PREFIX_DEFAULT)
@@ -41,7 +51,7 @@ ifeq ($(DEBUG),1)
 	EXTRA_CFLAGS+=-DFUNCONF_DEBUG=1
 endif
 
-CFLAGS?=-g -Os -flto -ffunction-sections -fdata-sections -fmessage-length=0 -msmall-data-limit=8
+CFLAGS?=-g -Os -flto -ffunction-sections -fdata-sections -fmessage-length=0 -msmall-data-limit=8 -fno-tree-loop-distribute-patterns
 LDFLAGS+=-Wl,--print-memory-usage -Wl,-Map=$(TARGET).map
 
 # Get GCC major version in a shell-agnostic way
@@ -73,7 +83,7 @@ ifeq ($(findstring CH32V00,$(TARGET_MCU)),CH32V00) # CH32V002, 3, 4, 5, 6, 7
 	else ifeq ($(findstring CH32V004, $(TARGET_MCU)), CH32V004)
 		TARGET_MCU_LD:=6
 	else ifeq ($(findstring CH32V005, $(TARGET_MCU)), CH32V005)
-		TARGET_MCU_LD:=7
+		TARGET_MCU_LD:=6
 	else ifeq ($(findstring CH32V006, $(TARGET_MCU)), CH32V006)
 		TARGET_MCU_LD:=7
 	else ifeq ($(findstring CH32V007, $(TARGET_MCU)), CH32V007)
@@ -316,6 +326,25 @@ else ifeq ($(findstring CH59,$(TARGET_MCU)),CH59) # CH592 1
 
 	TARGET_MCU_LD:=9
 	IS_CH5XX:=1
+else ifeq ($(findstring CH32H41,$(TARGET_MCU)),CH32H41)
+	TARGET_MCU_PACKAGE?=CH32H417
+	ENABLE_FPU?=1
+	MCU_PACKAGE?=1
+
+	ifeq ($(ENABLE_FPU), 1)
+		CFLAGS_ARCH+= -march=rv32imafc -mabi=ilp32f -DCH32H41x=1
+	else
+		CFLAGS_ARCH+= -march=rv32imac -mabi=ilp32 -DDISABLED_FLOAT -DCH32H41x=1
+	endif
+
+	ifeq ($(findstring 416, $(TARGET_MCU_PACKAGE)), 416)
+		MCU_PACKAGE:=2
+	else ifeq ($(findstring 415, $(TARGET_MCU_PACKAGE)), 415)
+		MCU_PACKAGE:=3
+	endif
+
+	CFLAGS+=-DMCU_PACKAGE=$(MCU_PACKAGE)
+	TARGET_MCU_LD:=11
 else
 	ERROR:=$(error Unknown MCU $(TARGET_MCU))
 endif
@@ -374,8 +403,8 @@ gdbclient :
 	gdb-multiarch $(TARGET).elf -ex "target remote :3333"
 
 clangd :
-	make clean
-	bear -- make build
+	$(MAKE) clean
+	bear -- $(MAKE) build
 
 clangd_clean :
 	rm -f compile_commands.json
@@ -396,12 +425,15 @@ $(TARGET).elf : $(FILES_TO_COMPILE) $(LINKER_SCRIPT) $(EXTRA_ELF_DEPENDENCIES)
 ch32fun.o : $(SYSTEM_C)
 	$(PREFIX)-gcc -c -o $@ $(SYSTEM_C) $(CFLAGS)
 
-cv_flash : $(TARGET).bin
-	make -C $(MINICHLINK) all
+# Only rebuild minichlink if it doesn't exist at all.
+$(MINICHLINK)/minichlink :
+	$(MAKE) -C $(MINICHLINK) all
+
+cv_flash : $(TARGET).bin $(MINICHLINK)/minichlink
 	$(FLASH_COMMAND)
 
 cv_flash_ext : $(TARGET)_ext.bin
-	make -C $(MINICHLINK) all
+	$(MAKE) -C $(MINICHLINK) all
 	$(FLASH_EXT_COMMAND)
 
 cv_clean :

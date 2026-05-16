@@ -45,6 +45,10 @@ static inline void copyBufferComplete() { while( DMA1_Channel7->CNTR ); }
 #define USBFS_IRQHandler USB_IRQHandler
 #endif
 
+#define ANYPRINTF	(defined( FUNCONF_USE_DEBUGPRINTF ) && FUNCONF_USE_DEBUGPRINTF) || \
+					(defined( FUNCONF_USE_UARTPRINTF ) && FUNCONF_USE_UARTPRINTF) || \
+					(defined( FUNCONF_USE_USBPRINTF ) && FUNCONF_USE_USBPRINTF)
+
 #if FUSB_USE_HPE
 // There is an issue with some registers apparently getting lost with HPE, just do it the slow way.
 void USBFS_IRQHandler() __attribute__((section(".text.vector_handler")))  __attribute((interrupt));
@@ -77,7 +81,9 @@ void USBFS_IRQHandler()
 		
 		int token = ( intfgst & CMASK_UIS_TOKEN) >> 12;
 		int ep = ( intfgst & CMASK_UIS_ENDP ) >> 8;
+#if ANYPRINTF
 		if( usb_debug ) printf("[USB] TRANSFER, token = %02x, ep = %d, bmRequestType = %02x, bRequest = %02x\n", token, ep, pUSBFS_SetupReqPak->bmRequestType, pUSBFS_SetupReqPak->bRequest);
+#endif
 		switch ( token )
 		{
 		case CUIS_TOKEN_IN:
@@ -271,13 +277,15 @@ void USBFS_IRQHandler()
 			int USBFS_SetupReqLen = USBFSCTX.USBFS_SetupReqLen    = pUSBFS_SetupReqPak->wLength;
 			int USBFS_SetupReqIndex = pUSBFS_SetupReqPak->wIndex;
 			int USBFS_IndexValue = USBFSCTX.USBFS_IndexValue = ( pUSBFS_SetupReqPak->wIndex << 16 ) | pUSBFS_SetupReqPak->wValue;
+#if ANYPRINTF
 			if( usb_debug ) printf( "[USB] SETUP: %02x %02x %02d %02x %04x\n", USBFS_SetupReqType, USBFS_SetupReqCode, USBFS_SetupReqLen, USBFS_SetupReqIndex, USBFS_IndexValue );
+#endif
 			len = 0;
 
 			if( ( USBFS_SetupReqType & USB_REQ_TYP_MASK ) != USB_REQ_TYP_STANDARD )
 			{
 #if FUSB_HID_INTERFACES > 0  || FUSB_USER_HANDLERS
-				if( ( USBFS_SetupReqType & USB_REQ_TYP_MASK ) == USB_REQ_TYP_CLASS )
+				if( ( USBFS_SetupReqType & USB_REQ_TYP_MASK ) == USB_REQ_TYP_CLASS || ( USBFS_SetupReqType & USB_REQ_TYP_MASK ) == USB_REQ_TYP_VENDOR )
 				{
 					/* Class Request */
 					switch( USBFS_SetupReqCode )
@@ -358,9 +366,12 @@ void USBFS_IRQHandler()
 								else
 								{
 									ctx->USBFS_SetupReqLen = len;
-									copyBuffer( ctrl0buff, ctx->pCtrlPayloadPtr, len );
-									// printf("%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", ctrl0buff[0], ctrl0buff[1], ctrl0buff[2], ctrl0buff[3], ctrl0buff[4], ctrl0buff[5], ctrl0buff[6]);
-									ctx->pCtrlPayloadPtr += len;
+									if( ctx->pCtrlPayloadPtr )
+									{
+										copyBuffer( ctrl0buff, ctx->pCtrlPayloadPtr, len );
+										// printf("%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", ctrl0buff[0], ctrl0buff[1], ctrl0buff[2], ctrl0buff[3], ctrl0buff[4], ctrl0buff[5], ctrl0buff[6]);
+										ctx->pCtrlPayloadPtr += len;
+									}
 								}
 								
 								if( ctx->USBFS_SetupReqType & DEF_UEP_IN || ctx->USBFS_SetupReqLen == 0)
@@ -372,9 +383,9 @@ void USBFS_IRQHandler()
 								}
 #if defined (CH5xx) || defined (CH32X03x) || defined (CH32V10x)
 								else UEP_CTRL_TX(0)= USBFS_UEP_R_TOG|USBFS_UEP_R_RES_ACK;
-#else                
+#else
 								else UEP_CTRL_RX(0)= USBFS_UEP_R_TOG|USBFS_UEP_R_RES_ACK;
-#endif                
+#endif
 								// UEP_CTRL_LEN(0) = len;
 								// UEP_CTRL_TX(0) = CHECK_USBFS_UEP_T_AUTO_TOG | USBFS_UEP_T_RES_ACK | USBFS_UEP_T_TOG;
 								// ctx->USBFS_SetupReqLen -= len;
@@ -383,8 +394,8 @@ void USBFS_IRQHandler()
 							}
 							else
 #endif
-							{                
-								goto sendstall; 
+							{
+								goto sendstall;
 							}
 							break;
 					}
@@ -405,7 +416,7 @@ void USBFS_IRQHandler()
 						const struct descriptor_list_struct * e_end = e + DESCRIPTOR_LIST_ENTRIES;
 						for( ; e != e_end; e++ )
 						{
-							if( e->lIndexValue == USBFS_IndexValue )
+							if( e->lIndexValue == (uint32_t)USBFS_IndexValue )
 							{
 								ctx->pCtrlPayloadPtr = (uint8_t*)e->addr;
 								len = e->length;
@@ -417,6 +428,15 @@ void USBFS_IRQHandler()
 						if( len > USBFS_SetupReqLen )
 							len = USBFS_SetupReqLen;
 						ctx->USBFS_SetupReqLen = len;
+
+						// Normally we would send data immediately
+						// but for sake of saving 20 bytes, we will send data on the next IN request.
+						// Leaving this code here in case that we found later that we NEED to send here.
+						// len = ctx->USBFS_SetupReqLen >= DEF_USBD_UEP0_SIZE ? DEF_USBD_UEP0_SIZE : ctx->USBFS_SetupReqLen;
+						// copyBuffer( ctrl0buff, ctx->pCtrlPayloadPtr, len ); // FYI -> Would need to do this if using DMA
+						// ctx->pCtrlPayloadPtr += len;
+
+						break;
 					}
 
 					/* Set usb address */
@@ -436,6 +456,11 @@ void USBFS_IRQHandler()
 					case USB_SET_CONFIGURATION:
 						ctx->USBFS_DevConfig = (uint8_t)( ctx->USBFS_IndexValue & 0xFF );
 						ctx->USBFS_DevEnumStatus = 0x01;
+						for(int ep = 1; ep < FUSB_CONFIG_EPS; ep++) {
+							// reset all DATAx
+							UEP_CTRL_RX(ep) &= ~USBFS_UEP_R_TOG;
+							UEP_CTRL_TX(ep) &= ~USBFS_UEP_T_TOG;
+						}
 						break;
 
 					/* Clear or disable one usb feature */
@@ -557,7 +582,7 @@ void USBFS_IRQHandler()
 #if defined (CH5xx) || defined (CH32X03x) || defined (CH32V10x)
 								else if( USBFS_SetupReqIndex & DEF_UEP_OUT && ctx->endpoint_mode[ep] == 1 ) ctrl0buff[0] = ( UEP_CTRL_TX(ep) & USBFS_UEP_R_RES_MASK ) == USBFS_UEP_R_RES_STALL;
 #else
-								else if( USBFS_SetupReqIndex & DEF_UEP_OUT && ctx->endpoint_mode[ep] == 1 ) ctrl0buff[0] = ( UEP_CTRL_TX(ep) & USBFS_UEP_R_RES_MASK ) == USBFS_UEP_R_RES_STALL;
+								else if( USBFS_SetupReqIndex & DEF_UEP_OUT && ctx->endpoint_mode[ep] == 1 ) ctrl0buff[0] = ( UEP_CTRL_RX(ep) & USBFS_UEP_R_RES_MASK ) == USBFS_UEP_R_RES_STALL;
 #endif
 								else goto sendstall;
 							}
@@ -582,10 +607,17 @@ void USBFS_IRQHandler()
 				if( USBFS_SetupReqType & DEF_UEP_IN )
 				{
 					len = ( USBFS_SetupReqLen > DEF_USBD_UEP0_SIZE )? DEF_USBD_UEP0_SIZE : USBFS_SetupReqLen;
-					USBFS_SetupReqLen -= len;
 					UEP_CTRL_LEN(0) = len;
-					UEP_CTRL_TX(0) = USBFS_UEP_T_RES_ACK;
-					// R8_UEP0_CTRL = (R8_UEP0_CTRL & ~MASK_UEP_T_RES) | UEP_T_RES_ACK;
+
+					if (USBFS_SetupReqCode != USB_GET_DESCRIPTOR)
+					{
+						ctx->USBFS_SetupReqLen -= len;
+						UEP_CTRL_TX(0) = USBFS_UEP_T_RES_ACK | USBFS_UEP_T_TOG;
+					}
+					else
+					{
+						UEP_CTRL_TX(0) = USBFS_UEP_T_RES_ACK;
+					}
 				}
 				else
 				{
@@ -633,7 +665,9 @@ void USBFS_IRQHandler()
 	}
 	else if( intfgst & CRB_UIF_BUS_RST )
 	{
+#if ANYPRINTF
 		if( usb_debug ) printf("[USB] RESET\n");
+#endif
 		/* usb reset interrupt processing */
 		ctx->USBFS_DevConfig = 0;
 		ctx->USBFS_DevAddr = 0;
@@ -646,7 +680,9 @@ void USBFS_IRQHandler()
 	}
 	else if( intfgst & CRB_UIF_SUSPEND )
 	{
+#if ANYPRINTF
 		if( usb_debug ) printf("[USB] SUSPEND\n");
+#endif
 		USBFS->INT_FG = USBFS_UMS_SUSPEND;
 		Delay_Us(10);
 		/* usb suspend interrupt processing */
@@ -669,7 +705,9 @@ void USBFS_IRQHandler()
 	{
 			/* other interrupts */
 			USBFS->INT_FG = intfgst & 0xff;
+#if ANYPRINTF
 			if( usb_debug) printf("[USB] intfgst = %04x\n",intfgst);
+#endif
 	}
 
 #if FUSB_IO_PROFILE
@@ -687,9 +725,9 @@ void USBFS_InternalFinishSetup()
 #if FUSB_EP1_MODE
 	USBFSCTX.endpoint_mode[1] = FUSB_EP1_MODE;
 #if FUSB_EP1_MODE > 0 
-	USBFS->UEP4_1_MOD = USBFS_UEP1_TX_EN;
+	USBFS->UEP4_1_MOD |= USBFS_UEP1_TX_EN;
 #else
-	USBFS->UEP4_1_MOD = USBFS_UEP1_RX_EN;
+	USBFS->UEP4_1_MOD |= USBFS_UEP1_RX_EN;
 #endif
 #endif
 #if FUSB_EP4_MODE
@@ -704,9 +742,9 @@ void USBFS_InternalFinishSetup()
 #if FUSB_EP2_MODE
 	USBFSCTX.endpoint_mode[2] = FUSB_EP2_MODE;
 #if FUSB_EP2_MODE > 0 
-	USBFS->UEP2_3_MOD = USBFS_UEP2_TX_EN;
+	USBFS->UEP2_3_MOD |= USBFS_UEP2_TX_EN;
 #else
-	USBFS->UEP2_3_MOD = USBFS_UEP2_RX_EN;
+	USBFS->UEP2_3_MOD |= USBFS_UEP2_RX_EN;
 #endif
 #endif
 #if FUSB_EP3_MODE
@@ -722,15 +760,15 @@ void USBFS_InternalFinishSetup()
 	USBFSCTX.endpoint_mode[5] = FUSB_EP5_MODE;
 #if FUSB_EP5_MODE > 0
 #if defined (CH5xx) || defined (CH32X03x)
-	USBFS->UEP567_MOD = USBFS_UEP5_TX_EN;
+	USBFS->UEP567_MOD |= USBFS_UEP5_TX_EN;
 #else
-	USBFS->UEP5_6_MOD = USBFS_UEP5_TX_EN;
+	USBFS->UEP5_6_MOD |= USBFS_UEP5_TX_EN;
 #endif
 #else
 #if defined (CH5xx) || defined (CH32X03x)
-	USBFS->UEP567_MOD = USBFS_UEP5_RX_EN;
+	USBFS->UEP567_MOD |= USBFS_UEP5_RX_EN;
 #else
-	USBFS->UEP5_6_MOD = USBFS_UEP5_RX_EN;
+	USBFS->UEP5_6_MOD |= USBFS_UEP5_RX_EN;
 #endif
 #endif
 #endif
@@ -738,7 +776,7 @@ void USBFS_InternalFinishSetup()
 	USBFSCTX.endpoint_mode[6] = FUSB_EP6_MODE;
 #if FUSB_EP6_MODE > 0 
 #if defined (CH5xx) || defined (CH32X03x)
-	USBFS->UEP567_MOD = USBFS_UEP6_TX_EN;
+	USBFS->UEP567_MOD |= USBFS_UEP6_TX_EN;
 #else
 	USBFS->UEP5_6_MOD |= USBFS_UEP6_TX_EN;
 #endif
@@ -757,13 +795,13 @@ void USBFS_InternalFinishSetup()
 #if defined (CH5xx) || defined (CH32X03x)
 	USBFS->UEP567_MOD |= USBFS_UEP7_TX_EN;
 #else
-	USBFS->UEP7_MOD = USBFS_UEP1_TX_EN;
+	USBFS->UEP7_MOD |= USBFS_UEP1_TX_EN;
 #endif
 #else
 #if defined (CH5xx) || defined (CH32X03x)
 	USBFS->UEP567_MOD |= USBFS_UEP7_RX_EN;
 #else
-	USBFS->UEP7_MOD = USBFS_UEP1_RX_EN;
+	USBFS->UEP7_MOD |= USBFS_UEP1_RX_EN;
 #endif
 #endif
 #endif
@@ -774,7 +812,11 @@ void USBFS_InternalFinishSetup()
 
 	for( int i = 0; i < FUSB_CONFIG_EPS; i++ )
 	{
+#if defined(CH5xx) || defined(CH32X03x)
+		if (i != 4) UEP_DMA(i) = (uintptr_t)USBFSCTX.ENDPOINTS[i];
+#else
 		UEP_DMA(i) = (uintptr_t)USBFSCTX.ENDPOINTS[i];
+#endif
 	}
 	
 #if defined (CH5xx) || defined (CH32X03x) || defined (CH32V10x)
@@ -818,12 +860,6 @@ int USBFSSetup()
 #endif
 
 #if defined (CH32V20x) || defined (CH32V30x) || defined(CH32L103)
-#if (defined (CH32V20x_D8W) || defined (CH32V20x_D8)) && (defined (FUNCONF_USE_HSE) && FUNCONF_USE_HSE)
-	RCC->CFGR0 = (RCC->CFGR0 & ~(3<<22)) | (3<<22);
-#else
-#if (FUNCONF_SYSTEM_CORE_CLOCK != 144000000) && (FUNCONF_SYSTEM_CORE_CLOCK != 96000000) && (FUNCONF_SYSTEM_CORE_CLOCK != 48000000)
-#error CH32V20x/30x need 144/96/48MHz main clock for USB to work
-#endif
 #ifdef CH32V30x_D8C
 	RCC->CFGR2 = RCC_USBHSSRC | RCC_USBHSPLL | 1<< RCC_USBHSCLK_OFFSET | RCC_USBHSPLLSRC | 1 << RCC_USBHSDIV_OFFSET;
 	RCC->AHBPCENR |= RCC_USBHSEN;
@@ -832,13 +868,14 @@ int USBFSSetup()
 	// Must be done before enabling clock to USBFS tree.
 #if FUNCONF_SYSTEM_CORE_CLOCK == 144000000
 	RCC->CFGR0 = (RCC->CFGR0 & ~(3<<22)) | (2<<22);
-#endif
-#if FUNCONF_SYSTEM_CORE_CLOCK == 96000000
+#elif FUNCONF_SYSTEM_CORE_CLOCK == 96000000
 	RCC->CFGR0 = (RCC->CFGR0 & ~(3<<22)) | (1<<22);
-#endif
-#if FUNCONF_SYSTEM_CORE_CLOCK == 48000000
+#elif FUNCONF_SYSTEM_CORE_CLOCK == 48000000
 	RCC->CFGR0 = (RCC->CFGR0 & ~(3<<22));
-#endif
+#elif FUNCONF_SYSTEM_CORE_CLOCK == 240000000
+#error CH32V20x/30x is unstable at 240MHz
+#else
+#error CH32V20x/30x need 144/96/48MHz main clock for USB to work
 #endif
 #endif
 #endif
@@ -965,10 +1002,22 @@ int USBFS_SendEndpointNEW( int endp, uint8_t* data, int len, int copy)
 	{
 		if( copy )
 		{
+#if defined(CH5xx) || defined(CH32X03x)
+			if ( endp != 4 ) UEP_DMA( endp ) = (uintptr_t)USBFSCTX.ENDPOINTS[endp];
+#else
+			UEP_DMA( endp ) = (uintptr_t)USBFSCTX.ENDPOINTS[endp];
+#endif
 			copyBuffer( USBFSCTX.ENDPOINTS[endp], data, len );
 			copyBufferComplete();
 		}
-		else UEP_DMA( endp ) = (uintptr_t)data;
+		else 
+		{
+#if defined(CH5xx) || defined(CH32X03x)
+			if ( endp != 4 ) UEP_DMA( endp ) = (uintptr_t)data;
+#else
+			UEP_DMA( endp ) = (uintptr_t)data;
+#endif
+		}
 	}
 	// NVIC_DisableIRQ( USB_IRQn );
 	UEP_CTRL_LEN( endp ) = len;
@@ -1006,11 +1055,38 @@ int HandleInRequest( struct _USBState *ctx, int endp, uint8_t *data, int len )
 	return 0;
 }
 
+static uint8_t usb_inputbuffer[USBFS_PACKET_SIZE]; // this can be extended if polling rate is low
+static int usb_inbuf_idx;
 void HandleDataOut( struct _USBState *ctx, int endp, uint8_t *data, int len )
 {
 	if ( endp == 0 )
 	{
 		ctx->USBFS_SetupReqLen = 0; // To ACK
+	}
+	else if( endp == 2 )
+	{
+		// discard oldest if polling is too slow
+		int headroom = (sizeof(usb_inputbuffer) - usb_inbuf_idx) - len;
+		if(headroom < 0) {
+			// not enough space left, free up some
+			int offset = -headroom;
+			for(int i = offset; i < sizeof(usb_inputbuffer); i++) {
+				usb_inputbuffer[i -offset] = usb_inputbuffer[i];
+			}
+			usb_inbuf_idx -= offset;
+		}
+
+		for(int i = 0; i < len; i++) {
+			usb_inputbuffer[usb_inbuf_idx++] = data[i];
+		}
+	}
+}
+
+void handle_usbfs_input( int numbytes, uint8_t * data );
+void poll_input() {
+	if(usb_inbuf_idx) {
+		handle_usbfs_input(usb_inbuf_idx, usb_inputbuffer);
+		usb_inbuf_idx = 0;
 	}
 }
 

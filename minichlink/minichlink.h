@@ -195,6 +195,7 @@ struct InternalState
 	enum MemoryArea current_area;
 	uint32_t clock_set;
 	uint8_t init_skip;
+	uint8_t debugger;
 };
 
 
@@ -254,6 +255,8 @@ struct InternalState
 #define TERMINAL_CLEAR_CUR "\x1b[2K\x1b[F"
 #define TERMINAL_DIM "\x1b[2m"
 
+#define MINICHLINK_SETUP_MAX_RETRIES 3
+
 /* initialization hints for init functions */
 /* could be expanded with more in the future (e.g., PID/VID hints, priorities, ...)*/
 /* not all init functions currently need these hints. */
@@ -268,7 +271,7 @@ extern struct MiniChlinkFunctions MCF;
 // Returns 'dev' on success, else 0.
 void * TryInit_WCHLinkE(void);
 void * TryInit_WCHISP(void);
-void * TryInit_ESP32S2CHFUN(void);
+void * TryInit_ESP32S2CHFUN(uint32_t id);
 void * TryInit_NHCLink042(void);
 void * TryInit_B003Fun(uint32_t id);
 void * TryInit_Ardulink(const init_hints_t*);

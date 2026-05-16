@@ -11,13 +11,17 @@
 #include "font_8x8.h"
 
 // comfortable packet size for this OLED
+#if SSD1306_3WIRE_SPI && !SSD1306_SOFT_SPI
+#define SSD1306_PSZ 8
+#else
 #define SSD1306_PSZ 32
+#endif
 
 #if defined (SSD1306_CUSTOM)
 // Let the caller configure the OLED.
 #else
 // characteristics of each type
-#if !defined (SSD1306_64X32) && !defined (SSD1306_72X40) && !defined (SSD1306_128X32) && !defined (SSD1306_128X64) && !defined (SH1107_128x128) && !(defined(SSD1306_W) && defined(SSD1306_H) && defined(SSD1306_OFFSET) )
+#if !defined (SSD1306_64X32) && !defined (SSD1306_72X40) && !defined (SSD1306_128X32) && !defined (SSD1306_128X64) && !defined (SH1106_128x64) && !defined (SH1107_128x128) && !(defined(SSD1306_W) && defined(SSD1306_H) && defined(SSD1306_OFFSET) )
 	#error "Please define the SSD1306_WXH resolution used in your application"
 #endif
 
@@ -46,6 +50,15 @@
 #define SSD1306_H 64
 #define SSD1306_FULLUSE
 #define SSD1306_OFFSET 0
+#endif
+
+#ifdef SH1106_128x64
+#define SH1107
+#define SSD1306_FULLUSE
+#define SSD1306_W 128
+#define SSD1306_H 64
+#define SSD1306_FULLUSE
+#define SSD1306_OFFSET 2
 #endif
 
 #ifdef SH1107_128x128
@@ -112,6 +125,7 @@ uint8_t ssd1306_data(uint8_t *data, int sz)
 // OLED initialization commands for 128x32
 const uint8_t ssd1306_init_array[] =
 {
+
 #ifdef SH1107
 	SSD1306_DISPLAYOFF,               // Turn OLED off
 	0x00,                             // Low column
@@ -206,8 +220,8 @@ void ssd1306_refresh(void)
 	for(i=0;i<SSD1306_H/8;i++)
 	{
 		ssd1306_cmd(0xb0 | i);
-		ssd1306_cmd( 0x00 | (0&0xf) ); 
-		ssd1306_cmd( 0x10 | (0>>4) );
+		ssd1306_cmd( 0x00 | (SSD1306_OFFSET&0xf) );
+		ssd1306_cmd( 0x10 | (SSD1306_OFFSET>>4) );
 		ssd1306_data(&ssd1306_buffer[i*4*SSD1306_PSZ+0*SSD1306_PSZ], SSD1306_PSZ);
 		ssd1306_data(&ssd1306_buffer[i*4*SSD1306_PSZ+1*SSD1306_PSZ], SSD1306_PSZ);
 		ssd1306_data(&ssd1306_buffer[i*4*SSD1306_PSZ+2*SSD1306_PSZ], SSD1306_PSZ);
@@ -298,15 +312,18 @@ void ssd1306_drawImage(uint32_t x, uint32_t y, const unsigned char* input, uint3
 			uint32_t input_byte = input[byte + line * bytes_to_draw];
 
 			for (pixel = 0; pixel < 8; pixel++) {
-				x_absolute = x + 8 * (bytes_to_draw - byte) + pixel;
+				x_absolute = x + 8 * byte + pixel;
 				if (x_absolute >= SSD1306_W) {
 					break;
 				}
 				// looking at the horizontal display, we're drawing bytes bottom to top, not left to right, hence y / 8
 				buffer_addr = x_absolute + SSD1306_W * (y_absolute / 8);
 				// state of current pixel
-				uint8_t input_pixel = input_byte & (1 << pixel);
-
+#ifdef SSD1306_BMP_LSB_FIRST
+				uint8_t input_pixel = input_byte & (1 << pixel);  // LSB first
+#else
+				uint8_t input_pixel = input_byte & (0x80 >> pixel); // MSB first (default)
+#endif
 				switch (color_mode) {
 					case 0:
 						// write pixels as they are
@@ -592,7 +609,7 @@ void ssd1306_drawchar(uint8_t x, uint8_t y, uint8_t chr, uint8_t color)
 /*
  * draw a string to the display
  */
-void ssd1306_drawstr(uint8_t x, uint8_t y, char *str, uint8_t color)
+void ssd1306_drawstr(int x, int y, const char *str, uint8_t color)
 {
 	uint8_t c;
 	
@@ -618,7 +635,7 @@ typedef enum {
 /*
  * Draw character to the display buffer, scaled to size
  */
-void ssd1306_drawchar_sz(uint8_t x, uint8_t y, uint8_t chr, uint8_t color, font_size_t font_size)
+void ssd1306_drawchar_sz(int x, int y, uint8_t chr, int color, font_size_t font_size)
 {
     uint16_t i, j, col;
     uint8_t d;
@@ -657,7 +674,7 @@ void ssd1306_drawchar_sz(uint8_t x, uint8_t y, uint8_t chr, uint8_t color, font_
 /*
  * draw a string to the display buffer, scaled to size
  */
-void ssd1306_drawstr_sz(uint8_t x, uint8_t y, char *str, uint8_t color, font_size_t font_size)
+void ssd1306_drawstr_sz(int x, int y, const char *str, uint8_t color, font_size_t font_size)
 {
 	uint8_t c;
 	

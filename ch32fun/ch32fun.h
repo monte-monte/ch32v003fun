@@ -24,7 +24,11 @@
 	4. Delays
 		Delay_Us(n)
 		Delay_Ms(n)
-		DelaySysTick( uint32_t n );
+		DelaySysTick( uint32_t n )
+		TimeElapsed32( uint32_t now, uint32_t start);
+		TimeElapsed32U( now, start ); // For if events could be in the future.
+		funSysTick32()
+		funSysTick64()
 
 	5. printf
 		printf, _write may be semihosted, or printed to UART.
@@ -84,10 +88,12 @@
 #define FUNCONF_DEBUG_HARDFAULT    1    // Log fatal errors with "printf"
 #define FUNCONF_ISR_IN_RAM 0            // Put the interrupt vector in RAM.
 #define FUNCONF_SUPPORT_CONSTRUCTORS 0	// Call functions with __attribute__((constructor)) in SystemInit()
+#define FUNCONF_ICACHE_EN 1				// Enables ICache on cores that support it, may require power-down + power up to work properly at flash time.
+#define FUNCONF_OVERRIDE_STARTUP 0      // User code will have its own `handle_reset` and `InterruptVector`
 */
 
 // Sanity check for when porting old code.
-#if defined(CH32V10x) || defined(CH32V20x) || defined(CH32V30x) || defined(CH32X03x) || defined(CH32L103)
+#if defined(CH32V10x) || defined(CH32V20x) || defined(CH32V30x) || defined(CH32X03x) || defined(CH32L103)  || defined(CH32H41x)
 	#if defined(CH32V003)
 		#error Cannot define CH32V003 and another arch.
 	#endif
@@ -164,6 +170,8 @@
 		#define HSE_VALUE				  (8000000)
 	#elif defined(CH57x) || defined(CH58x) || defined(CH59x)
 		#define HSE_VALUE				  (32000000)
+	#elif defined(CH32H41x)
+		#define HSE_VALUE				  (25000000)
 	#endif
 #endif
 
@@ -179,6 +187,8 @@
 		#define HSI_VALUE					(8000000)
 	#elif defined(CH32V30x)
 		#define HSI_VALUE					(8000000)
+	#elif defined(CH32H41x)
+		#define HSI_VALUE					(25000000)
 	#endif
 #endif
 
@@ -201,6 +211,8 @@
 			#define FUNCONF_PLL_MULTIPLIER 18	// Default: 8 * 18 = 144 MHz
 		#elif defined(CH32V30x)
 			#define FUNCONF_PLL_MULTIPLIER 18	// Default: 8 * 18 = 144 MHz
+		#elif defined(CH32H41x)
+			#define FUNCONF_PLL_MULTIPLIER 16	// Default: 25 * 16 = 400 MHz
 		#else // CH32V003
 			#define FUNCONF_PLL_MULTIPLIER 2	// Default: 24 * 2 = 48 MHz
 		#endif
@@ -214,6 +226,20 @@
 		#define FUNCONF_SYSTEM_CORE_CLOCK 60000000 // default in ch32fun.c using CLK_SOURCE_PLL_60MHz
 		#if defined(CLK_SOURCE_CH5XX)
 			#error Must define FUNCONF_SYSTEM_CORE_CLOCK too if CLK_SOURCE_CH5XX is defined
+		#endif
+	#elif defined(CH32H41x)
+		#if defined(FUNCONF_USE_PLL) && FUNCONF_USE_PLL
+			#if defined(FUNCONF_USE_HSI) && FUNCONF_USE_HSI
+				#define FUNCONF_SYSTEM_CORE_CLOCK ((HSI_VALUE / 4)*(FUNCONF_PLL_MULTIPLIER))
+			#elif defined(FUNCONF_USE_HSE) && FUNCONF_USE_HSE
+				#define FUNCONF_SYSTEM_CORE_CLOCK ((HSE_VALUE / 4)*(FUNCONF_PLL_MULTIPLIER))
+			#endif
+		#else
+			#if defined(FUNCONF_USE_HSI) && FUNCONF_USE_HSI
+				#define FUNCONF_SYSTEM_CORE_CLOCK ((HSI_VALUE)*(FUNCONF_PLL_MULTIPLIER))
+			#elif defined(FUNCONF_USE_HSE) && FUNCONF_USE_HSE
+				#define FUNCONF_SYSTEM_CORE_CLOCK ((HSE_VALUE)*(FUNCONF_PLL_MULTIPLIER))
+			#endif
 		#endif
 	#elif defined(FUNCONF_USE_HSI) && FUNCONF_USE_HSI
 		#define FUNCONF_SYSTEM_CORE_CLOCK ((HSI_VALUE)*(FUNCONF_PLL_MULTIPLIER))
@@ -236,6 +262,10 @@
 	#define FUNCONF_ISR_IN_RAM 0
 #endif
 
+#ifndef FUNCONF_ICACHE_EN
+	#define FUNCONF_ICACHE_EN 1
+#endif
+
 // Default package for CH32V20x
 #if defined(CH32V20x)
 #if !defined(CH32V20x_D8W) && !defined(CH32V20x_D8) && !defined(CH32V20x_D6)
@@ -251,6 +281,10 @@
 	//#define CH32V30x_D8              /* CH32V303x */
 	#define CH32V30x_D8C             /* CH32V307x-CH32V305x */
 	#endif
+#endif
+
+#ifndef FUNCONF_OVERRIDE_STARTUP
+#define FUNCONF_OVERRIDE_STARTUP 0
 #endif
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -388,6 +422,8 @@ typedef enum {RESET = 0, SET = !RESET} FlagStatus, ITStatus;
 	#include "ch32v30xhw.h"
 #elif defined( CH57x ) || defined( CH58x ) || defined( CH59x )
 	#include "ch5xxhw.h"
+#elif defined( CH32H41x )
+	#include "ch32h41xhw.h"
 #endif
 
 #if defined(__riscv) || defined(__riscv__) || defined( CH32V003FUN_BASE )
@@ -762,6 +798,14 @@ static inline uint32_t __get_MHARTID(void)
 	return (result);
 }
 
+// Return stack pointer register (SP)
+static inline uint32_t __get_SP(void)
+{
+	uint32_t result;
+	__ASM volatile( "mv %0,""sp": "=r"(result):);
+	return (result);
+}
+
 #if defined(CH32V003) && CH32V003
 
 // Return DBGMCU_CR Register value
@@ -779,13 +823,6 @@ static inline void __set_DEBUG_CR(uint32_t value)
 	__ASM volatile( ADD_ARCH_ZICSR "csrw 0x7C0, %0" : : "r" (value) );
 }
 
-// Return stack pointer register (SP)
-static inline uint32_t __get_SP(void)
-{
-	uint32_t result;
-	__ASM volatile( "mv %0,""sp": "=r"(result):);
-	return (result);
-}
 #endif // CH32V003
 
 #endif // !assembler
@@ -847,13 +884,17 @@ extern "C" {
 #define DELAY_MS_TIME ((FUNCONF_SYSTEM_CORE_CLOCK)/8000)
 #endif
 
+#define DELAY_MSEC_COUNT(n) (DELAY_MS_TIME * n)
+#define DELAY_SEC_COUNT(n) (DELAY_MS_TIME * 1000 * n)
+
 #define Delay_Us(n) DelaySysTick( (n) * DELAY_US_TIME )
 #define Delay_Ms(n) DelaySysTick( (n) * DELAY_MS_TIME )
 
 #define Ticks_from_Us(n)	((n) * DELAY_US_TIME)
 #define Ticks_from_Ms(n)	((n) * DELAY_MS_TIME)
 
-#define TimeElapsed32(now,start)  ((uint32_t)((uint32_t)(now)-(uint32_t)(start)))
+#define TimeElapsed32(now,start)  ((int32_t)((uint32_t)(now)-(uint32_t)(start)))
+#define TimeElapsed32u(now,start)  ((uint32_t)((uint32_t)(now)-(uint32_t)(start)))
 
 // Add a certain number of nops.  Note: These are usually executed in pairs
 // and take two cycles, so you typically would use 0, 2, 4, etc.
@@ -862,17 +903,23 @@ extern "C" {
 #define FUN_HIGH 0x1
 #define FUN_LOW 0x0
 #if defined(CH57x) || defined(CH58x) || defined(CH59x)
+
 #if defined( PB ) && defined( R32_PB_PIN )
 #define OFFSET_FOR_GPIOB(pin)         (((pin & PB) >> 31) * (&R32_PB_PIN - &R32_PA_PIN)) // 0 if GPIOA, 0x20 if GPIOB
 #else
 #define PB                            0
 #define OFFSET_FOR_GPIOB(pin)         0
 #endif
-#define GPIO_ResetBits(pin)           (*(&R32_PA_CLR + OFFSET_FOR_GPIOB(pin)) |= (pin & ~PB))
+
+#if defined(CH571_CH573) || defined(CH582_CH583) // 582/3 doesn't have _SET
 #define GPIO_SetBits(pin)             (*(&R32_PA_OUT + OFFSET_FOR_GPIOB(pin)) |= (pin & ~PB))
+#else
+#define GPIO_SetBits(pin)             (*(&R32_PA_SET + OFFSET_FOR_GPIOB(pin)) =  (pin & ~PB))
+#endif
+#define GPIO_ResetBits(pin)           (*(&R32_PA_CLR + OFFSET_FOR_GPIOB(pin)) =  (pin & ~PB))
 #define GPIO_InverseBits(pin)         (*(&R32_PA_OUT + OFFSET_FOR_GPIOB(pin)) ^= (pin & ~PB))
 #define GPIO_ReadPortPin(pin)         (*(&R32_PA_PIN + OFFSET_FOR_GPIOB(pin)) &  (pin & ~PB))
-#define funDigitalRead(pin)           GPIO_ReadPortPin(pin)
+#define funDigitalRead(pin)           !!GPIO_ReadPortPin(pin)
 #define funDigitalWrite( pin, value ) do{ if((value)==FUN_HIGH){GPIO_SetBits(pin);} else if((value)==FUN_LOW){GPIO_ResetBits(pin);} }while(0)
 #define funGpioInitAll()              // funGpioInitAll() does not do anything on ch5xx, put here for consistency
 
@@ -920,9 +967,25 @@ RV_STATIC_INLINE void funPinMode(u32 pin, GPIOModeTypeDef mode)
 #define funGpioInitAll() { RCC->APB2PCENR |= ( RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC ); }
 #define funPinMode( pin, mode ) { *((&GpioOf(pin)->CFGLR)+((pin&0x8)>>3)) = ( (*((&GpioOf(pin)->CFGLR)+((pin&0x8)>>3))) & (~(0xf<<(4*((pin)&0x7))))) | ((mode)<<(4*((pin)&0x7))); }
 #elif defined(CH32V10x) || defined(CH32V20x) || defined(CH32V30x) || defined(CH32L103)
-#define funGpioInitAll() { RCC->APB2PCENR |= ( RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD ); }
+#define funGpioInitAll() { RCC->APB2PCENR |= ( RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOE ); }
 #define funPinMode( pin, mode ) { *((&GpioOf(pin)->CFGLR)+((pin&0x8)>>3)) = ( (*((&GpioOf(pin)->CFGLR)+((pin&0x8)>>3))) & (~(0xf<<(4*((pin)&0x7))))) | ((mode)<<(4*((pin)&0x7))); }
 #define funGpioInitB() { RCC->APB2PCENR |= ( RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOB ); }
+#elif defined(CH32H41x)
+#define funGpioInitAll() { RCC->HB2PCENR |= ( RCC_HB2Periph_AFIO | RCC_HB2Periph_GPIOA | RCC_HB2Periph_GPIOB | RCC_HB2Periph_GPIOC | RCC_HB2Periph_GPIOD | RCC_HB2Periph_GPIOE | RCC_HB2Periph_GPIOF ); }
+
+RV_STATIC_INLINE void funPinMode(u32 pin, GPIOMode_TypeDef mode, GPIOSpeed_TypeDef speed)
+{
+	*((&GpioOf(pin)->CFGLR)+((pin&0x8)>>3)) = ( (*((&GpioOf(pin)->CFGLR)+((pin&0x8)>>3))) & (~(0xf<<(4*((pin)&0x7))))) | ((mode)<<(4*((pin)&0x7)));
+	GpioOf(pin)->SPEED = (GpioOf(pin)->SPEED & ~(0x3 << (2 * (pin & 0xF)))) | (speed << (2 * (pin & 0xF)));
+}
+
+/* Helper for AF */
+RV_STATIC_INLINE void funPinAF(u32 pin, u32 af)
+{
+	volatile uint32_t* afio = (uint32_t*)(AFIO_BASE + 4U + 4U * (pin >> 3));
+	*afio = (*afio & ~(0xf << (4U * (pin & 0x7)))) | (af << (4U * (pin & 0x7)));
+}
+
 #else
 #define funGpioInitAll() { RCC->APB2PCENR |= ( RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOC | RCC_APB2Periph_GPIOD ); }
 #define funPinMode( pin, mode ) { GpioOf(pin)->CFGLR = (GpioOf(pin)->CFGLR & (~(0xf<<(4*((pin)&0xf))))) | ((mode)<<(4*((pin)&0xf))); }
@@ -952,7 +1015,6 @@ RV_STATIC_INLINE void funPinMode(u32 pin, GPIOModeTypeDef mode)
 
 #if defined(__riscv) || defined(__riscv__) || defined( CH32V003FUN_BASE )
 
-
 // Stuff that can only be compiled on device (not for the programmer, or other host programs)
 
 // Initialize the ADC calibrate it and set some sane defaults.
@@ -971,6 +1033,17 @@ void DefaultIRQHandler( void ) __attribute__((section(VECTOR_HANDLER_SECTION))) 
 
 void DelaySysTick( uint32_t n );
 
+// #define funSysTick32() is defined per-architecture.
+
+// Get a 64-bit timestamp.  Please in general try to use 32-bit timestamps
+// whenever possible.  Use functions that automatically handle rollover
+// correctly like TimeElapsed32( start, end ).  Only use this in cases where
+// you must act on time periods exceeding 2^31 ticks.
+//
+// Also, if you are on a platform without a hardware 64-bit timer, you must
+// call this function at least once every 2^32 ticks to make sure MSBs aren't
+// lost.
+uint64_t funSysTick64( void );
 
 // Depending on a LOT of factors, it's about 6 cycles per n.
 // **DO NOT send it zero or less.**

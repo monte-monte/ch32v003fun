@@ -6,6 +6,7 @@
  */
 
 #include "ch32fun.h"
+#include "ch5xx_lowpower.h"
 #include "iSLER.h"
 #include <stdio.h>
 
@@ -15,16 +16,24 @@
 #define LED PA8
 #endif
 
+#define ACCESS_ADDRESS 0x8E89BED6 // the "BED6" address for BLE advertisements
+
 #define SLEEPTIME_MS 300
 
 // The advertisement to be sent. The MAC address should be in the first 6 bytes in reversed byte order,
 // after that any BLE flag can be used.
-uint8_t adv[] = {0x66, 0x55, 0x44, 0x33, 0x22, 0x11, // MAC (reversed)
-				 0x03, 0x19, 0x00, 0x00, // 0x19: "Appearance", 0x00, 0x00: "Unknown"
-				 0x08, 0x09, 'c', 'h', '3', '2', 'f', 'u', 'n'}; // 0x09: "Complete Local Name"
+const uint8_t adv_data[] = {
+		0x02, 0x0f, // header for LL: PDU + frame length
+		0x66, 0x55, 0x44, 0x33, 0x22, 0x11, // MAC (reversed)
+		0x08, 0x09, 'c', 'h', '3', '2', 'f', 'u', 'n'}; // 0x09: "Complete Local Name"
+
+// On some chips (e.g. CH573), the iSLER buffer needs to be in a DMA safe section of memory.
+// This section may be uninitialized, so we manually copy our initial data into it at runtime.
+ISLER_BUF_ATTR uint8_t adv[256];
+
 uint8_t adv_channels[] = {37,38,39};
 
-__attribute__((interrupt))
+__INTERRUPT
 void RTC_IRQHandler(void) {
 	// clear trigger flag
 	R8_RTC_FLAG_CTRL = RB_RTC_TRIG_CLR;
@@ -56,7 +65,7 @@ int main() {
 
 	DCDCEnable(); // Enable the internal DCDC
 	LSIEnable(); // Disable LSE, enable LSI
-	RTCInit(); // Set the RTC counter to 0
+	RTC_init(); // Set the RTC counter to 0
 	SleepInit(); // Enable wakeup from sleep by RTC, and enable RTC IRQ
 
 	allPinPullUp(); // this reduces sleep from ~70uA to 1uA
@@ -64,8 +73,10 @@ int main() {
 	funGpioInitAll();
 	funPinMode( LED, GPIO_CFGLR_OUT_2Mhz_PP );
 
+	memcpy(adv, adv_data, sizeof(adv_data));
+
 	uint8_t txPower = LL_TX_POWER_0_DBM;
-	RFCoreInit(txPower);
+	iSLERInit(txPower);
 
 	blink(5);
 	printf(".~ ch32fun BLE beacon ~.\n");
@@ -73,12 +84,12 @@ int main() {
 	while(1) {
 		// BLE advertisements are sent on channels 37, 38 and 39, over the 1M PHY
 		for(int c = 0; c < sizeof(adv_channels); c++) {
-			Frame_TX(adv, sizeof(adv), adv_channels[c], PHY_1M);
+			iSLERTX(ACCESS_ADDRESS, adv, sizeof(adv_data), adv_channels[c], PHY_1M);
 		}
 
 		LowPower( MS_TO_RTC(SLEEPTIME_MS), (RB_PWR_RAM2K | RB_PWR_RAMX | RB_PWR_EXTEND) ); // PWR_RAM can be optimized
 
-		RFCoreInit(txPower); // RF wakes up in an odd state, we need to reinit after sleep
+		iSLERInit(txPower); // RF wakes up in an odd state, we need to reinit after sleep
 		DCDCEnable(); // DCDC gets disabled during sleep
 		blink(1);
 	}
