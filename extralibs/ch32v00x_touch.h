@@ -1,5 +1,5 @@
-#ifndef _CH32V003_TOUCH_H
-#define _CH32V003_TOUCH_H
+#ifndef _CH32V00X_TOUCH_H
+#define _CH32V00X_TOUCH_H
 
 /** ADC-based Capactive Touch Control.
 
@@ -8,7 +8,6 @@
 	// Enable GPIOD, C and ADC
 	RCC->APB2PCENR |= RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOC | RCC_APB2Periph_ADC1;
 	InitTouchADC();
-
 
 	// Then do this any time you want to read some touches.
 	sum[0] += ReadTouchPin( GPIOA, 2, 0, iterations );
@@ -58,6 +57,11 @@
 static void InitTouchADC( );
 void InitTouchADC( )
 {
+#ifdef CH32V003
+
+#define EXTRA_ADC_SETUP_ONLY_ON_00X
+
+
 	// ADCCLK = 24 MHz => RCC_ADCPRE = 0: divide sys clock by 2
 	RCC->CFGR0 &= ~(0x1F<<11);
 
@@ -67,7 +71,7 @@ void InitTouchADC( )
 
 	// turn on ADC and set rule group to sw trig
 	ADC1->CTLR2 |= ADC_ADON | ADC_EXTSEL;
-	
+
 	// Reset calibration
 	ADC1->CTLR2 |= ADC_RSTCAL;
 	while(ADC1->CTLR2 & ADC_RSTCAL);
@@ -75,6 +79,38 @@ void InitTouchADC( )
 	// Calibrate
 	ADC1->CTLR2 |= ADC_CAL;
 	while(ADC1->CTLR2 & ADC_CAL);
+
+#elif defined( CH32V00x )
+
+#define EXTRA_ADC_SETUP_ONLY_ON_00X ADC1->CTLR2 = ADC_ADON | ADC_EXTSEL;
+
+	// ADCCLK = 48 MHz => RCC_ADCPRE divide by 2
+	// RCC_CFGR0_ADC_CLK_MODE = 0 -- HB clock divides to make ADC clock -- vs 1 = No ADC Division.
+	// RCC_CFGR0_ADC_CLK_ADJ = 0 -- 1/2 duty cycle high level ADC clock
+	RCC->CFGR0 = (RCC->CFGR0 & ~(RCC_ADCPRE | RCC_CFGR0_ADC_CLK_MODE | RCC_HPRE));
+
+	// Set up single conversion on chl 2
+	ADC1->RSQR1 = 0;
+	ADC1->RSQR2 = 0;
+
+	// Turn on ADC module  Not sure why it needs to be done twice.
+	ADC1->CTLR2 = ADC_ADON | ADC_EXTSEL_SWSTART;
+	ADC1->CTLR2 = ADC_ADON | ADC_EXTSEL_SWSTART;
+
+	// enable scanning
+	ADC1->CTLR1 = ADC_SCAN | ADC_BUFEN;
+
+	// Reset calibration
+	ADC1->CTLR2 |= ADC_RSTCAL;
+	while(ADC1->CTLR2 & ADC_RSTCAL);
+	
+	// Calibrate
+	ADC1->CTLR2 |= ADC_CAL;
+	while(ADC1->CTLR2 & ADC_CAL);
+
+#else	
+	#error ADC Code for touch not written for this chip.
+#endif
 }
 
 // Run from RAM to get even more stable timing.
@@ -110,6 +146,8 @@ uint32_t ReadTouchPin( GPIO_TypeDef * io, int portpin, int adcno, int iterations
 		__disable_irq();                                                        \
 		FORCEALIGNADC                                                           \
                                                                                 \
+		EXTRA_ADC_SETUP_ONLY_ON_00X                                             \
+                                                                                \
 		/* Tricky - we start the ADC BEFORE we transition the pin.  By doing    \
 			this We are catching it onthe slope much more effectively.  */      \
 		ADC1->CTLR2 = ADC_SWSTART | ADC_ADON | ADC_EXTSEL;                      \
@@ -121,7 +159,7 @@ uint32_t ReadTouchPin( GPIO_TypeDef * io, int portpin, int adcno, int iterations
 		/* Sampling actually starts here, somewhere, so we can let other        \
 			interrupts run */                                                   \
 		__enable_irq();                                                         \
-		while(!(ADC1->STATR & ADC_EOC));                                        \
+		while(!(ADC1->STATR & ADC_EOC));       \
 		io->CFGLR = CFGDRIVE;                                                   \
 		io->BSHR = 1<<(portpin+(16*(1-TOUCH_SLOPE)));                          \
 		ret += ADC1->RDATAR;                                                    \
@@ -160,6 +198,8 @@ uint32_t ReadTouchPinSafe( GPIO_TypeDef * io, int portpin, int adcno, int iterat
 		__disable_irq();                                                        \
 		                                                                        \
 		FORCEALIGNADC                                                           \
+                                                                                \
+		EXTRA_ADC_SETUP_ONLY_ON_00X                                             \
                                                                                 \
 		/* Tricky - we start the ADC BEFORE we transition the pin.  By doing    \
 			this We are catching it onthe slope much more effectively.  */      \
