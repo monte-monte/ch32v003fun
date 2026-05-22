@@ -2487,6 +2487,7 @@ typedef struct
 #define TIM2_DMAINTENR_CC2DE                    ((uint16_t)0x0400) /* Capture/Compare 2 DMA request enable */
 #define TIM2_DMAINTENR_CC3DE                    ((uint16_t)0x0800) /* Capture/Compare 3 DMA request enable */
 #define TIM2_DMAINTENR_CC4DE                    ((uint16_t)0x1000) /* Capture/Compare 4 DMA request enable */
+#define TIM2_DMAINTENR_COMDE                    ((uint16_t)0x2000) /* COM DMA request enable */
 #define TIM2_DMAINTENR_TDE                      ((uint16_t)0x4000) /* Trigger DMA request enable */
 
 /*******************  Bit definition for TIM2_INTFR register  *****************/
