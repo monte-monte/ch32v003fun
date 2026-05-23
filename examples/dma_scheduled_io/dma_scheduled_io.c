@@ -172,6 +172,10 @@ int main()
 	// Minimum value 5 for Basic
 	// Minimum value 5 for Regular
 	// Minimum value 11 for full DMA
+	//
+	// These are the lengths of time to dwell at each state.
+	// for the ch32v003/ch32v006, this is at 24MHz increments.
+	//
 	// But, for full control, you have to slow dow nto about 23.
 	// This "time" is actually+1 for timer ATLAR.
 	// First time is not precise.
