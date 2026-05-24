@@ -61,7 +61,7 @@
 register volatile unsigned continueflag asm ("x4");
 
 #define RESETISRDONEFLAG asm volatile( "li x4, 0" );
-#define WAITFORISRDONE asm volatile( "1: bnez x4, 1b" );
+#define WAITFORISRDONE asm volatile( "1: beqz x4, 1b" );
 #define ISRCONT asm volatile( "addi x4, x4, 1" );
 #else
 #define ISRCONT
