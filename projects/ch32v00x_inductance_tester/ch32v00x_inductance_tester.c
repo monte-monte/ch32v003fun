@@ -20,6 +20,7 @@
 #define COIL_ON_ADC_NUMBER 3
 #define COIL_ON_PORT       GPIOD
 #define COIL_ON_PIN        2
+#define EXTENDED_MODE 1
 
 #ifdef CH32V003
 #define TIM1_SWEVGR_UG TIM_UG
@@ -103,15 +104,16 @@ void RunScheduledDMA( const uint32_t * values, volatile uint32_t * const * addre
 	TIM1->CH3CVR = 7;
 #ifdef CH32V003
 	RESETISRDONEFLAG
-	FORCEALIGNADC
+//	FORCEALIGNADC
 #endif
 	TIM1->ATRLR = 32;       // Auto Reload - sets period  (This is how fast each pixel works per set)
-	TIM1->CNT = 26 + ((((SysTick->CNT) & 1))); // Synchronize the timer to even cycles so it syncs with the ADC.
+//	TIM1->CNT = 26 + ((((SysTick->CNT) & 1))); // Synchronize the timer to even cycles so it syncs with the ADC.
+	TIM1->CNT = 26;
 	TIM1->CTLR1 = TIM1_CTLR1_CEN;
 #ifdef CH32V003
 	WAITFORISRDONE
 #else
-	__WFI(); 
+	__WFI();
 #endif
 }
 
@@ -143,9 +145,6 @@ int main()
 	RCC->APB2PCENR |= RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOD |
 		RCC_APB2Periph_GPIOC | RCC_APB2Periph_ADC1  | RCC_APB2Periph_TIM1;
 
-	funPinMode( PC0, GPIO_CFGLR_OUT_10Mhz_PP );
-	funPinMode( PC1, GPIO_CFGLR_OUT_10Mhz_PP );
-
 	funPinMode( PD2, GPIO_CFGLR_OUT_10Mhz_PP );
 
 	RCC->APB1PCENR |= RCC_APB1Periph_TIM2;
@@ -172,7 +171,13 @@ int main()
 	ADC1->RSQR2 = 0;
 	ADC1->RSQR3 = (COIL_ON_ADC_NUMBER<<0);
 
+#if EXTENDED_MODE
+	#define SAMPTIME 0b101
+#else
+// Good for shorter terms
 	#define SAMPTIME 0b100
+#endif
+
 	ADC1->SAMPTR1 = SAMPTIME;
 	ADC1->SAMPTR2 = SAMPTIME | (SAMPTIME<<3) | (SAMPTIME<<6) | (SAMPTIME<<9) | (SAMPTIME<<12) | (SAMPTIME<<15) | (SAMPTIME<<18) | (SAMPTIME<<21) | (SAMPTIME<<24) | (SAMPTIME<<27);
 	// Turn on ADC module  Not sure why it needs to be done twice.
@@ -227,17 +232,29 @@ int main()
 	while(1)
 	{
 		int i;
+#if EXTENDED_MODE
+		for( int n = 85; n > 27; n-- )
+		{
+			times[1] = n;
+			times[2] = 58;
+#else
 		for( int n = 27; n < 38; n++ )
 		{
 			times[1] = n;
+#endif
 			uint32_t sum = 0;
 			for( i = 0; i < 16; i++ )
 			{
 				RepeatScheduledDMA();
 				sum += ADC1->RDATAR;
 			}
-			printf( "%d ", (int)sum );
+
+			// Faster to print into fixed buffer.
+			char cts[10];
+			int n = sprintf( cts, "%d ", (int)sum );
+			_write( 0, cts, n );
 		}
+
 		printf( "\n" );
 	}
 
