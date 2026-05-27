@@ -186,13 +186,14 @@ void SendReplyFull( const char * replyMessage )
 }
 
 void MakeGDBPrintText(const char* msg) {
+	size_t msg_len = strlen(msg);
 	// ASCII to hex conversion doubles size, plus 'O', plus NUL
-	size_t buf_len = 2 * strlen(msg) + 2;
+	size_t buf_len = 2 * msg_len + 2;
 	char* buf = alloca(buf_len);
 	memset(buf, 0, buf_len);
 	buf[0] = 'O'; // for "Output"
 	char* target = buf + 1; 
-	for(size_t i = 0; i < strlen(msg); i++) {
+	for(size_t i = 0; i < msg_len; i++) {
 		target[2*i] = ToHEXNibble((msg[i] & 0xf0u) >> 4u);
 		target[2*i + 1] = ToHEXNibble(msg[i] & 0x0fu);
 	}
