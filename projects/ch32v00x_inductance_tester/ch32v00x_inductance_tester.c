@@ -20,7 +20,7 @@
 #define COIL_ON_ADC_NUMBER 3
 #define COIL_ON_PORT       GPIOD
 #define COIL_ON_PIN        2
-#define EXTENDED_MODE 1
+#define EXTENDED_MODE      2
 
 #ifdef CH32V003
 #define TIM1_SWEVGR_UG TIM_UG
@@ -146,6 +146,7 @@ int main()
 		RCC_APB2Periph_GPIOC | RCC_APB2Periph_ADC1  | RCC_APB2Periph_TIM1;
 
 	funPinMode( PD2, GPIO_CFGLR_OUT_10Mhz_PP );
+	//funPinMode( PD2, GPIO_CFGLR_IN_PUPD );
 
 	RCC->APB1PCENR |= RCC_APB1Periph_TIM2;
 	RCC->AHBPCENR  |= RCC_AHBPeriph_DMA1 | RCC_AHBPeriph_SRAM;
@@ -171,8 +172,10 @@ int main()
 	ADC1->RSQR2 = 0;
 	ADC1->RSQR3 = (COIL_ON_ADC_NUMBER<<0);
 
-#if EXTENDED_MODE
+#if EXTENDED_MODE == 1
 	#define SAMPTIME 0b101
+#elif EXTENDED_MODE == 2
+	#define SAMPTIME 0b111
 #else
 // Good for shorter terms
 	#define SAMPTIME 0b100
@@ -232,20 +235,28 @@ int main()
 	while(1)
 	{
 		int i;
-#if EXTENDED_MODE
+#if EXTENDED_MODE == 2
+		for( int n = 455; n > 223; n-- )
+		{
+			times[1] = n;
+			times[2] = 21;
+#elif EXTENDED_MODE == 1
 		for( int n = 85; n > 27; n-- )
 		{
 			times[1] = n;
-			times[2] = 58;
+			times[2] = 52;
 #else
 		for( int n = 27; n < 38; n++ )
 		{
 			times[1] = n;
 #endif
 			uint32_t sum = 0;
-			for( i = 0; i < 16; i++ )
+			for( i = 0; i < 4; i++ )
 			{
 				RepeatScheduledDMA();
+#if EXTENDED_MODE == 2
+				Delay_Us(5);
+#endif
 				sum += ADC1->RDATAR;
 			}
 
