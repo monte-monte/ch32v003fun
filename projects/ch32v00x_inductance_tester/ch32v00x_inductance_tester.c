@@ -21,6 +21,7 @@
 #define COIL_ON_PORT       GPIOD
 #define COIL_ON_PIN        2
 #define EXTENDED_MODE      2
+#define GPIO_SETUP			funPinMode( PD2, GPIO_CFGLR_OUT_10Mhz_PP );
 
 #ifdef CH32V003
 #define TIM1_SWEVGR_UG TIM_UG
@@ -145,8 +146,8 @@ int main()
 	RCC->APB2PCENR |= RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOD |
 		RCC_APB2Periph_GPIOC | RCC_APB2Periph_ADC1  | RCC_APB2Periph_TIM1;
 
-	funPinMode( PD2, GPIO_CFGLR_OUT_10Mhz_PP );
-	//funPinMode( PD2, GPIO_CFGLR_IN_PUPD );
+
+	GPIO_SETUP
 
 	RCC->APB1PCENR |= RCC_APB1Periph_TIM2;
 	RCC->AHBPCENR  |= RCC_AHBPeriph_DMA1 | RCC_AHBPeriph_SRAM;
