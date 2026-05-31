@@ -9,6 +9,10 @@ SUBSYSTEM=="usb", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="8012", GROUP="dial
 SUBSYSTEM=="usb", ATTRS{idVendor}=="4348", ATTRS{idProduct}=="55e0", GROUP="plugdev", MODE="0660"
 SUBSYSTEM=="usb", ATTRS{idVendor}=="4348", ATTRS{idProduct}=="55e0", GROUP="dialout", MODE="0660"
 
+# CH57x in self-program mode
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55e0", GROUP="plugdev", MODE="0660"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55e0", GROUP="dialout", MODE="0660"
+
 SUBSYSTEM=="usb", ATTRS{idVendor}=="303a", ATTRS{idProduct}=="4004", GROUP="plugdev", MODE="0660"
 SUBSYSTEM=="usb", ATTRS{idVendor}=="303a", ATTRS{idProduct}=="4004", GROUP="dialout", MODE="0660"
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="303a", ATTRS{idProduct}=="4004", GROUP="plugdev", MODE="0660"
