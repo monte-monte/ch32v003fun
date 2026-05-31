@@ -241,6 +241,183 @@ typedef struct
 } PFIC_Type;
 #endif /* __ASSEMBLER__*/
 
+#ifdef CH570_CH572
+typedef struct {
+    __IO uint32_t CTRL;
+} CMP_TypeDef;
+#endif
+
+typedef struct {
+#if defined(CH570_CH572)
+    __IO uint16_t PA_INT_EN;        // 0H
+    uint16_t RESERVED0;             // 2H
+    __IO uint16_t PA_INT_MODE;      // 4H
+    __IO uint16_t PA_INT_EDGE_TYPE; // 6H
+    uint32_t RESERVED1;             // 8H
+    __IO uint16_t PA_INT_IF;        // CH
+    uint16_t RESERVED2;             // EH
+#else
+    __IO uint16_t PA_INT_EN;        // 0H
+    __IO uint16_t PB_INT_EN;        // 2H
+    __IO uint16_t PA_INT_MODE;      // 4H
+    __IO uint16_t PB_INT_MODE;      // 6H
+#if defined(CH591_CH592)
+    __IO uint16_t PA_INT_EDGE_TYPE; // 8H
+    __IO uint16_t PB_INT_EDGE_TYPE; // AH
+#else
+    uint32_t RESERVED0;             // 8H
+#endif
+    __IO uint16_t PA_INT_IF;        // CH
+    __IO uint16_t PB_INT_IF;        // EH
+#endif
+    __IO uint32_t PA_DIR;           // 10H
+    __IO uint32_t PA_PIN;           // 14H
+    __IO uint32_t PA_OUT;           // 18H
+    __IO uint32_t PA_CLR;           // 1CH
+    __IO uint32_t PA_PU;            // 20H
+    __IO uint32_t PA_PD_DRV;        // 24H
+    __IO uint32_t PA_SET;           // 28H
+#if defined(CH571_CH573) || defined(CH582_CH583) || defined(CH584_CH585) || defined(CH591_CH592)
+    uint32_t RESERVED1;             // 2CH
+    __IO uint32_t PB_DIR;           // 30H
+    __IO uint32_t PB_PIN;           // 34H
+    __IO uint32_t PB_OUT;           // 38H
+    __IO uint32_t PB_CLR;           // 3CH
+    __IO uint32_t PB_PU;            // 40H
+    __IO uint32_t PB_PD_DRV;        // 44H
+    __IO uint32_t PB_SET;           // 48H
+#endif
+} GPIO_TypeDef;
+
+#ifndef CH571_CH573
+typedef struct {
+    __IO uint16_t CTRL1;         // 0H
+    uint16_t RESERVED0;          // 2H
+    __IO uint16_t CTRL2;         // 4H
+    uint16_t RESERVED1;          // 6H
+    __IO uint16_t OADDR1;        // 8H
+    uint16_t RESERVED2;          // AH
+    __IO uint16_t OADDR2;        // CH
+    uint16_t RESERVED3;          // EH
+    __IO uint16_t DATAR;         // 10H
+    uint16_t RESERVED4;          // 12H
+    __IO uint16_t STAR1;         // 14H
+    uint16_t RESERVED5;          // 16H
+    __IO uint16_t STAR2;         // 18H
+    uint16_t RESERVED6;          // 1AH
+    __IO uint16_t CKCFGR;        // 1CH
+    uint16_t RESERVED7;          // 1EH
+    __IO uint16_t RTR;           // 20H
+} I2C_TypeDef;
+#endif
+
+#ifdef CH570_CH572
+typedef struct {
+    __IO uint16_t CTRL;          // 0H
+    __IO uint8_t INT_EN;         // 2H
+    __IO uint8_t INT_FLAG;       // 3H
+    __IO uint16_t SCAN_NUMB;     // 4H
+} KeyScan_TypeDef;
+#endif
+
+typedef struct {
+    __IO uint8_t OUT_EN;         // 0H
+    __IO uint8_t OUT_POLAR;      // 1H
+    __IO uint8_t CONFIG;         // 2H
+#ifdef CH570_CH572
+    __IO uint8_t DMA_CTRL;       // 3H
+    __IO uint8_t PWM1_DATA;      // 4H
+    __IO uint8_t PWM2_DATA;      // 5H
+    __IO uint8_t PWM3_DATA;      // 6H
+    uint8_t RESERVED0[5];        // 7H
+    __IO uint8_t INT_EN;         // CH
+    __IO uint8_t INT_FLAG;       // DH
+    uint16_t RESERVED1;          // EH
+    __IO uint8_t PWM4_DATA;      // 10H
+    __IO uint8_t PWM5_DATA;      // 11H
+    uint16_t RESERVED2;          // 12H
+    __IO uint16_t CYC_VALUE;     // 14H
+    __IO uint16_t CYC1_VALUE;    // 16H
+    __IO uint16_t CLOCK_DIV;     // 18H
+    uint16_t RESERVED3;          // 1AH
+    __IO uint32_t DMA_NOW;       // 1CH
+    __IO uint32_t DMA_BEG;       // 20H
+    __IO uint32_t DMA_END;       // 24H
+#else
+    __IO uint8_t CLOCK_DIV;      // 3H
+    __IO uint8_t PWM4_DATA;      // 4H
+    __IO uint8_t PWM5_DATA;      // 5H
+    __IO uint8_t PWM6_DATA;      // 6H
+    __IO uint8_t PWM7_DATA;      // 7H
+    __IO uint8_t PWM8_DATA;      // 8H
+    __IO uint8_t PWM9_DATA;      // 9H
+    __IO uint8_t PWM10_DATA;     // AH
+    __IO uint8_t PWM11_DATA;     // BH
+    __IO uint8_t INT_CTRL;       // CH
+#if defined(CH584_CH585) || defined(CH591_CH592)
+    uint8_t RESERVED0[3];        // DH
+    __IO uint32_t REG_DATA8;     // 10H
+    __IO uint32_t REG_CYCLE;     // 14H
+#endif
+#endif
+} PWM_TypeDef;
+
+typedef struct {
+    __IO uint8_t CTRL_MOD;         // 0H
+    __IO uint8_t CTRL_CFG;         // 1H
+    __IO uint8_t INTER_EN;         // 2H
+    __IO uint8_t CLKDIV_SLAVE_PRE; // 3H
+    __IO uint8_t BUFFER;           // 4H
+    __IO uint8_t RUN_FLAG;         // 5H
+    __IO uint8_t INT_FLAG;         // 6H
+    __IO uint8_t FIFO_COUNT;       // 7H
+#ifdef CH570_CH572
+    __IO uint8_t INT_TYPE;         // 8H
+    __IO uint8_t INTER1_EN;        // 9H
+    __IO uint8_t INTER1_FLAG;      // AH
+#else
+    uint8_t RESERVED0[3];          // 8H
+#endif
+    __IO uint16_t TOTAL_CNT;       // CH
+    uint16_t RESERVED1;            // EH
+    __IO uint8_t FIFO;             // 10H
+    uint8_t RESERVED2[2];          // 11H
+    __IO uint8_t COUNT1;           // 13H
+    __IO uint16_t DMA_NOW;         // 14H
+    uint16_t RESERVED3;            // 16H
+    __IO uint16_t DMA_BEG;         // 18H
+    uint16_t RESERVED4;            // 1AH
+    __IO uint16_t DMA_END;         // 1CH
+} SPI_TypeDef;
+
+typedef struct {
+    __IO uint8_t CTRL_MOD;       // 0H
+    __IO uint8_t CTRL_DMA;       // 1H
+    __IO uint8_t INTER_EN;       // 2H
+    uint8_t RESERVED0;           // 3H
+    __IO uint8_t PWM_MOD;        // 4H
+    uint8_t RESERVED1;           // 5H
+    __IO uint8_t INT_FLAG;       // 6H
+    __IO uint8_t FIFO_COUNT;     // 7H
+    __IO uint32_t COUNT;         // 8H
+    __IO uint32_t CNT_END;       // CH
+    __IO uint32_t FIFO;          // 10H
+    __IO uint16_t DMA_NOW;       // 14H
+    uint16_t RESERVED2;          // 16H
+    __IO uint16_t DMA_BEG;       // 18H
+    uint16_t RESERVED3;          // 1AH
+    __IO uint16_t DMA_END;       // 1CH
+#if defined(CH570_CH572)
+    uint16_t RESERVED4;          // 1EH
+    __IO uint8_t ENC_REG_CTRL;   // 20H
+    __IO uint8_t ENC_INTER_EN;   // 21H
+    __IO uint8_t ENC_INTER_FLAG; // 22H
+    uint8_t RESERVED5;           // 23H
+    __IO uint32_t ENC_REG_CEND;  // 24H
+    __IO uint32_t ENC_REG_CCNT;  // 28H
+#endif
+} TMR_TypeDef;
+
 typedef struct {
     __IO uint8_t MCR;
     __IO uint8_t IER;
@@ -257,7 +434,7 @@ typedef struct {
     __IO uint16_t DL;
     __IO uint8_t DIV;
     __IO uint8_t ADR;
-} UART_Typedef;
+} UART_TypeDef;
 
 
 #ifdef __ASSEMBLER__
@@ -1145,6 +1322,8 @@ typedef enum
 #define R32_ENC_REG_CEND    (*((vu32*)0x40002424))
 #define R32_ENC_REG_CCNT    (*((vu32*)0x40002428))
 #define BA_TMR              ((vu8*)0x40002400)        // point TMR base address
+
+#define TMR                 ((TMR_TypeDef*)BA_TMR)
 #else
 
 /* Timer0 register */
@@ -1234,6 +1413,11 @@ typedef enum
 #define BA_TMR1             ((vu8*)0x40002400)        // point TMR1 base address
 #define BA_TMR2             ((vu8*)0x40002800)        // point TMR2 base address
 #define BA_TMR3             ((vu8*)0x40002C00)        // point TMR3 base address
+
+#define TMR0                ((TMR_TypeDef*)BA_TMR0)
+#define TMR1                ((TMR_TypeDef*)BA_TMR1)
+#define TMR2                ((TMR_TypeDef*)BA_TMR2)
+#define TMR3                ((TMR_TypeDef*)BA_TMR3)
 #endif
 
 #define TMR_FIFO_SIZE       8                         // timer FIFO size (depth)
@@ -1431,11 +1615,11 @@ typedef enum
 #define UART_II_MODEM_CHG   0x00                      // RO, UART0 interrupt by modem status change
 #define UART_II_NO_INTER    0x01                      // RO, no UART interrupt is pending
 
-#define UART                ((UART_Typedef*)BA_UART)
-#define UART0                ((UART_Typedef*)BA_UART0)
-#define UART1                ((UART_Typedef*)BA_UART1)
-#define UART2                ((UART_Typedef*)BA_UART2)
-#define UART3                ((UART_Typedef*)BA_UART3)
+#define UART                ((UART_TypeDef*)BA_UART)
+#define UART0               ((UART_TypeDef*)BA_UART0)
+#define UART1               ((UART_TypeDef*)BA_UART1)
+#define UART2               ((UART_TypeDef*)BA_UART2)
+#define UART3               ((UART_TypeDef*)BA_UART3)
 
 /* SPI0 register */
 #define R32_SPI0_CONTROL    (*((vu32*)0x40004000))    // RW, SPI0 control
@@ -1537,6 +1721,9 @@ typedef enum
 #define SPI_DMA_BEG         0x18
 #define SPI_DMA_END         0x1C
 
+#define SPI0                ((SPI_TypeDef*)BA_SPI0)
+#define SPI1                ((SPI_TypeDef*)BA_SPI1)
+
 /* I2C register */
 #define R16_I2C_CTRL1       (*((vu16*)0x40004800))    // RW, I2C control 1
 #define R16_I2C_CTRL2       (*((vu16*)0x40004804))    // RW, I2C control 2
@@ -1611,6 +1798,10 @@ typedef enum
 #define  RB_I2C_F_S         0x8000                    // RW, I2C master mode selection: 0=standard mode, 1=fast mode
 #define I2C_RTR             32
 #define  RB_I2C_TRISE       0x003F                    // RW, Maximum rise time in Fm/Sm mode (Master mode)
+
+#ifndef CH571_CH573
+#define I2C                 ((I2C_TypeDef*)BA_I2C)
+#endif
 
 #ifdef CH57x
 /* PWM1/2/3/4/5/register */
@@ -1758,6 +1949,8 @@ typedef enum
 #define PWM10_DATA_HOLD     10
 #define PWM11_DATA_HOLD     11
 #endif
+
+#define PWMX                ((PWM_TypeDef*)BA_PWMX)
 
 #ifdef CH584_CH585
 /* LCD register */
