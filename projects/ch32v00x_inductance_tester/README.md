@@ -1,8 +1,14 @@
 # ch32v006 inductance tester
 
 ### Tested:
+
 ☑ CH32V006
+
 ☑ CH32V003
+
+### Video:
+
+[![The Worlds Cheapest Time Domain Reflectometer](https://img.youtube.com/vi/1vs_WxC2Odo/default.jpg)](https://youtu.be/1vs_WxC2Odo)
 
 ### Introduction
 
