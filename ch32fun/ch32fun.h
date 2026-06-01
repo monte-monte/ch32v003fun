@@ -1050,13 +1050,14 @@ uint64_t funSysTick64( void );
 #ifndef __MACOSX__
 #ifndef __DELAY_TINY_DEFINED__
 #define __DELAY_TINY_DEFINED__
+
 static inline void Delay_Tiny( int n ) {
-	__ASM volatile( "\
-		mv a5, %[n]\n\
+	asm volatile( "\
 		1: \
-		c.addi a5, -1\n\
-		c.bnez a5, 1b" : : [n]"r"(n) : "a5" );
+		c.addi %[n], -1\n\
+		c.bnez %[n], 1b" : [n]"+r"(n) );
 }
+
 #endif
 #endif
 #endif //defined(__riscv) || defined(__riscv__) || defined( CH32V003FUN_BASE )
