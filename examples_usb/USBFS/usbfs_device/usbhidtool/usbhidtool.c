@@ -25,7 +25,7 @@ wchar_t * ser = 0;
 int main( int argc, char ** argv )
 {
 	char opt;
-	while ((opt = getopt(argc, argv, "v:d:s:rt")) != -1)
+	while ((opt = getopt(argc, argv, "v:p:s:rt")) != -1)
 	{
 		switch (opt) {
 		case 'v':
@@ -77,7 +77,7 @@ int main( int argc, char ** argv )
 		memcpy( buffer, "\xe1\xbe\xef\x00\xc0\x01\xd0\x0d", 8 );
 		int r = hid_send_feature_report( hd, buffer, 8 );
 		printf( "Reboot hid_send_feature_report() = %d\n", r );
-		usleep( 1000000 );
+		usleep( 1200000 );
 		return (r != 8)?-1:0;
 	}
 	if( isterm )

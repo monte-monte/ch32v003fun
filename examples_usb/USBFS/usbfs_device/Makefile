@@ -20,7 +20,7 @@ install_udev_rules :
 go_into_bootloader :
 	(cd usbhidtool && make go_into_bootloader && cd .. )
 
-userreflash : go_into_bootloader flash
+userflash : go_into_bootloader flash
 
 usermonitor :
 	(cd usbhidtool && make usermonitor && cd .. )
