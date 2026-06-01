@@ -8,7 +8,7 @@
 
 ### Video:
 
-[![The Worlds Cheapest Time Domain Reflectometer](https://img.youtube.com/vi/1vs_WxC2Odo/default.jpg)](https://youtu.be/1vs_WxC2Odo)
+[![The Worlds Cheapest Time Domain Reflectometer](https://img.youtube.com/vi/1vs_WxC2Odo/mqdefault.jpg)](https://youtu.be/1vs_WxC2Odo)
 
 ### Introduction
 
