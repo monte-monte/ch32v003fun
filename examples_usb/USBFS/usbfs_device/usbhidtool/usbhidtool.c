@@ -29,12 +29,12 @@ int main( int argc, char ** argv )
 	{
 		switch (opt) {
 		case 'v':
-			vid = strtol( optarg, 0, -1 );
-			if( vid < 0 ) goto badargs;
+			vid = strtol( optarg, 0, 16 );
+			if( vid <= 0 ) goto badargs;
 			break;
 		case 'p':
-			pid = strtol( optarg, 0, -1 );
-			if( pid < 0 ) goto badargs;
+			pid = strtol( optarg, 0, 16 );
+			if( pid <= 0 ) goto badargs;
 			break;
 		case 's':
 		{
@@ -58,6 +58,8 @@ int main( int argc, char ** argv )
 	hid_device * hd;
 
 	double startTime = OGGetAbsoluteTime();
+
+	fprintf( stderr, "Opening %04x:%04x\n", vid, pid );
 
 	do
 	{
