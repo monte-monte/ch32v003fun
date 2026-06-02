@@ -297,6 +297,11 @@ int ESPFlushLLCommands( void * dev )
 			buffer_size = 264;
 		}
 	}
+	else if( eps->commandplace <= 78 )
+	{
+		// For when starting up, 0xad is default.
+		buffer_size = 79;
+	}
 
 	eps->commandbuffer[0] = descriptor; // Key report ID
 	memset( eps->commandbuffer + eps->commandplace, 0xff, buffer_size - eps->commandplace );
@@ -314,6 +319,7 @@ int ESPFlushLLCommands( void * dev )
 
 	// fprintf( stderr, "Flushing commands: 0x%02x, %d\n", descriptor, eps->commandplace );
 	r = hid_send_feature_report( eps->hd, eps->commandbuffer, buffer_size );
+
 	eps->commandplace = 1;
 	if( r < 0 )
 	{
@@ -326,7 +332,9 @@ retry:
 	eps->replybuffer[0] = descriptor; // Key report ID
 	if( eps->replysize > buffer_size ) buffer_size = eps->replysize + 1;
 	// r = hid_get_feature_report( eps->hd, eps->replybuffer, eps->replysize + 1 ); // This is small optimization, but it doesn't gain us much. Will try it with bigger read/write amounts and remove it if it proves insignificant.
+
 	r = hid_get_feature_report( eps->hd, eps->replybuffer, buffer_size );
+
 	#if DETAILED_DEBUG
 	printf( "RESP: %d %d", (int)r, (int)eps->replybuffer[0] );
 	for( int i = 0; i < eps->replybuffer[0]; i++ )
@@ -1498,6 +1506,13 @@ void * TryInit_ESP32S2CHFUN(uint32_t id)
 	{
 		eps->commandbuffersize = 79;
 		eps->replybuffersize = 79;
+		eps->programmer_type = PROGRAMMER_TYPE_CH32V003;
+	}
+	else if( !!( hd = hid_open( 0x1209, 0x570f, 0) ) )
+	{
+		// Actually CH570, but close enough to 003.
+		eps->commandbuffersize = 255;
+		eps->replybuffersize = 255;
 		eps->programmer_type = PROGRAMMER_TYPE_CH32V003;
 	}
 	else if( !!( hd = hid_open( 0x303a, 0x4004, 0) ) ||
