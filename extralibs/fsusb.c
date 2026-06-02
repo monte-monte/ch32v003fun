@@ -310,6 +310,11 @@ void USBFS_IRQHandler()
 						case HID_GET_REPORT:
 							len = HandleHidUserGetReportSetup( ctx, pUSBFS_SetupReqPak );
 							if( len < 0 ) goto sendstall;
+							if( len == 0 )
+							{
+								USBFS_SendNAK( 0, 1 );
+								goto replycomplete;
+							}
 							ctx->USBFS_SetupReqLen = len;
 							len = len >= DEF_USBD_UEP0_SIZE ? DEF_USBD_UEP0_SIZE : len;
 							if( !ctx->pCtrlPayloadPtr )
