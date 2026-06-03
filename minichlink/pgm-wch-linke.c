@@ -106,9 +106,9 @@ static void wch_link_multicommands( libusb_device_handle * devh, int nrcommands,
 	va_end( argp );
 }
 
-#define WCH_LINKE_SERIAL_MAX 256
+#define USB_SERIAL_MAX 256
 
-static int wch_linke_read_serial( libusb_device *device, char *buf, size_t buflen )
+static int get_usb_serialnumber( libusb_device *device, char *buf, size_t buflen )
 {
 	struct libusb_device_descriptor desc;
 	if( libusb_get_device_descriptor( device, &desc ) != 0 || desc.iSerialNumber == 0 )
@@ -125,8 +125,8 @@ static int wch_linke_device_matches_serial( libusb_device *device, const char *w
 {
 	if( !want_serial || !want_serial[0] )
 		return 1;
-	char buf[WCH_LINKE_SERIAL_MAX];
-	if( wch_linke_read_serial( device, buf, sizeof( buf ) ) != 0 )
+	char buf[USB_SERIAL_MAX];
+	if( get_usb_serialnumber( device, buf, sizeof( buf ) ) != 0 )
 		return 0;
 	return strcmp( buf, want_serial ) == 0;
 }
@@ -178,8 +178,8 @@ static inline libusb_device_handle * wch_link_base_setup( int inhibit_startup, c
 			struct libusb_device_descriptor desc;
 			if( libusb_get_device_descriptor(device,&desc) != 0 ) continue;
 			if( desc.idVendor != 0x1a86 || desc.idProduct != 0x8010 ) continue;
-			char buf[WCH_LINKE_SERIAL_MAX];
-			if( wch_linke_read_serial( device, buf, sizeof( buf ) ) == 0 )
+			char buf[USB_SERIAL_MAX];
+			if( get_usb_serialnumber( device, buf, sizeof( buf ) ) == 0 )
 				fprintf( stderr, " (available: '%s')", buf );
 		}
 		fprintf( stderr, "\n" );
