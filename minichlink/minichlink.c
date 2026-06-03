@@ -406,7 +406,9 @@ keep_going:
 					split = FLASH_256_RAM_64;
 				} else if (flash_size == 288 && sram_size == 32) {
 					split = FLASH_288_RAM_32;
-				}else if (flash_size == 128 && sram_size == 64) {
+				} else if (flash_size == 128 && sram_size == 192) {
+					split = FLASH_128_RAM_192;
+				} else if (flash_size == 128 && sram_size == 64) {
 					split = FLASH_128_RAM_64;
 				} else if (flash_size == 144 && sram_size == 48) {
 					split = FLASH_144_RAM_48;
@@ -2688,6 +2690,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 	* CH32V305FBP6: 0x305205x8
 	* CH32V305RBT6: 0x305005x8
 	* CH32V305GBU6: 0x305B05x8
+	* CH32V305CCT6: 0x305C05x8
 	* CH32V307WCU6: 0x307305x8
 	* CH32V307FBP6: 0x307205x8
 	* CH32V307RCT6: 0x307105x8
@@ -2700,14 +2703,16 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 	switch (split)
 	{
 		case FLASH_192_RAM_128:
-			if (chip == 0x30700508 
-			 || chip == 0x30710508 
-			 || chip == 0x30730508
-			 || chip == 0x30300504
-			 || chip == 0x30310504
-			 || chip == 0x30720508
-			 || chip == 0x30740508) {
-				split_code = 0;
+		   if (chip == 0x30300504
+			|| chip == 0x30310504
+			|| chip == 0x305C0508
+			|| chip == 0x30700508 
+			|| chip == 0x30710508 
+			|| chip == 0x30730508
+			|| chip == 0x30740508
+			|| chip == 0x3170B508
+			|| chip == 0x3173B508) {
+				split_code = 1;
 			} else {
 				fprintf( stderr, "Error, 192k/128k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2715,14 +2720,16 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			break;
 		
 		case FLASH_224_RAM_96:
-			if (chip == 0x30700508 
-			 || chip == 0x30710508 
-			 || chip == 0x30730508
-			 || chip == 0x30300504
-			 || chip == 0x30310504
-			 || chip == 0x30720508
-			 || chip == 0x30740508) {
-				split_code = 1;
+		   if (chip == 0x30300504
+			|| chip == 0x30310504
+			|| chip == 0x305C0508
+			|| chip == 0x30700508 
+			|| chip == 0x30710508 
+			|| chip == 0x30730508
+			|| chip == 0x30740508
+			|| chip == 0x3170B508
+			|| chip == 0x3173B508) {
+				split_code = 3;
 			} else {
 				fprintf( stderr, "Error, 224k/96k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2730,25 +2737,50 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			break;
 		
 		case FLASH_256_RAM_64:
-			if (chip == 0x30700508 
+			if (chip == 0x30300504
+			 || chip == 0x30310504
+			 || chip == 0x305C0508
+			 || chip == 0x30700508 
 			 || chip == 0x30710508 
 			 || chip == 0x30730508
-			 || chip == 0x30300504
-			 || chip == 0x30310504) {
-				split_code = 2;
+			 || chip == 0x30740508
+			 || chip == 0x3170B508
+			 || chip == 0x3173B508) {
+				split_code = 5;
 			} else {
 				fprintf( stderr, "Error, 256k/64k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
 			}
 			break;
-
-		case FLASH_288_RAM_32:
-			if (chip == 0x30700508 
+		
+		case FLASH_128_RAM_192:
+			if (chip == 0x30300504
+			 || chip == 0x30310504
+			 || chip == 0x305C0508
+			 || chip == 0x30700508 
 			 || chip == 0x30710508 
 			 || chip == 0x30730508
-			 || chip == 0x30300504
-			 || chip == 0x30310504) {
-				split_code = 3;
+			 || chip == 0x30740508
+			 || chip == 0x3170B508
+			 || chip == 0x3173B508) {
+				split_code = 6;
+			} else {
+				fprintf( stderr, "Error, 128k/192k split not supported for chip 0x%08x\n", chip);
+				exit( -110 );
+			}
+			break;
+
+		case FLASH_288_RAM_32:
+		   if (chip == 0x30300504
+			|| chip == 0x30310504
+			|| chip == 0x305C0508
+			|| chip == 0x30700508 
+			|| chip == 0x30710508 
+			|| chip == 0x30730508
+			|| chip == 0x30740508
+			|| chip == 0x3170B508
+			|| chip == 0x3173B508) {
+				split_code = 7;
 			} else {
 				fprintf( stderr, "Error, 288k/32k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2761,7 +2793,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			 || chip == 0x2081050c
 			 || chip == 0x2082050c
 			 || chip == 0x2083050c) {
-				split_code = 0;
+				split_code = 1;
 			} else {
 				fprintf( stderr, "Error, 128k/64k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2774,7 +2806,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			 || chip == 0x2081050c
 			 || chip == 0x2082050c
 			 || chip == 0x2083050c) {
-				split_code = 1;
+				split_code = 3;
 			} else {
 				fprintf( stderr, "Error, 144k/48k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2787,7 +2819,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			 || chip == 0x2081050c
 			 || chip == 0x2082050c
 			 || chip == 0x2083050c) {
-				split_code = 2;
+				split_code = 5;
 			} else {
 				fprintf( stderr, "Error, 160k/32k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2812,9 +2844,9 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 
 	// Option byte b is stored as 16 bits (~b << 8)|b
 	// Mask off upper copy and clear split bits
-	option_bytes &= 0x003F;
-	// Set split code at [7:6]
-	option_bytes |= split_code << 6;
+	option_bytes &= 0x001F;
+	// Set split code at [7:5]
+	option_bytes |= split_code << 5;
 	// Add inverted copy back as high byte
 	option_bytes |= (~option_bytes) << 8;
 
