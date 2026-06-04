@@ -2863,7 +2863,9 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 	flash_ctlr &= CR_OPTER_Reset;
 	flash_ctlr |= CR_OPTPG_Set;
 	if( MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, flash_ctlr ) ) goto flashoperr;
-	if( MCF.WriteWord( dev, (intptr_t)&OB->RDPR, RDP_Key ) ) goto flashoperr;
+	uint16_t rdpr_bytes = (uint16_t)RDP_Key;
+	rdpr_bytes |= (uint16_t)((uint16_t)~rdpr_bytes) << 8;
+	if( MCF.WriteHalfWord( dev, (intptr_t)&OB->RDPR, rdpr_bytes ) ) goto flashoperr;
 	if( MCF.WaitForFlash(dev) ) goto flashoperr;
 
 	if( MCF.WriteWord( dev, (intptr_t)&FLASH->OBKEYR, FLASH_KEY1 ) ) goto flashoperr;
