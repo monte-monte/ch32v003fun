@@ -263,14 +263,14 @@ struct InternalState
 typedef struct {
 	const char * serial_port;
 	const char * specific_programmer;
-	const char * wch_linke_serial; /* NULL or "" = any WCH-LinkE */
+	const char * programmer_serial_number; /* NULL or "" = no USB serial filter */
 } init_hints_t;
 
 void * MiniCHLinkInitAsDLL(struct MiniChlinkFunctions ** MCFO, const init_hints_t* init_hints) DLLDECORATE;
 extern struct MiniChlinkFunctions MCF;
 
 // Returns 'dev' on success, else 0.
-void * TryInit_WCHLinkE(const char * wch_linke_serial);
+void * TryInit_WCHLinkE(const init_hints_t * hints);
 void * TryInit_WCHISP(void);
 void * TryInit_ESP32S2CHFUN(uint32_t id);
 void * TryInit_NHCLink042(void);
