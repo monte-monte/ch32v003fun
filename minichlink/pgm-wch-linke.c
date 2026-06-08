@@ -161,10 +161,12 @@ static inline libusb_device_handle * wch_link_base_setup( int inhibit_startup, c
 				found = device;
 		}
 		if( r == 0 && desc.idVendor == 0x1a86 && desc.idProduct == 0x8012) {
+			saw_linke = 1;
 			if( usb_device_matches_serial( device, want_serial ) )
 				found_arm_programmer = device;
 		}
 		if( r == 0 && desc.idVendor == 0x4348 && desc.idProduct == 0x55e0) {
+			saw_linke = 1;
 			if( usb_device_matches_serial( device, want_serial ) )
 				found_programmer_in_iap = device;
 		}
@@ -176,11 +178,19 @@ static inline libusb_device_handle * wch_link_base_setup( int inhibit_startup, c
 		for (i = 0; i < cnt; i++) {
 			libusb_device *device = list[i];
 			struct libusb_device_descriptor desc;
+			const char * mode_label;
 			if( libusb_get_device_descriptor(device,&desc) != 0 ) continue;
-			if( desc.idVendor != 0x1a86 || desc.idProduct != 0x8010 ) continue;
+			if( desc.idVendor == 0x1a86 && desc.idProduct == 0x8010 )
+				mode_label = "RISC-V";
+			else if( desc.idVendor == 0x1a86 && desc.idProduct == 0x8012 )
+				mode_label = "ARM";
+			else if( desc.idVendor == 0x4348 && desc.idProduct == 0x55e0 )
+				mode_label = "IAP";
+			else
+				continue;
 			char buf[USB_SERIAL_MAX];
 			if( get_usb_serialnumber( device, buf, sizeof( buf ) ) == 0 )
-				fprintf( stderr, " (available: '%s')", buf );
+				fprintf( stderr, " (available %s: '%s')", mode_label, buf );
 		}
 		fprintf( stderr, "\n" );
 	}
