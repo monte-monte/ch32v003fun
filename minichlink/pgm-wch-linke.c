@@ -12,12 +12,14 @@
 #include "chips.h"
 
 #define FORCE_EXTERNAL_CHIP_DETECTION 1
+#define USB_SERIAL_MAX 256
 
 struct LinkEProgrammerStruct
 {
 	void * internal;
 	libusb_device_handle * devh;
 	int lasthaltmode; // For non-003 chips
+	char programmer_serial_number[USB_SERIAL_MAX]; /* "" if unfiltered */
 };
 #if !FORCE_EXTERNAL_CHIP_DETECTION
 static int checkChip(enum RiscVChip chip) {
@@ -106,7 +108,30 @@ static void wch_link_multicommands( libusb_device_handle * devh, int nrcommands,
 	va_end( argp );
 }
 
-static inline libusb_device_handle * wch_link_base_setup( int inhibit_startup )
+static int get_usb_serialnumber( libusb_device *device, char *buf, size_t buflen )
+{
+	struct libusb_device_descriptor desc;
+	if( libusb_get_device_descriptor( device, &desc ) != 0 || desc.iSerialNumber == 0 )
+		return -1;
+	libusb_device_handle *handle;
+	if( libusb_open( device, &handle ) != 0 )
+		return -1;
+	int r = libusb_get_string_descriptor_ascii( handle, desc.iSerialNumber, (unsigned char *)buf, buflen );
+	libusb_close( handle );
+	return ( r >= 0 ) ? 0 : -1;
+}
+
+static int usb_device_matches_serial( libusb_device *device, const char *want_serial )
+{
+	if( !want_serial || !want_serial[0] )
+		return 1;
+	char buf[USB_SERIAL_MAX];
+	if( get_usb_serialnumber( device, buf, sizeof( buf ) ) != 0 )
+		return 0;
+	return strcmp( buf, want_serial ) == 0;
+}
+
+static inline libusb_device_handle * wch_link_base_setup( int inhibit_startup, const char * want_serial )
 {
 	libusb_context * ctx = 0;
 	int status;
@@ -123,15 +148,54 @@ static inline libusb_device_handle * wch_link_base_setup( int inhibit_startup )
 	libusb_device *found = NULL;
 	libusb_device * found_arm_programmer = NULL;
 	libusb_device * found_programmer_in_iap = NULL;
+	int saw_linke = 0;
+	const int filter_serial = ( want_serial && want_serial[0] );
 
 	for (i = 0; i < cnt; i++) {
 		libusb_device *device = list[i];
 		struct libusb_device_descriptor desc;
 		int r = libusb_get_device_descriptor(device,&desc);
-		if( r == 0 && desc.idVendor == 0x1a86 && desc.idProduct == 0x8010 ) { found = device; }
-		if( r == 0 && desc.idVendor == 0x1a86 && desc.idProduct == 0x8012) { found_arm_programmer = device; }
-		if( r == 0 && desc.idVendor == 0x4348 && desc.idProduct == 0x55e0) { found_programmer_in_iap = device; }
+		if( r == 0 && desc.idVendor == 0x1a86 && desc.idProduct == 0x8010 ) {
+			saw_linke = 1;
+			if( usb_device_matches_serial( device, want_serial ) )
+				found = device;
+		}
+		if( r == 0 && desc.idVendor == 0x1a86 && desc.idProduct == 0x8012) {
+			saw_linke = 1;
+			if( usb_device_matches_serial( device, want_serial ) )
+				found_arm_programmer = device;
+		}
+		if( r == 0 && desc.idVendor == 0x4348 && desc.idProduct == 0x55e0) {
+			saw_linke = 1;
+			if( usb_device_matches_serial( device, want_serial ) )
+				found_programmer_in_iap = device;
+		}
 	}
+
+	if( filter_serial && !found && saw_linke )
+	{
+		fprintf( stderr, "No matching WCH-LinkE (serial '%s') found.", want_serial );
+		for (i = 0; i < cnt; i++) {
+			libusb_device *device = list[i];
+			struct libusb_device_descriptor desc;
+			const char * mode_label;
+			if( libusb_get_device_descriptor(device,&desc) != 0 ) continue;
+			if( desc.idVendor == 0x1a86 && desc.idProduct == 0x8010 )
+				mode_label = "RISC-V";
+			else if( desc.idVendor == 0x1a86 && desc.idProduct == 0x8012 )
+				mode_label = "ARM";
+			else if( desc.idVendor == 0x4348 && desc.idProduct == 0x55e0 )
+				mode_label = "IAP";
+			else
+				continue;
+			char buf[USB_SERIAL_MAX];
+			if( get_usb_serialnumber( device, buf, sizeof( buf ) ) == 0 )
+				fprintf( stderr, " (available %s: '%s')", mode_label, buf );
+		}
+		fprintf( stderr, "\n" );
+	}
+
+	libusb_free_device_list( list, 1 );
 
 	if( !found )
 	{
@@ -626,16 +690,21 @@ static int LEExit( void * d )
 	return 0;
 }
 
-void * TryInit_WCHLinkE()
+void * TryInit_WCHLinkE(const init_hints_t * hints)
 {
+	const char * want_serial = "";
+	if( hints && hints->programmer_serial_number && hints->programmer_serial_number[0] )
+		want_serial = hints->programmer_serial_number;
+
 	libusb_device_handle * wch_linke_devh;
-	wch_linke_devh = wch_link_base_setup(0);
+	wch_linke_devh = wch_link_base_setup(0, want_serial);
 	if( !wch_linke_devh ) return 0;
 
 	struct LinkEProgrammerStruct * ret = malloc( sizeof( struct LinkEProgrammerStruct ) );
 	memset( ret, 0, sizeof( *ret ) );
 	ret->devh = wch_linke_devh;
 	ret->lasthaltmode = 0;
+	strncpy( ret->programmer_serial_number, want_serial, sizeof( ret->programmer_serial_number ) - 1 );
 
 	MCF.ReadReg32 = LEReadReg32;
 	MCF.WriteReg32 = LEWriteReg32;

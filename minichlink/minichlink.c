@@ -49,7 +49,7 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 	if( specpgm )
 	{
 		if( strcmp( specpgm, "linke" ) == 0 )
-			dev = TryInit_WCHLinkE();
+			dev = TryInit_WCHLinkE(init_hints);
 		else if( strcmp( specpgm, "isp" ) == 0 )
 			dev = TryInit_WCHISP();
 		else if( !strcmp( specpgm, "esp32s2chfun" ) || !strcmp( specpgm, "funprog" ) )
@@ -67,7 +67,7 @@ void * MiniCHLinkInitAsDLL( struct MiniChlinkFunctions ** MCFO, const init_hints
 		{
 			fprintf( stderr, "Found MCU in bootloader mode\n" );
 		}
-		else if( (dev = TryInit_WCHLinkE()) )
+		else if( (dev = TryInit_WCHLinkE(init_hints)) )
 		{
 			fprintf( stderr, "Found WCH Link\n" );
 		}
@@ -153,6 +153,21 @@ int main( int argc, char ** argv )
 			if( i < argc )
 				hints.specific_programmer = argv[i];
 		}
+		else if( strncmp( v, "-l", 2 ) == 0 )
+		{
+			i++;
+			if( i < argc )
+				hints.programmer_serial_number = argv[i];
+		}
+	}
+
+	if( !hints.programmer_serial_number )
+	{
+		const char * env_serial = getenv( "MINICHLINK_programmer_serial_number" );
+		if( !env_serial || !env_serial[0] )
+			env_serial = getenv( "MINICHLINK_LINKE_SERIAL" );
+		if( env_serial && env_serial[0] )
+			hints.programmer_serial_number = env_serial;
 	}
 
 #if !defined(WINDOWS) && !defined(WIN32) && !defined(_WIN32) && !defined(__APPLE__)
@@ -275,12 +290,13 @@ keep_going:
 				break;
 			case 'C': // For specifying programmer
 			case 'c':
+			case 'l': // programmer USB serial (parsed previously)
 				// COM port or programmer argument already parsed previously
 				// we still need to skip the next argument
 				iarg+=1;
 				if( iarg >= argc )
 				{
-					fprintf( stderr, "-c/C argument required 2 arguments\n" );
+					fprintf( stderr, "-c/C/-l argument required 2 arguments\n" );
 					goto unimplemented;
 				}
 				break;
@@ -1052,7 +1068,8 @@ help:
 	fprintf( stderr, " -f Disable 5V\n" );
 	fprintf( stderr, " -k Skip programmer initialization\n" );
 	fprintf( stderr, " -c [serial port for Ardulink, try /dev/ttyACM0 or COM11 etc] or [VID+PID of USB for b003boot, try 0x1209b003]\n" );
-	fprintf( stderr, " -C [specified programmer, eg. b003boot, ardulink, esp32s2chfun, funprog, isp]\n" );
+	fprintf( stderr, " -C [specified programmer, eg. b003boot, ardulink, esp32s2chfun, funprog, isp, linke]\n" );
+	fprintf( stderr, " -l [programmer USB serial; omit for default device selection]\n" );
 	fprintf( stderr, " -u Clear all code flash - by power off (also can unbrick)\n" );
 	fprintf( stderr, " -a Reboot into Halt\n" );
 	fprintf( stderr, " -A Go into Halt without reboot\n" );
