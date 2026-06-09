@@ -2666,6 +2666,30 @@ flashoperr:
 
 static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 
+	// WCH expand ram config bits, from 9:8, to 9:7. And this caused split_code change in all cases.
+	// in older CH32FV2x_V3x Reference Manual V1.03
+	// SRAM_CODE_MODE is in [9:8], for large ram chip: CH32V303RC, CH32V303VC, CH32V307RC, CH32V307WC, CH32V307VC, CH32F203RC, CH32F203VC and CH32F207VC 
+	// 00: CODE-192KB + RAM-128KB
+	// 01: CODE-224KB + RAM-96KB
+	// 10: CODE-256KB + RAM-64KB
+	// 11: CODE-288KB + RAM-32KB 
+	// for small ram chip,CH32V20x_D8W, CH32V20x_D8 and CH32F20x_D8W
+	// 00: CODE-128KB + RAM-64KB
+	// 01: CODE-144KB + RAM-48KB
+	// 1x: CODE-160KB + RAM-32KB 
+	// but in newer CH32FV2x_V3x Reference Manual V2.4, the SRAM_CODE_MODE is in [9:7]
+	// for large ram chip: CCH32V303RC, CH32V303VC, CH32V307RC, CH32V307WC, CH32V307VC, CH32F203RC, CH32F203VC, CH32F207VC, CH32V317VC, CH32V317WC, CH32V317SC
+	// 00x: CODE-192KB + RAM-128KB 
+	// 01x: CODE-224KB + RAM-96KB 
+	// 10x: CODE-256KB + RAM-64KB 
+	// 110: CODE-128KB + RAM-192KB 
+	// 111: CODE-288KB + RAM-32KB
+	// for small ram chip: CH32V20x_D8W, CH32V20x_D8 and CH32F20x_D8W
+	// 00x: CODE-128KB + RAM-64KB 
+	// 01x: CODE-144KB + RAM-48KB 
+	// 1xx: CODE-160KB + RAM-32KB
+	// so most split_code shifted left by 1 bit and get bit 0 to be 1, except for FLASH_128_RAM_192 and FLASH_288_RAM_32.
+
 	uint8_t split_code = 0;
 	uint16_t option_bytes = 0;
 	uint32_t flash_ctlr = 0;
