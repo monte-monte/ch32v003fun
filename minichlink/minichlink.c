@@ -422,7 +422,9 @@ keep_going:
 					split = FLASH_256_RAM_64;
 				} else if (flash_size == 288 && sram_size == 32) {
 					split = FLASH_288_RAM_32;
-				}else if (flash_size == 128 && sram_size == 64) {
+				} else if (flash_size == 128 && sram_size == 192) {
+					split = FLASH_128_RAM_192;
+				} else if (flash_size == 128 && sram_size == 64) {
 					split = FLASH_128_RAM_64;
 				} else if (flash_size == 144 && sram_size == 48) {
 					split = FLASH_144_RAM_48;
@@ -2681,6 +2683,30 @@ flashoperr:
 
 static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 
+	// WCH expand ram config bits, from 9:8, to 9:7. And this caused split_code change in all cases.
+	// in older CH32FV2x_V3x Reference Manual V1.03
+	// SRAM_CODE_MODE is in [9:8], for large ram chip: CH32V303RC, CH32V303VC, CH32V307RC, CH32V307WC, CH32V307VC, CH32F203RC, CH32F203VC and CH32F207VC 
+	// 00: CODE-192KB + RAM-128KB
+	// 01: CODE-224KB + RAM-96KB
+	// 10: CODE-256KB + RAM-64KB
+	// 11: CODE-288KB + RAM-32KB 
+	// for small ram chip,CH32V20x_D8W, CH32V20x_D8 and CH32F20x_D8W
+	// 00: CODE-128KB + RAM-64KB
+	// 01: CODE-144KB + RAM-48KB
+	// 1x: CODE-160KB + RAM-32KB 
+	// but in newer CH32FV2x_V3x Reference Manual V2.4, the SRAM_CODE_MODE is in [9:7]
+	// for large ram chip: CCH32V303RC, CH32V303VC, CH32V307RC, CH32V307WC, CH32V307VC, CH32F203RC, CH32F203VC, CH32F207VC, CH32V317VC, CH32V317WC, CH32V317SC
+	// 00x: CODE-192KB + RAM-128KB 
+	// 01x: CODE-224KB + RAM-96KB 
+	// 10x: CODE-256KB + RAM-64KB 
+	// 110: CODE-128KB + RAM-192KB 
+	// 111: CODE-288KB + RAM-32KB
+	// for small ram chip: CH32V20x_D8W, CH32V20x_D8 and CH32F20x_D8W
+	// 00x: CODE-128KB + RAM-64KB 
+	// 01x: CODE-144KB + RAM-48KB 
+	// 1xx: CODE-160KB + RAM-32KB
+	// so most split_code shifted left by 1 bit and get bit 0 to be 1, except for FLASH_128_RAM_192 and FLASH_288_RAM_32.
+
 	uint8_t split_code = 0;
 	uint16_t option_bytes = 0;
 	uint32_t flash_ctlr = 0;
@@ -2705,6 +2731,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 	* CH32V305FBP6: 0x305205x8
 	* CH32V305RBT6: 0x305005x8
 	* CH32V305GBU6: 0x305B05x8
+	* CH32V305CCT6: 0x305C05x8
 	* CH32V307WCU6: 0x307305x8
 	* CH32V307FBP6: 0x307205x8
 	* CH32V307RCT6: 0x307105x8
@@ -2717,14 +2744,17 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 	switch (split)
 	{
 		case FLASH_192_RAM_128:
-			if (chip == 0x30700508 
-			 || chip == 0x30710508 
-			 || chip == 0x30730508
-			 || chip == 0x30300504
-			 || chip == 0x30310504
-			 || chip == 0x30720508
-			 || chip == 0x30740508) {
-				split_code = 0;
+		   if (chip == 0x30300504
+			|| chip == 0x30310504
+			|| chip == 0x305C0508
+			|| chip == 0x30700508 
+			|| chip == 0x30710508 
+			|| chip == 0x30720508
+			|| chip == 0x30730508
+			|| chip == 0x30740508
+			|| chip == 0x3170B508
+			|| chip == 0x3173B508) {
+				split_code = 1;
 			} else {
 				fprintf( stderr, "Error, 192k/128k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2732,14 +2762,17 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			break;
 		
 		case FLASH_224_RAM_96:
-			if (chip == 0x30700508 
-			 || chip == 0x30710508 
-			 || chip == 0x30730508
-			 || chip == 0x30300504
-			 || chip == 0x30310504
-			 || chip == 0x30720508
-			 || chip == 0x30740508) {
-				split_code = 1;
+		   if (chip == 0x30300504
+			|| chip == 0x30310504
+			|| chip == 0x305C0508
+			|| chip == 0x30700508 
+			|| chip == 0x30710508 
+			|| chip == 0x30720508
+			|| chip == 0x30730508
+			|| chip == 0x30740508
+			|| chip == 0x3170B508
+			|| chip == 0x3173B508) {
+				split_code = 3;
 			} else {
 				fprintf( stderr, "Error, 224k/96k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2747,25 +2780,53 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			break;
 		
 		case FLASH_256_RAM_64:
-			if (chip == 0x30700508 
+			if (chip == 0x30300504
+			 || chip == 0x30310504
+			 || chip == 0x305C0508
+			 || chip == 0x30700508 
 			 || chip == 0x30710508 
+			 || chip == 0x30720508
 			 || chip == 0x30730508
-			 || chip == 0x30300504
-			 || chip == 0x30310504) {
-				split_code = 2;
+			 || chip == 0x30740508
+			 || chip == 0x3170B508
+			 || chip == 0x3173B508) {
+				split_code = 5;
 			} else {
 				fprintf( stderr, "Error, 256k/64k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
 			}
 			break;
+		
+		case FLASH_128_RAM_192:
+			if (chip == 0x30300504
+			 || chip == 0x30310504
+			 || chip == 0x305C0508
+			 || chip == 0x30700508 
+			 || chip == 0x30710508 
+			 || chip == 0x30720508
+			 || chip == 0x30730508
+			 || chip == 0x30740508
+			 || chip == 0x3170B508
+			 || chip == 0x3173B508) {
+				split_code = 6;
+			} else {
+				fprintf( stderr, "Error, 128k/192k split not supported for chip 0x%08x\n", chip);
+				exit( -110 );
+			}
+			break;
 
 		case FLASH_288_RAM_32:
-			if (chip == 0x30700508 
-			 || chip == 0x30710508 
-			 || chip == 0x30730508
-			 || chip == 0x30300504
-			 || chip == 0x30310504) {
-				split_code = 3;
+		   if (chip == 0x30300504
+			|| chip == 0x30310504
+			|| chip == 0x305C0508
+			|| chip == 0x30700508 
+			|| chip == 0x30710508 
+			|| chip == 0x30720508
+			|| chip == 0x30730508
+			|| chip == 0x30740508
+			|| chip == 0x3170B508
+			|| chip == 0x3173B508) {
+				split_code = 7;
 			} else {
 				fprintf( stderr, "Error, 288k/32k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2778,7 +2839,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			 || chip == 0x2081050c
 			 || chip == 0x2082050c
 			 || chip == 0x2083050c) {
-				split_code = 0;
+				split_code = 1;
 			} else {
 				fprintf( stderr, "Error, 128k/64k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2791,7 +2852,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			 || chip == 0x2081050c
 			 || chip == 0x2082050c
 			 || chip == 0x2083050c) {
-				split_code = 1;
+				split_code = 3;
 			} else {
 				fprintf( stderr, "Error, 144k/48k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2804,7 +2865,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			 || chip == 0x2081050c
 			 || chip == 0x2082050c
 			 || chip == 0x2083050c) {
-				split_code = 2;
+				split_code = 5;
 			} else {
 				fprintf( stderr, "Error, 160k/32k split not supported for chip 0x%08x\n", chip);
 				exit( -110 );
@@ -2826,12 +2887,13 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 	if( MCF.ReadHalfWord( dev, (intptr_t)&OB->USER, &option_bytes ) ) goto flashoperr;
 	printf("initial option_bytes = %04x\n", option_bytes);
 
+	// since WCH expand ram config bits, from 9:8, to 9:7. We expand option_bytes to 3 bit and shift for 5 bit instead of 6.
 
 	// Option byte b is stored as 16 bits (~b << 8)|b
 	// Mask off upper copy and clear split bits
-	option_bytes &= 0x003F;
-	// Set split code at [7:6]
-	option_bytes |= split_code << 6;
+	option_bytes &= 0x001F;
+	// Set split code at [7:5]
+	option_bytes |= split_code << 5;
 	// Add inverted copy back as high byte
 	option_bytes |= (~option_bytes) << 8;
 
@@ -2848,7 +2910,9 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 	flash_ctlr &= CR_OPTER_Reset;
 	flash_ctlr |= CR_OPTPG_Set;
 	if( MCF.WriteWord( dev, (intptr_t)&FLASH->CTLR, flash_ctlr ) ) goto flashoperr;
-	if( MCF.WriteWord( dev, (intptr_t)&OB->RDPR, RDP_Key ) ) goto flashoperr;
+	uint16_t rdpr_bytes = (uint16_t)RDP_Key;
+	rdpr_bytes |= (uint16_t)((uint16_t)~rdpr_bytes) << 8;
+	if( MCF.WriteHalfWord( dev, (intptr_t)&OB->RDPR, rdpr_bytes ) ) goto flashoperr;
 	if( MCF.WaitForFlash(dev) ) goto flashoperr;
 
 	if( MCF.WriteWord( dev, (intptr_t)&FLASH->OBKEYR, FLASH_KEY1 ) ) goto flashoperr;

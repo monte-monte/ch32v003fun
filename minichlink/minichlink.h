@@ -145,10 +145,11 @@ enum RiscVChip {
 
 enum RAMSplit {
 	// For supported V30x and some V20x devices
-	FLASH_192_RAM_128 = 0x00,
-	FLASH_224_RAM_96  = 0x01,
-	FLASH_256_RAM_64  = 0x02,
-	FLASH_288_RAM_32  = 0x03,
+	FLASH_192_RAM_128 = 0x01,
+	FLASH_224_RAM_96  = 0x02,
+	FLASH_256_RAM_64  = 0x04,
+	FLASH_128_RAM_192 = 0x06,
+	FLASH_288_RAM_32  = 0x07,
 
 	// For some V20x devices
 	FLASH_128_RAM_64  = 0x10,
