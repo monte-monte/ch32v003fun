@@ -2732,6 +2732,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			|| chip == 0x305C0508
 			|| chip == 0x30700508 
 			|| chip == 0x30710508 
+			|| chip == 0x30720508
 			|| chip == 0x30730508
 			|| chip == 0x30740508
 			|| chip == 0x3170B508
@@ -2749,6 +2750,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			|| chip == 0x305C0508
 			|| chip == 0x30700508 
 			|| chip == 0x30710508 
+			|| chip == 0x30720508
 			|| chip == 0x30730508
 			|| chip == 0x30740508
 			|| chip == 0x3170B508
@@ -2766,6 +2768,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			 || chip == 0x305C0508
 			 || chip == 0x30700508 
 			 || chip == 0x30710508 
+			 || chip == 0x30720508
 			 || chip == 0x30730508
 			 || chip == 0x30740508
 			 || chip == 0x3170B508
@@ -2783,6 +2786,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			 || chip == 0x305C0508
 			 || chip == 0x30700508 
 			 || chip == 0x30710508 
+			 || chip == 0x30720508
 			 || chip == 0x30730508
 			 || chip == 0x30740508
 			 || chip == 0x3170B508
@@ -2800,6 +2804,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 			|| chip == 0x305C0508
 			|| chip == 0x30700508 
 			|| chip == 0x30710508 
+			|| chip == 0x30720508
 			|| chip == 0x30730508
 			|| chip == 0x30740508
 			|| chip == 0x3170B508
@@ -2865,6 +2870,7 @@ static int DefaultSetSplit(void * dev, enum RAMSplit split) {
 	if( MCF.ReadHalfWord( dev, (intptr_t)&OB->USER, &option_bytes ) ) goto flashoperr;
 	printf("initial option_bytes = %04x\n", option_bytes);
 
+	// since WCH expand ram config bits, from 9:8, to 9:7. We expand option_bytes to 3 bit and shift for 5 bit instead of 6.
 
 	// Option byte b is stored as 16 bits (~b << 8)|b
 	// Mask off upper copy and clear split bits
