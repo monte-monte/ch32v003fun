@@ -6,7 +6,7 @@
 #define SFHIP_IMPLEMENTATION
 #include "sfhip.h"
 
-#define BIG 1
+#define BIG 0
 #include "data.h"
 
 #include "fsusb.h"
@@ -226,6 +226,17 @@ sfhip_length_or_tcp_code sfhip_tcp_event(
 			h->state = HTP_REQUEST_DONE;
 			h->data = (char *)index_html;
 			h->data_len = sizeof( index_html ) - 1;
+			h->sent = 0;
+		}
+		else if ( strcmp( url, "/status" ) == 0 )
+		{
+			static char buf[128];
+			int len =
+				snprintf( buf, 128, "HTTP/1.0 200 OK\r\nContent-Type: application/json\r\n\r\n{\"uptime_ms\": %lu}\n",
+					(unsigned long)SysTick_Ms );
+			h->state = HTP_REQUEST_DONE;
+			h->data = buf;
+			h->data_len = (size_t)len;
 			h->sent = 0;
 		}
 		else
