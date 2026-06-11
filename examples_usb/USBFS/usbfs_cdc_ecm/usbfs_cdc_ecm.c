@@ -3,8 +3,21 @@
 #include <string.h>
 
 #define SFHIP_DHCP_CLIENT 0
+#define DHCPD_ENABLE 1
 #define SFHIP_IMPLEMENTATION
+#if DHCPD_ENABLE
+#define SFHIP_UDP_USER_HANDLER udp_user_handler
+#endif
 #include "sfhip.h"
+
+#if DHCPD_ENABLE
+#define DHCP_LOG_ENABLE 1
+#include "dhcpd.h"
+#endif
+
+#if ( DHCPD_ENABLE && SFHIP_DHCP_CLIENT )
+#error "Cannot have both DHCP client and server enabled"
+#endif
 
 #define BIG 0
 #include "data.h"
@@ -69,6 +82,10 @@ static sfhip hip = {
 	.self_mac = { { 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55 } },
 #if SFHIP_DHCP_CLIENT
 	.hostname = "ch32v_ecm",
+#endif
+#if DHCPD_ENABLE
+	.ip = DHCP_SERVER_IP,
+	.gateway = DHCP_SERVER_IP,
 #endif
 };
 
@@ -291,6 +308,17 @@ sfhip_length_or_tcp_code sfhip_tcp_event(
 	}
 	return 0;
 }
+
+#if DHCPD_ENABLE
+int udp_user_handler(
+	sfhip *hip, sfhip_phy_packet_mtu *pkt, uint8_t *payload, int ulen, int source_port, int destination_port )
+{
+#if DHCPD_ENABLE
+	if ( dhcpd_udp_handler( hip, pkt, payload, ulen, source_port, destination_port ) ) return 1;
+#endif
+	return 0;
+}
+#endif
 
 void sfhip_tcp_socket_closed( sfhip *hip, int sockno )
 {
