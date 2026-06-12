@@ -153,12 +153,6 @@ int main()
 	for ( ;; )
 	{
 
-		if ( send_nc )
-		{
-			(void)USBFS_SendEndpointNEW( EP_NOTIFY, (uint8_t *)&notify_nc, sizeof( notify_nc ), 0 );
-			send_nc = false;
-		}
-
 		const size_t len = ethdev_read();
 		if ( len )
 		{
@@ -340,9 +334,15 @@ void sfhip_tcp_socket_closed( sfhip *hip, int sockno )
 
 int HandleInRequest( struct _USBState *ctx, int endp, uint8_t *data, int len )
 {
+	int ret = USB_NAK;
+	if ( endp == EP_NOTIFY )
+	{
+		UEP_DMA( EP_NOTIFY ) = (uintptr_t)&notify_nc;
+		ret = sizeof( notify_nc );
+	}
+
 	usb_stats.in[endp]++;
 
-	int ret = USB_NAK; // Just NAK, we will send data async
 	return ret;
 }
 
@@ -379,8 +379,6 @@ void HandleDataOut( struct _USBState *ctx, int endp, uint8_t *data, int len )
 			// printf( "RECV done, total len: %d\n", (int)buff_len );
 			busy = true;
 		}
-		// USBFS_SendACK( EP_RECV, 0 );
-		ctx->USBFS_SetupReqLen = 0; // To ACK
 	}
 }
 

@@ -241,8 +241,6 @@ static int dhcpd_udp_handler(
 	sfhip *hip, sfhip_phy_packet_mtu *pkt, uint8_t *payload, int ulen, int source_port, int destination_port )
 {
 	DHCP_LOG( "dhcpd_udp_appcall\n" );
-	sfhip_mac_header *mac = &pkt->mac_header;
-	sfhip_ip_header *ip = (sfhip_ip_header *)( mac + 1 );
 	if ( DHCP_SERVER_PORT == destination_port )
 	{
 		printf( "dhcpd handle_dhcpd\n" );
@@ -275,6 +273,7 @@ static int dhcpd_udp_handler(
 		if ( type != -1 )
 		{
 			dhcp_create_response( response, type );
+			sfhip_mac_header *mac = &pkt->mac_header;
 			sfhip_send_udp_packet(
 				hip, pkt, mac->source, DHCP_CLIENT_IP, DHCP_SERVER_PORT, DHCP_CLIENT_PORT, DHCP_RESPONSE_SIZE );
 			return 1;
