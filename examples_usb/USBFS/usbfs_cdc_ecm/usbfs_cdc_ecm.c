@@ -168,6 +168,19 @@ int main()
 		const uint32_t delta_ms = now - last_ms;
 		last_ms = now;
 		sfhip_tick( &hip, &packet_buf, (int)delta_ms );
+
+#if USBSTATS_ENABLE
+		static uint32_t last_print_ms = 0;
+		if ( now - last_print_ms >= 2000 )
+		{
+			last_print_ms = now;
+			printf( "USB Stats:\n" );
+			for ( int i = 0; i < 4; ++i )
+			{
+				printf( "  EP %d: IN=%d, OUT=%d\n", i, usb_stats.in[i], usb_stats.out[i] );
+			}
+		}
+#endif
 	}
 }
 
