@@ -3,7 +3,6 @@ all : flash
 TARGET:=mcpy_demo
 
 TARGET_MCU:=CH570
-TARGET_MCU_PACKAGE:=CH570D
 
 include ../../ch32fun/ch32fun.mk
 

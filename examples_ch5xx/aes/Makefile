@@ -2,7 +2,6 @@ all : flash
 
 TARGET:=aes
 TARGET_MCU:=CH592
-TARGET_MCU_PACKAGE:=CH592F
 
 all : $(TARGET).bin
 
