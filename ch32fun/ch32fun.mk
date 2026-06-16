@@ -241,20 +241,23 @@ else ifeq ($(findstring CH32V30,$(TARGET_MCU)),CH32V30) #CH32V307
 
 	TARGET_MCU_LD:=3
 else ifeq ($(findstring CH57,$(TARGET_MCU)),CH57) # CH570 1 2 3
-	TARGET_MCU_PACKAGE?=CH570E
 	CFLAGS_ARCH+=-march=rv32imac \
 		-mabi=ilp32 \
 		-DCH57x=1 \
 		-DCH5xx
 
 	# MCU Flash/RAM split
-	ifeq ($(findstring 570, $(TARGET_MCU_PACKAGE)), 570)
+	ifeq ($(findstring 570, $(TARGET_MCU)), 570)
+		TARGET_MCU_PACKAGE?=CH570
 		MCU_PACKAGE:=0
-	else ifeq ($(findstring 571, $(TARGET_MCU_PACKAGE)), 571)
+	else ifeq ($(findstring 571, $(TARGET_MCU)), 571)
+		TARGET_MCU_PACKAGE?=CH571
 		MCU_PACKAGE:=1
-	else ifeq ($(findstring 572, $(TARGET_MCU_PACKAGE)), 572)
+	else ifeq ($(findstring 572, $(TARGET_MCU)), 572)
+		TARGET_MCU_PACKAGE?=CH572
 		MCU_PACKAGE:=2
-	else ifeq ($(findstring 573, $(TARGET_MCU_PACKAGE)), 573)
+	else ifeq ($(findstring 573, $(TARGET_MCU)), 573)
+		TARGET_MCU_PACKAGE?=CH573
 		MCU_PACKAGE:=3
 	endif
 	CFLAGS+=-DMCU_PACKAGE=$(MCU_PACKAGE)
@@ -273,20 +276,23 @@ else ifeq ($(findstring CH57,$(TARGET_MCU)),CH57) # CH570 1 2 3
 	TARGET_MCU_LD:=10
 	IS_CH5XX:=1
 else ifeq ($(findstring CH58,$(TARGET_MCU)),CH58) # CH582/3/4/5
-	TARGET_MCU_PACKAGE?=CH582F
 	CFLAGS_ARCH+=-march=rv32imac \
 		-mabi=ilp32 \
 		-DCH58x=1 \
 		-DCH5xx
 
 	# MCU Flash/RAM split
-	ifeq ($(findstring 582, $(TARGET_MCU_PACKAGE)), 582)
+	ifeq ($(findstring 582, $(TARGET_MCU)), 582)
+		TARGET_MCU_PACKAGE?=CH582
 		MCU_PACKAGE:=2
-	else ifeq ($(findstring 583, $(TARGET_MCU_PACKAGE)), 583)
+	else ifeq ($(findstring 583, $(TARGET_MCU)), 583)
+		TARGET_MCU_PACKAGE?=CH583
 		MCU_PACKAGE:=3
-	else ifeq ($(findstring 584, $(TARGET_MCU_PACKAGE)), 584)
+	else ifeq ($(findstring 584, $(TARGET_MCU)), 584)
+		TARGET_MCU_PACKAGE?=CH584
 		MCU_PACKAGE:=4
-	else ifeq ($(findstring 585, $(TARGET_MCU_PACKAGE)), 585)
+	else ifeq ($(findstring 585, $(TARGET_MCU)), 585)
+		TARGET_MCU_PACKAGE?=CH585
 		MCU_PACKAGE:=5
 	endif
 	CFLAGS+=-DMCU_PACKAGE=$(MCU_PACKAGE)
@@ -303,16 +309,17 @@ else ifeq ($(findstring CH58,$(TARGET_MCU)),CH58) # CH582/3/4/5
 	TARGET_MCU_LD:=8
 	IS_CH5XX:=1
 else ifeq ($(findstring CH59,$(TARGET_MCU)),CH59) # CH592 1
-	TARGET_MCU_PACKAGE?=CH592F
 	CFLAGS_ARCH+=-march=rv32imac \
 		-mabi=ilp32 \
 		-DCH59x=1 \
 		-DCH5xx
 
 	# MCU Flash/RAM split
-	ifeq ($(findstring 591, $(TARGET_MCU_PACKAGE)), 591)
+	ifeq ($(findstring 591, $(TARGET_MCU)), 591)
+		TARGET_MCU_PACKAGE?=CH591
 		MCU_PACKAGE:=1
-	else ifeq ($(findstring 592, $(TARGET_MCU_PACKAGE)), 592)
+	else ifeq ($(findstring 592, $(TARGET_MCU)), 592)
+		TARGET_MCU_PACKAGE?=CH592
 		MCU_PACKAGE:=2
 	endif
 	CFLAGS+=-DMCU_PACKAGE=$(MCU_PACKAGE)

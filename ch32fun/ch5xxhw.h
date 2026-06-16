@@ -558,6 +558,7 @@ typedef enum
 	CLK_SOURCE_HSE_PLL_24MHz = (0x300 | 0x40 | 13),
 	CLK_SOURCE_HSE_PLL_19_5MHz = (0x300 | 0x40 | 16),
 	CLK_SOURCE_HSE_PLL_13MHz = (0x300 | 0x40 | 24),
+	#define CLK_SOURCE_PLL_60MHz 0xFF // Dummy to catch wrong clock setting for this chip
 #elif defined(CH591_CH592)
 	CLK_SOURCE_LSI = 0x00,
 	CLK_SOURCE_LSE,
