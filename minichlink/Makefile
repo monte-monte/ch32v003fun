@@ -10,11 +10,15 @@ H_S:=cmdserver.h funconfig.h hidapi.h libusb.h microgdbstub.h minichlink.h seria
 
 CFLAGS_WINDOWS:=-Os -s -Wall -D_WIN32_WINNT=0x0600 -I. -Wall -DCH32V003 -DMINICHLINK
 LDFLAGS_WINDOWS:=-L. -lpthread -lusb-1.0 -lsetupapi -lws2_32
-VERSION:=$(shell shasum $(C_S) $(H_S) Makefile | shasum | head -c 40)
 ifeq ($(OS),Windows_NT)
 	TOOLS:=minichlink.exe
+	SHASUM:=$(shell where shasum)
 else
 	OS_NAME := $(shell uname -s | tr A-Z a-z)
+	SHASUM:=$(@shell which shasum)
+	ifeq (, $(SHASUM))
+		SHASUM:=$(shell which sha1sum)
+ 	endif
 	ifeq ($(OS_NAME),linux)
 		LDFLAGS:=-lpthread -lusb-1.0 -ludev
 	endif
@@ -48,6 +52,7 @@ else
 		LDFLAGS := -lpthread $(LIBHIDAPI_LIBS) $(LIBUSB_LIBS)
 	endif
 endif
+VERSION:=$(shell $(SHASUM) $(C_S) $(H_S) Makefile | $(SHASUM) | head -c 40)
 
 all : $(TOOLS)
 
@@ -78,4 +83,4 @@ clean :
 
 hash :
 	echo $(VERSION) > version
-	shasum $(C_S) $(H_S) Makefile >> version
+	$(SHASUM) $(C_S) $(H_S) Makefile >> version
