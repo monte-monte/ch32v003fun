@@ -1,0 +1,181 @@
+#ifndef _USB_CONFIG_H
+#define _USB_CONFIG_H
+
+#include "funconfig.h"
+#include "ch32fun.h"
+
+#define FUSB_BUFFERS_NUMBER   2 // Number of EP buffers (one for EP0, one per each IN/OUT, two for double)
+#define FUSB_EP1_MODE         USBFS_EP_MODE_TX // IN
+#define FUSB_SUPPORTS_SLEEP   0
+#define FUSB_HID_INTERFACES   8
+#define FUSB_CURSED_TURBO_DMA 0 // Hacky, but seems fine, shaves 2.5us off filling 64-byte buffers.
+#define FUSB_HID_USER_REPORTS 1
+#define FUSB_IO_PROFILE       0
+#define FUSB_USE_HPE          0
+#define FUSB_USER_HANDLERS    0
+#define FUSB_USE_DMA7_COPY    0
+#define FUSB_VDD_5V           FUNCONF_USE_5V_VDD
+#ifdef CH5xx
+#define FUSB_FROM_RAM         1
+#else
+#define FUSB_FROM_RAM         0
+#endif
+
+#include "usb_defines.h"
+
+#define FUSB_USB_VID 0x1209
+#define FUSB_USB_PID 0xb003
+#define FUSB_USB_REV 0x0007
+#define FUSB_STR_MANUFACTURER u"ch32fun"
+#define FUSB_STR_PRODUCT      u"bootloader"
+#ifndef FUSB_STR_SERIAL
+#define FUSB_STR_SERIAL       u"BOOT"
+#endif
+
+//Taken from http://www.usbmadesimple.co.uk/ums_ms_desc_dev.htm
+static const uint8_t device_descriptor[] = {
+	18, //Length
+	1,  //Type (Device)
+	0x00, 0x02, //Spec (bcdUSB)
+	0x0, //Device Class
+	0x0, //Device Subclass
+	0x0, //Device Protocol  (000 = use config descriptor)
+	64, //Max packet size for EP0 (This has to be 8 because of the USB Low-Speed Standard)
+	(uint8_t)(FUSB_USB_VID), (uint8_t)(FUSB_USB_VID >> 8), //idVendor - ID Vendor
+	(uint8_t)(FUSB_USB_PID), (uint8_t)(FUSB_USB_PID >> 8), //idProduct - ID Product
+	(uint8_t)(FUSB_USB_REV), (uint8_t)(FUSB_USB_REV >> 8), //bcdDevice - Device Release Number
+	1, //Manufacturer string
+	2, //Product string
+	3, //Serial string
+	1, //Max number of configurations
+};
+
+
+static const uint8_t special_hid_desc[] = { 
+	HID_USAGE_PAGE ( HID_USAGE_PAGE_DESKTOP ),
+	HID_USAGE      ( 0xff ), // Needed?
+	HID_REPORT_SIZE ( 8 ),
+	HID_COLLECTION ( HID_COLLECTION_APPLICATION ),
+		HID_REPORT_COUNT ( 7 ),
+		HID_REPORT_ID    ( 0xa8 )
+		HID_USAGE        ( 0xff ),
+		HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+		HID_REPORT_COUNT ( 127 ),
+		HID_REPORT_ID    ( 0xaa )
+		HID_USAGE        ( 0xff ),
+		HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+		HID_REPORT_COUNT_N ( 1024+127, 2 ),
+		HID_REPORT_ID    ( 0xab )
+		HID_USAGE        ( 0xff ),
+		HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+		HID_REPORT_COUNT_N ( 2048+127, 2 ),
+		HID_REPORT_ID    ( 0xac )
+		HID_USAGE        ( 0xff ),
+		HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+		HID_REPORT_COUNT_N ( 3072+127, 2 ),
+		HID_REPORT_ID    ( 0xad )
+		HID_USAGE        ( 0xff ),
+		HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+		HID_REPORT_COUNT_N ( 4095, 2 ), // Maximum allowed size in windows and macos
+		HID_REPORT_ID    ( 0xae )
+		HID_USAGE        ( 0xff ),
+		HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+		HID_REPORT_COUNT_N ( 5120+127, 2 ),
+		HID_REPORT_ID    ( 0xaf )
+		HID_USAGE        ( 0xff ),
+		HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+		HID_REPORT_COUNT_N ( 6144+127, 2 ),
+		HID_REPORT_ID    ( 0xb0 )
+		HID_USAGE        ( 0xff ),
+		HID_FEATURE      ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ),
+	HID_COLLECTION_END
+};
+
+
+static const uint8_t config_descriptor[] = {  //Mostly stolen from a USB mouse I found.
+	// configuration descriptor, USB spec 9.6.3, page 264-266, Table 9-10
+	9, 					// bLength;
+	2,					// bDescriptorType;
+	0x22, 0x00,			// wTotalLength  	
+
+	//34, 0x00, //for just the one descriptor
+	
+	0x01,					// bNumInterfaces (Normally 1)  (If we need an additional HID interface add here)
+	0x01,					// bConfigurationValue
+	0x00,					// iConfiguration
+	0x80,					// bmAttributes (was 0xa0)
+	0x64,					// bMaxPower (200mA)
+
+
+	//HID THING
+	9,					// bLength
+	4,					// bDescriptorType
+	0,			// bInterfaceNumber (unused, would normally be used for HID)
+	0,					// bAlternateSetting
+	1,					// bNumEndpoints
+	0x03,					// bInterfaceClass (0x03 = HID)
+	0x00,					// bInterfaceSubClass
+	0xff,					// bInterfaceProtocol
+	0,					// iInterface
+
+	9,					// bLength
+	0x21,					// bDescriptorType (HID)
+	0x10,0x01,		//bcd 1.1
+	0x00, //country code
+	0x01, //Num descriptors
+	0x22, //DescriptorType[0] (HID)
+	sizeof(special_hid_desc), 0x00, //Descriptor length XXX This looks wrong!!!
+
+	7, //endpoint descriptor (For endpoint 1)
+	0x05, //Endpoint Descriptor (Must be 5)
+	0x81, //Endpoint Address
+	0x03, //Attributes
+	0x08,	0x00, //Size
+	0xff, //Interval
+};
+
+struct usb_string_descriptor_struct {
+	uint8_t bLength;
+	uint8_t bDescriptorType;
+	const uint16_t wString[];
+};
+
+const static struct usb_string_descriptor_struct string0 __attribute__((section(".rodata"))) = {
+	4,
+	3,
+	{0x0409}
+};
+const static struct usb_string_descriptor_struct string1 __attribute__((section(".rodata")))  = {
+	sizeof(FUSB_STR_MANUFACTURER),
+	3,
+	FUSB_STR_MANUFACTURER
+};
+const static struct usb_string_descriptor_struct string2 __attribute__((section(".rodata")))  = {
+	sizeof(FUSB_STR_PRODUCT),
+	3,
+	FUSB_STR_PRODUCT
+};
+const static struct usb_string_descriptor_struct string3 __attribute__((section(".rodata")))  = {
+	sizeof(FUSB_STR_SERIAL),
+	3,
+	FUSB_STR_SERIAL
+};
+
+
+// This table defines which descriptor data is sent for each specific
+// request from the host (in wValue and wIndex).
+const static struct descriptor_list_struct {
+	uint32_t	lIndexValue;
+	const uint8_t	*addr;
+	uint8_t		length;
+} descriptor_list[] __attribute__((section(".rodata"))) = {
+	{0x00000100, device_descriptor, sizeof(device_descriptor)},
+	{0x00000200, config_descriptor, sizeof(config_descriptor)},
+	{0x00002200, special_hid_desc, sizeof(special_hid_desc)},
+	{0x00000300, (const uint8_t *)&string0, 4},
+	{0x04090301, (const uint8_t *)&string1, sizeof(FUSB_STR_MANUFACTURER)},
+	{0x04090302, (const uint8_t *)&string2, sizeof(FUSB_STR_PRODUCT)},	
+	{0x04090303, (const uint8_t *)&string3, sizeof(FUSB_STR_SERIAL)}
+};
+#define DESCRIPTOR_LIST_ENTRIES ((sizeof(descriptor_list))/(sizeof(struct descriptor_list_struct)) )
+#endif

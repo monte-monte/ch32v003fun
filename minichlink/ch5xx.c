@@ -191,7 +191,7 @@ void ch5xx_flash_end(void * dev) {
 	MCF.WriteReg32(dev, DMCOMMAND, 0x00271000); // Execute program.
 }
 
-void ch5xx_flash_out(void * dev, uint8_t addr)
+void ch5xx_flash_out(void * dev, uint8_t val)
 {
 	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 
@@ -209,7 +209,7 @@ void ch5xx_flash_out(void * dev, uint8_t addr)
 		iss->statetag = STTAG("FOUT");  
 	}
 
-	MCF.WriteReg32(dev, DMDATA0, addr); // Write command to a4
+	MCF.WriteReg32(dev, DMDATA0, val); // Write command to a4
 	MCF.WriteReg32(dev, DMCOMMAND, 0x0027100f); // Execute program.
 	
 }
@@ -359,7 +359,7 @@ int ch5xx_read_eeprom(void * dev, uint32_t addr, uint8_t* buffer, uint32_t len) 
 				return rrv;
 			}
 		} while((rrv & (1<<12)));
-		MCF.WriteReg32(dev, DMCOMMAND, 0x0022100b); // Read a0 into DATA0.
+		MCF.WriteReg32(dev, DMCOMMAND, 0x0022100b); // Read a1 into DATA0.
 		MCF.ReadReg32(dev, DMDATA0, &local_buffer);
 		*(buffer + i) = local_buffer & 0xff;
 	}
@@ -1414,8 +1414,8 @@ int CH5xxPrintInfo(void* dev) {
 	if (MCF.GetUUID(dev, info)) return -1;
 	printf("UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", info[0], info[1], info[2], info[3], info[4], info[5], info[6], info[7]);
 	printf("BLE MAC: %02x-%02x-%02x-%02x-%02x-%02x\n", info[0], info[1], info[2], info[3], info[4], info[5]);
-	if (ch5xx_read_secret_uuid(dev, info)) return -1;
-	printf("Secret UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", info[0], info[1], info[2], info[3], info[4], info[5], info[6], info[7]);
+	// if (ch5xx_read_secret_uuid(dev, info)) return -1;
+	// printf("Secret UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", info[0], info[1], info[2], info[3], info[4], info[5], info[6], info[7]);
 	uint32_t options_address;
 	memset(info, 0, 8);
 	if (iss->target_chip_type == CHIP_CH59x) {
@@ -1426,7 +1426,7 @@ int CH5xxPrintInfo(void* dev) {
 	options_address = 0x7EFFC;
 	if (iss->target_chip_type == CHIP_CH570) options_address = 0x3EFFC;
 	// if (ch5xx_read_options(dev, options_address, info)) return -1;
-	if (ch5xx_read_options_bulk(dev, options_address, info, 4)) return -1;
+	MCF.ReadWord(dev, options_address, (uint32_t*)info);
 	printf("Options bytes: %08x:\n", ((uint32_t*)info)[0]);
 	uint32_t option_bytes = ((uint32_t*)info)[0];
 	if ((option_bytes >> 28) != 4) {
