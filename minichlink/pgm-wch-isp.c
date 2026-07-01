@@ -656,3 +656,20 @@ void * TryInit_WCHISP() {
 
 	return ret;
 };
+
+// List of known commands:
+// (snatched form wchisp's constants file)
+// 0xa1 - IDENTIFY
+// 0xa2 - ISP_END
+// 0xa3 - ISP_KEY
+// 0xa4 - ERASE
+// 0xa5 - PROGRAM
+// 0xa6 - VERIFY
+// 0xa7 - READ_CONFIG
+// 0xa8 - WRITE_CONFIG
+// 0xa9 - DATA_ERASE
+// 0xaa - DATA_PROGRAM
+// 0xab - DATA_READ
+// 0xc3 - WRITE_OTP
+// 0xc4 - READ_OTP
+// 0xc5 - SET_BAUD

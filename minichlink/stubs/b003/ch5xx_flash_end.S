@@ -1,5 +1,4 @@
-	
-// ch5xx_flash_end
+	// ch5xx_flash_end
 la a3, 0x40001800; // R32_FLASH_DATA
 1:
 lb a4, 6(a3);

@@ -1,4 +1,3 @@
-
 la a3, 0x40001800; // R32_FLASH_DATA
 c.li a4, 4;
 sb a4, 6(a3);
