@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 // use defines to make more meaningful names for our GPIO pins
-#define PIN_1 PA0
+#define PIN_1 PB12
 #define PIN_K PA2
 #define PIN_BOB PA4
 #define PIN_KEVIN PA7
