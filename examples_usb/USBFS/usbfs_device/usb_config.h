@@ -4,10 +4,10 @@
 #include "funconfig.h"
 #include "ch32fun.h"
 
-#define FUSB_CONFIG_EPS       4 // Include EP0 in this count
-#define FUSB_EP1_MODE         1 // TX (IN)
-#define FUSB_EP2_MODE         1 // TX (IN)
-#define FUSB_EP3_MODE         1 // TX (IN)
+#define FUSB_BUFFERS_NUMBER   4 // Number of EP buffers (one for EP0, one per each IN/OUT, two for double)
+#define FUSB_EP1_MODE         USBFS_EP_MODE_TX // IN
+#define FUSB_EP2_MODE         USBFS_EP_MODE_TX // IN
+#define FUSB_EP3_MODE         USBFS_EP_MODE_TX // IN
 #define FUSB_SUPPORTS_SLEEP   0
 #define FUSB_HID_INTERFACES   2
 #define FUSB_CURSED_TURBO_DMA 0 // Hacky, but seems fine, shaves 2.5us off filling 64-byte buffers.

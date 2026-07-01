@@ -19,4 +19,3 @@
 #define FUNCONF_DEBUG_HARDFAULT     1
 
 #endif
-

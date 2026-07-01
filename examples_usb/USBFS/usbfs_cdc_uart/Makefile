@@ -13,7 +13,7 @@ TARGET_MCU_PACKAGE:=CH570D
 # TARGET_MCU:=CH592
 # TARGET_MCU_PACKAGE:=CH592F
 ENABLE_FPU:=0
-ADDITIONAL_C_FILES:=
+ADDITIONAL_C_FILES:=../../../extralibs/fsusb.c
 include ../../../ch32fun/ch32fun.mk
 CFLAGS+=-D$(TARGET_MCU_PACKAGE)
 install_udev_rules : 

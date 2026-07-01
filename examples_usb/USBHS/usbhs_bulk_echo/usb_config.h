@@ -4,15 +4,14 @@
 #include "funconfig.h"
 #include "ch32fun.h"
 
-#define FUSB_CONFIG_EPS       3 // Include EP0 in this count
-#define FUSB_EP1_MODE         1 // TX (IN)
-#define FUSB_EP2_MODE         -1 // RX (OUT)
+#define FUSB_EP1_MODE         USBHS_EP_MODE_TX // IN
+#define FUSB_EP2_MODE         USBHS_EP_MODE_RX // OUT
 #define USB_EP_TX             1
 #define USB_EP_RX             2
 #define FUSB_SUPPORTS_SLEEP   0
 #define FUSB_IO_PROFILE       0
 #define FUSB_USE_HPE          FUNCONF_ENABLE_HPE
-#define FUSB_EP_SIZE          64
+#define FUSB_EP_SIZE          512
 #define FUSB_SPEED            USB_SPEED_HIGH
 #define FUSB_USER_HANDLERS    1 // To enable HandleDataOut
 #define FUSB_OUT_FLOW_CONTROL 0 // 0: auto ack
@@ -24,7 +23,7 @@
 #define FUSB_USB_REV          0x0007
 #define FUSB_STR_MANUFACTURER u"ch32fun"
 #define FUSB_STR_PRODUCT      u"Bulk demo"
-#define FUSB_STR_SERIAL       u"585"
+#define FUSB_STR_SERIAL       u"007"
 
 //Taken from http://www.usbmadesimple.co.uk/ums_ms_desc_dev.htm
 static const uint8_t device_descriptor[] = {

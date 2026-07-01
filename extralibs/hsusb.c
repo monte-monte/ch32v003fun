@@ -262,7 +262,7 @@ void USBHS_IRQHandler()
 				case USB_SET_CONFIGURATION:
 					ctx->USBHS_DevConfig = (uint8_t)( ctx->USBHS_IndexValue & 0xFF );
 					ctx->USBHS_DevEnumStatus = 0x01;
-					for(int ep = 1; ep < FUSB_CONFIG_EPS; ep++) {
+					for(int ep = 1; ep < FUSB_MAX_EP_CNT; ep++) {
 						// reset all DATAx
 						UEP_CTRL_RX(ep) &= ~USBHS_UEP_R_TOG_DATA1;
 						UEP_CTRL_TX(ep) &= ~USBHS_UEP_T_TOG_DATA1;
@@ -293,11 +293,11 @@ void USBHS_IRQHandler()
 						{
 							/* Clear End-point Feature */
 							int ep = USBHS_SetupReqIndex & 0xf;
-							if( ep < FUSB_CONFIG_EPS ) 
+							if( ctx->endpoints[ep].mode ) 
 							{
 								// UEP_CTRL_TX(ep) = USBHS_UEP_T_RES_STALL;
-								if( USBHS_SetupReqIndex & USBHS_DEF_UEP_IN  && ctx->endpoint_mode[ep] == -1 ) UEP_CTRL_TX(ep) = USBHS_UEP_T_RES_NAK;
-								else if( USBHS_SetupReqIndex & USBHS_DEF_UEP_OUT && ctx->endpoint_mode[ep] == 1 ) UEP_CTRL_RX(ep) = USBHS_UEP_R_RES_ACK;
+								if( USBHS_SetupReqIndex & USBHS_DEF_UEP_IN  && (ctx->endpoints[ep].mode & USBHS_EP_MODE_TX) ) UEP_CTRL_TX(ep) = USBHS_UEP_T_RES_NAK;
+								else if( USBHS_SetupReqIndex & USBHS_DEF_UEP_OUT && (ctx->endpoints[ep].mode & USBHS_EP_MODE_RX) ) UEP_CTRL_RX(ep) = USBHS_UEP_R_RES_ACK;
 								else 
 								{
 									goto sendstall;
@@ -342,10 +342,10 @@ void USBHS_IRQHandler()
 						if( (uint8_t)( USBHS_IndexValue & 0xFF ) == USB_REQ_FEAT_ENDP_HALT )
 						{
 							int ep = USBHS_SetupReqIndex & 0xf;
-							if( ep < FUSB_CONFIG_EPS )
+							if( ctx->endpoints[ep].mode )
 							{
-								if( (USBHS_SetupReqIndex & USBHS_DEF_UEP_IN) && ctx->endpoint_mode[ep] == -1 ) UEP_CTRL_TX(ep) = ( UEP_CTRL_TX(ep) & ~USBHS_UEP_T_RES_MASK ) | USBHS_UEP_T_RES_STALL;
-								else if( (USBHS_SetupReqIndex & USBHS_DEF_UEP_OUT) && ctx->endpoint_mode[ep] == 1 ) UEP_CTRL_RX(ep) = ( UEP_CTRL_RX(ep) & ~USBHS_UEP_R_RES_MASK ) | USBHS_UEP_R_RES_STALL;
+								if( (USBHS_SetupReqIndex & USBHS_DEF_UEP_IN) && (ctx->endpoints[ep].mode & USBHS_EP_MODE_TX) ) UEP_CTRL_TX(ep) = ( UEP_CTRL_TX(ep) & ~USBHS_UEP_T_RES_MASK ) | USBHS_UEP_T_RES_STALL;
+								else if( (USBHS_SetupReqIndex & USBHS_DEF_UEP_OUT) && (ctx->endpoints[ep].mode & USBHS_EP_MODE_RX) ) UEP_CTRL_RX(ep) = ( UEP_CTRL_RX(ep) & ~USBHS_UEP_R_RES_MASK ) | USBHS_UEP_R_RES_STALL;
 								else 
 								{
 									goto sendstall;
@@ -387,10 +387,10 @@ void USBHS_IRQHandler()
 					else if( ( USBHS_SetupReqType & USB_REQ_RECIP_MASK ) == USB_REQ_RECIP_ENDP )
 					{
 						int ep = USBHS_SetupReqIndex & 0xf;
-						if( ep < FUSB_CONFIG_EPS )
+						if( ctx->endpoints[ep].mode )
 						{
-							if( USBHS_SetupReqIndex & USBHS_DEF_UEP_IN && ctx->endpoint_mode[ep] == -1 ) ctrl0buff[0] = ( UEP_CTRL_TX(ep) & USBHS_UEP_T_RES_MASK ) == USBHS_UEP_T_RES_STALL;
-							else if( USBHS_SetupReqIndex & USBHS_DEF_UEP_OUT && ctx->endpoint_mode[ep] == 1 ) ctrl0buff[0] = ( UEP_CTRL_RX(ep) & USBHS_UEP_R_RES_MASK ) == USBHS_UEP_R_RES_STALL;
+							if( USBHS_SetupReqIndex & USBHS_DEF_UEP_IN && (ctx->endpoints[ep].mode & USBHS_EP_MODE_TX) ) ctrl0buff[0] = ( UEP_CTRL_TX(ep) & USBHS_UEP_T_RES_MASK ) == USBHS_UEP_T_RES_STALL;
+							else if( USBHS_SetupReqIndex & USBHS_DEF_UEP_OUT && (ctx->endpoints[ep].mode & USBHS_EP_MODE_RX) ) ctrl0buff[0] = ( UEP_CTRL_RX(ep) & USBHS_UEP_R_RES_MASK ) == USBHS_UEP_R_RES_STALL;
 							else goto sendstall;
 						}
 						else
@@ -462,10 +462,10 @@ replycomplete:
 		case CUIS_TOKEN_IN:
 			if( ep )
 			{
-				if( ep < FUSB_CONFIG_EPS )
+				if( ctx->endpoints[ep].mode )
 				{
 #if FUSB_USER_HANDLERS
-					len = HandleInRequest( ctx, ep, ctx->ENDPOINTS[ ep-1 ], 0 );
+					len = HandleInRequest( ctx, ep, ctx->endpoints[ep].in, 0 );
 #endif
 					UEP_CTRL_TX(ep) ^= USBHS_UEP_T_TOG_DATA1;
 					if( len )
@@ -478,7 +478,7 @@ replycomplete:
 					{
 						UEP_CTRL_TX(ep) = ( UEP_CTRL_TX(ep) & ~USBHS_UEP_T_RES_MASK ) | USBHS_UEP_T_RES_NAK;
 					}
-					ctx->USBHS_Endp_Busy[ep] = 0;
+					ctx->endpoints[ep].busy = 0;
 				}
 			}
 			else // EP0
@@ -642,7 +642,7 @@ replycomplete:
 #endif
 						UEP_CTRL_RX(ep) = rx_ctrl;
 #if FUSB_USER_HANDLERS
-						HandleDataOut( ctx, ep, ctx->ENDPOINTS[ep-1], len );
+						HandleDataOut( ctx, ep, ctx->endpoints[ep].out, len );
 #endif
 					}
 					USBHS_DONE_RX(ep);
@@ -734,142 +734,168 @@ replycomplete:
 
 void USBHS_InternalFinishSetup()
 {
+#if USBHS_IMPL == 1
+	USBHS->UEP_CONFIG = 0;
+#else
+	USBHS->UEP_TX_EN = 0;
+	USBHS->UEP_RX_EN = 0;
+#endif
 
 #if FUSB_EP1_MODE
-	USBHSCTX.endpoint_mode[1] = FUSB_EP1_MODE;
+#if !(defined FUSB_EP1_SIZE && !FUSB_EP1_SIZE)
+	USBHSCTX.endpoints[1].buffer = USBHSCTX.ep1_buffer;
+#endif
+	USBHSCTX.endpoints[1].mode = FUSB_EP1_MODE;
 #ifndef FUSB_EP1_SIZE
 	USBHS->UEP1_MAX_LEN = FUSB_EP_SIZE;
+	USBHSCTX.endpoints[1].size = FUSB_EP_SIZE;
 #else
 	USBHS->UEP1_MAX_LEN = FUSB_EP1_SIZE;
-#endif
-#if FUSB_EP1_MODE > 0 
-	UEP_TX_EN(1);
-	UEP_DMA_TX(1) = (uintptr_t)USBHSCTX.ENDPOINTS[0];
-#else
-	UEP_RX_EN(1);
-	UEP_DMA_RX(1) = (uintptr_t)USBHSCTX.ENDPOINTS[0];
+	USBHSCTX.endpoints[1].size = FUSB_EP1_SIZE;
 #endif
 #endif
 
 #if FUSB_EP2_MODE
-	USBHSCTX.endpoint_mode[2] = FUSB_EP2_MODE;
+#if !(defined FUSB_EP2_SIZE && !FUSB_EP2_SIZE)
+	USBHSCTX.endpoints[2].buffer = USBHSCTX.ep2_buffer;
+#endif
+	USBHSCTX.endpoints[2].mode = FUSB_EP2_MODE;
 #ifndef FUSB_EP2_SIZE
 	USBHS->UEP2_MAX_LEN = FUSB_EP_SIZE;
+	USBHSCTX.endpoints[2].size = FUSB_EP_SIZE;
 #else
 	USBHS->UEP2_MAX_LEN = FUSB_EP2_SIZE;
-#endif
-#if FUSB_EP2_MODE > 0 
-	UEP_TX_EN(2);
-	UEP_DMA_TX(2) = (uintptr_t)USBHSCTX.ENDPOINTS[1];
-#else
-	UEP_RX_EN(2);
-	UEP_DMA_RX(2) = (uintptr_t)USBHSCTX.ENDPOINTS[1];
+	USBHSCTX.endpoints[2].size = FUSB_EP2_SIZE;
 #endif
 #endif
 
 #if FUSB_EP3_MODE
-	USBHSCTX.endpoint_mode[3] = FUSB_EP3_MODE;
+#if !(defined FUSB_EP3_SIZE && !FUSB_EP3_SIZE)
+	USBHSCTX.endpoints[3].buffer = USBHSCTX.ep3_buffer;
+#endif
+	USBHSCTX.endpoints[3].mode = FUSB_EP3_MODE;
 #ifndef FUSB_EP3_SIZE
 	USBHS->UEP3_MAX_LEN = FUSB_EP_SIZE;
+	USBHSCTX.endpoints[3].size = FUSB_EP_SIZE;
 #else
 	USBHS->UEP3_MAX_LEN = FUSB_EP3_SIZE;
-#endif
-#if FUSB_EP3_MODE > 0 
-	UEP_TX_EN(3);
-	UEP_DMA_TX(3) = (uintptr_t)USBHSCTX.ENDPOINTS[2];
-#else
-	UEP_RX_EN(3);
-	UEP_DMA_RX(3) = (uintptr_t)USBHSCTX.ENDPOINTS[2];
+	USBHSCTX.endpoints[3].size = FUSB_EP3_SIZE;
 #endif
 #endif
 
 #if FUSB_EP4_MODE
-	USBHSCTX.endpoint_mode[4] = FUSB_EP4_MODE;
+#if !(defined FUSB_EP4_SIZE && !FUSB_EP4_SIZE)
+	USBHSCTX.endpoints[4].buffer = USBHSCTX.ep4_buffer;
+#endif
+	USBHSCTX.endpoints[4].mode = FUSB_EP4_MODE;
 #ifndef FUSB_EP4_SIZE
 	USBHS->UEP4_MAX_LEN = FUSB_EP_SIZE;
+	USBHSCTX.endpoints[4].size = FUSB_EP_SIZE;
 #else
 	USBHS->UEP4_MAX_LEN = FUSB_EP4_SIZE;
-#endif
-#if FUSB_EP4_MODE > 0 
-	UEP_TX_EN(4);
-	UEP_DMA_TX(4) = (uintptr_t)USBHSCTX.ENDPOINTS[3];
-#else
-	UEP_RX_EN(4);
-	UEP_DMA_RX(4) = (uintptr_t)USBHSCTX.ENDPOINTS[3];
+	USBHSCTX.endpoints[4].size = FUSB_EP4_SIZE;
 #endif
 #endif
 
 #if FUSB_EP5_MODE
-	USBHSCTX.endpoint_mode[5] = FUSB_EP5_MODE;
+#if !(defined FUSB_EP5_SIZE && !FUSB_EP5_SIZE)
+	USBHSCTX.endpoints[5].buffer = USBHSCTX.ep5_buffer;
+#endif
+	USBHSCTX.endpoints[5].mode = FUSB_EP5_MODE;
 #ifndef FUSB_EP5_SIZE
 	USBHS->UEP5_MAX_LEN = FUSB_EP_SIZE;
+	USBHSCTX.endpoints[5].size = FUSB_EP_SIZE;
 #else
 	USBHS->UEP5_MAX_LEN = FUSB_EP5_SIZE;
-#endif
-#if FUSB_EP5_MODE > 0 
-	UEP_TX_EN(5);
-	UEP_DMA_TX(5) = (uintptr_t)USBHSCTX.ENDPOINTS[4];
-#else
-	UEP_RX_EN(5);
-	UEP_DMA_RX(5) = (uintptr_t)USBHSCTX.ENDPOINTS[4];
+	USBHSCTX.endpoints[5].size = FUSB_EP5_SIZE;
 #endif
 #endif
 
 #if FUSB_EP6_MODE
-	USBHSCTX.endpoint_mode[6] = FUSB_EP6_MODE;
+#if !(defined FUSB_EP6_SIZE && !FUSB_EP6_SIZE)
+	USBHSCTX.endpoints[6].buffer = USBHSCTX.ep6_buffer;
+#endif
+	USBHSCTX.endpoints[6].mode = FUSB_EP6_MODE;
 #ifndef FUSB_EP6_SIZE
 	USBHS->UEP6_MAX_LEN = FUSB_EP_SIZE;
+	USBHSCTX.endpoints[6].size = FUSB_EP_SIZE;
 #else
 	USBHS->UEP6_MAX_LEN = FUSB_EP6_SIZE;
-#endif
-#if FUSB_EP6_MODE > 0 
-	UEP_TX_EN(6);
-	UEP_DMA_TX(6) = (uintptr_t)USBHSCTX.ENDPOINTS[5];
-#else
-	UEP_RX_EN(6);
-	UEP_DMA_RX(6) = (uintptr_t)USBHSCTX.ENDPOINTS[5];
+	USBHSCTX.endpoints[6].size = FUSB_EP6_SIZE;
 #endif
 #endif
 
 #if FUSB_EP7_MODE
-	USBHSCTX.endpoint_mode[7] = FUSB_EP7_MODE;
+#if !(defined FUSB_EP7_SIZE && !FUSB_EP7_SIZE)
+	USBHSCTX.endpoints[7].buffer = USBHSCTX.ep7_buffer;
+#endif
+	USBHSCTX.endpoints[7].mode = FUSB_EP7_MODE;
 #ifndef FUSB_EP7_SIZE
 	USBHS->UEP7_MAX_LEN = FUSB_EP_SIZE;
+	USBHSCTX.endpoints[7].size = FUSB_EP_SIZE;
 #else
 	USBHS->UEP7_MAX_LEN = FUSB_EP7_SIZE;
-#endif
-#if FUSB_EP7_MODE > 0 
-	UEP_TX_EN(7);
-	UEP_DMA_TX(7) = (uintptr_t)USBHSCTX.ENDPOINTS[6];
-#else
-	UEP_RX_EN(7);
-	UEP_DMA_RX(7) = (uintptr_t)USBHSCTX.ENDPOINTS[6];
+	USBHSCTX.endpoints[7].size = FUSB_EP7_SIZE;
 #endif
 #endif
 
-#if !defined (FUSB_CONFIG_EPS) || !FUSB_CONFIG_EPS
-#error You must have at least EP0!
-#endif
-	
 	USBHS->UEP0_DMA = (uintptr_t)USBHSCTX.CTRL0BUFF;
 	USBHS->UEP0_MAX_LEN = USBHS_DEF_UEP0_SIZE;
-	USBHS->UEP0_T_LEN = 0;
+	UEP_CTRL_LEN(0) = 0;
 	UEP_TX_EN(0);
 	UEP_RX_EN(0);
 	UEP_CTRL_TX(0) = USBHS_UEP_T_RES_NAK;
 	UEP_CTRL_RX(0) = USBHS_UEP_R_RES_ACK;
+	USBHSCTX.endpoints[0].buffer = USBHSCTX.CTRL0BUFF;
+	USBHSCTX.endpoints[0].mode = USBHS_EP_MODE_TX | USBHS_EP_MODE_RX;
 
-	for( int i = 1; i < FUSB_CONFIG_EPS; i++ )
+	for( int i = 1; i < FUSB_MAX_EP_CNT; i++ )
 	{
-		if( USBHSCTX.endpoint_mode[i] > 0 )
+		USBHS_EP_TypeDef * endpoint = &USBHSCTX.endpoints[i];
+		UEP_CTRL_LEN(i) = 0;
+		if( endpoint->mode & USBHS_EP_MODE_TX )
 		{
 			UEP_CTRL_TX(i) = USBHS_UEP_T_RES_NAK;
+			UEP_TX_EN(i);
+			UEP_DMA_TX(i) = (uintptr_t)endpoint->buffer;
 		}
-		else if( USBHSCTX.endpoint_mode[i] < 0 )
+		else if( USBHSCTX.endpoints[i].mode & USBHS_EP_MODE_RX )
 		{
 			UEP_CTRL_RX(i) = USBHS_UEP_R_RES_ACK;
+			UEP_RX_EN(i);
+			UEP_DMA_RX(i) = (uintptr_t)endpoint->buffer;
+
 		}
-		USBHSCTX.USBHS_Endp_Busy[i] = 0;
+
+#if USBHS_IMPL == 1
+		if( endpoint->mode & USBHS_EP_MODE_DOUBLE )
+		{
+			UEP_MODE_DOUBLE(i);
+			if( endpoint->mode & USBHS_EP_MODE_TX )
+			{
+				UEP_DMA_RX(i) = ((uintptr_t)endpoint->buffer) + endpoint->size;
+			}
+			else
+			{
+				UEP_DMA_TX(i) = ((uintptr_t)endpoint->buffer) + endpoint->size;
+			}
+		}
+		else if( USBHSCTX.endpoints[i].mode & USBHS_EP_MODE_ISO )
+		{
+			UEP_MODE_ISO(i);
+		}
+#else
+		if( USBHSCTX.endpoints[i].mode & USBHS_EP_MODE_TX_BURST )
+		{
+			UEP_MODE_TX_BURST(i);
+		}
+		else if( USBHSCTX.endpoints[i].mode & USBHS_EP_MODE_RX_BURST )
+		{
+			UEP_MODE_RX_BURST(i);
+		}
+#endif
+
+		USBHSCTX.endpoints[i].busy = 0;
 	}
 }
 
@@ -956,13 +982,13 @@ void USBHSReset()
 
 static inline uint8_t * USBHS_GetEPBufferIfAvailable( int endp )
 {
-	if( USBHSCTX.USBHS_Endp_Busy[endp] ) return 0;
-	return USBHSCTX.ENDPOINTS[endp-1];
+	if( USBHSCTX.endpoints[endp].busy ) return 0;
+	return USBHSCTX.endpoints[endp].in;
 }
 
 static inline int USBHS_SendEndpoint( int endp, int len )
 {
-	if( USBHSCTX.USBHS_errata_dont_send_endpoint_in_window || USBHSCTX.USBHS_Endp_Busy[endp] ) return -1;
+	if( USBHSCTX.USBHS_errata_dont_send_endpoint_in_window || USBHSCTX.endpoints[endp].busy ) return -1;
 	// This prevents sending while ep0 is receiving
 	if( USBHSCTX.USBHS_SetupReqLen > 0 ) return -2;
 	// Check if in SETUP request
@@ -970,7 +996,7 @@ static inline int USBHS_SendEndpoint( int endp, int len )
 	NVIC_DisableIRQ( USBHS_IRQn );
 	UEP_CTRL_LEN( endp ) = len;
 	UEP_CTRL_TX( endp ) = ( UEP_CTRL_TX( endp ) & ~USBHS_UEP_T_RES_MASK ) | USBHS_UEP_T_RES_ACK;
-	USBHSCTX.USBHS_Endp_Busy[endp] = 1;
+	USBHSCTX.endpoints[endp].busy = 1;
 	NVIC_EnableIRQ( USBHS_IRQn );
 	return 0;
 }
@@ -978,7 +1004,7 @@ static inline int USBHS_SendEndpoint( int endp, int len )
 // If youre sending without copy, make sure data buffer is 4 bytes aligned
 static inline int USBHS_SendEndpointNEW( int endp, const uint8_t* data, int len, int copy )
 {
-	if( USBHSCTX.USBHS_errata_dont_send_endpoint_in_window || USBHSCTX.USBHS_Endp_Busy[endp] ) return -1;
+	if( USBHSCTX.USBHS_errata_dont_send_endpoint_in_window || USBHSCTX.endpoints[endp].busy ) return -1;
 	// This prevents sending while ep0 is receiving
 	if( USBHSCTX.USBHS_SetupReqLen > 0 ) return USBHSCTX.USBHS_SetupReqLen;
 	
@@ -987,9 +1013,9 @@ static inline int USBHS_SendEndpointNEW( int endp, const uint8_t* data, int len,
 		if( copy )
 		{
 			if( !endp ) USBHS->UEP0_DMA = (uintptr_t)USBHSCTX.CTRL0BUFF;
-			else UEP_DMA_TX( endp ) = (uintptr_t)USBHSCTX.ENDPOINTS[endp-1];
+			else UEP_DMA_TX( endp ) = (uintptr_t)USBHSCTX.endpoints[endp].in;
 
-			uint8_t* dest = (endp?USBHSCTX.ENDPOINTS[endp-1]:USBHSCTX.CTRL0BUFF);
+			uint8_t* dest = (endp?USBHSCTX.endpoints[endp].in:USBHSCTX.CTRL0BUFF);
 			copyBuffer( dest, data, len );
 		}
 		else
@@ -1001,7 +1027,7 @@ static inline int USBHS_SendEndpointNEW( int endp, const uint8_t* data, int len,
 	// NVIC_DisableIRQ( USBHS_IRQn );
 	UEP_CTRL_LEN( endp ) = len;
 	UEP_CTRL_TX( endp ) = ( UEP_CTRL_TX( endp ) & ~USBHS_UEP_T_RES_MASK ) | USBHS_UEP_T_RES_ACK;
-	USBHSCTX.USBHS_Endp_Busy[endp] = 1;
+	USBHSCTX.endpoints[endp].busy = 1;
 	// NVIC_EnableIRQ( USBHS_IRQn );
 	return 0;
 }
@@ -1055,4 +1081,3 @@ WEAK int HandleSetupCustom( struct _USBState *ctx, int setup_code )
 	return ret;
 }
 #endif // FUNCONF_USE_USBPRINTF
-

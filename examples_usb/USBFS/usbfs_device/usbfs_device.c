@@ -17,7 +17,7 @@
 #define LED_ON 0
 #elif defined(CH32X03x)
 #define LED PB12
-#define LED_ON 0
+#define LED_ON 1
 #else
 #define LED PB2
 #define LED_ON 1
@@ -105,15 +105,12 @@ static __attribute__((noreturn)) void processLoop()
 	int tickcount = 0;
 	while(1)
 	{
-		//printf( "%lu %08lx %lu %d %d\n", USBDEBUG0, USBDEBUG1, USBDEBUG2, 0, 0 );
-
-		int i;
-		for( i = 1; i < 3; i++ )
+		for( int i = 1; i < 3; i++ )
 		{
 			uint32_t * buffer = (uint32_t*)USBFS_GetEPBufferIfAvailable( i );
 			if( buffer )
 			{
-				int tickDown = ((SysTick->CNT)&0x800000);
+				int tickDown = ((SysTick->CNT)&0x100000);
 				static int wasTickMouse, wasTickKeyboard;
 				if( i == 1 )
 				{
@@ -173,4 +170,3 @@ int main()
 
 	processLoop();
 }
-

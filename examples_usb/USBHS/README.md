@@ -6,6 +6,8 @@ This folder contains examples that use USBHS peripheral. This is a list of chips
 - CH32V305
 - CH32V307
 - CH32V317
+- CH32X305
+- CH32X315
 - CH32H415
 - CH32H416
 - CH32H417
@@ -16,14 +18,14 @@ This folder contains examples that use USBHS peripheral. This is a list of chips
 
 ## USBHS pinout
 
-|   |CH32V205|CH32V30x|CH32H41x|CH565/9|CH584/5|
-|:-:|:-:     |:-:     |:-:     |:-:    |:-:    |
-|D+ |PB6     |PB7     |PB8     |UD+    |PB13   |
-|D- |PB7     |PB6     |PB9     |UD-    |PB12   |
+|   |CH32V205|CH32V30x|CH32H41x|CH32X3x5|CH565/9|CH584/5|
+|:-:|:-:     |:-:     |:-:     |:-:     |:-:    |:-:    |
+|D+ |PB6     |PB7     |PB8     |PD7     |UD+    |PB13   |
+|D- |PB7     |PB6     |PB9     |PD6     |UD-    |PB12   |
 
 ## Library
 
-Examples in this folder use a simple low-level library ``hsusb.h`` that can be found in ``ch32/extralibs`` folder. Every example has ``usb_config.h`` file in addition to the common set of files found in other examples. To compile an example for your specific MCU model you need to change ``TARGET_MCU`` variable in the ``Makefile``. For some chips you should also specify the exact model in ``TARGET_MCU_PACKAGE`` variable, for example ``TARGET_MCU_PACKAGE:=CH585F``. This will enable different settings if needed.
+Examples in this folder use a simple low-level library ``hsusb.h`` that can be found in ``ch32/extralibs`` folder. Every example has ``usb_config.h`` file in addition to the common set of files found in other examples. To compile an example for your specific MCU model you need to change ``TARGET_MCU`` variable in the ``Makefile``. For some chips you should also specify the exact model in ``TARGET_MCU_PACKAGE`` variable, for example ``TARGET_MCU_PACKAGE:=CH32V30x_D8C``. This will enable different settings if needed.
 
 ## Linux UDEV rules
 

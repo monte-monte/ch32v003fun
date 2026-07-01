@@ -187,8 +187,10 @@ typedef struct
 #define CUIS_TOKEN_IN      0x2
 #define CUIS_TOKEN_SETUP   0x3
 
-#define UEP_TX_EN(n)    USBHS->UEP_CONFIG |= ((uint32_t)(1<<n))
-#define UEP_RX_EN(n)    USBHS->UEP_CONFIG |= ((uint32_t)(1<<(n+16)))
+#define UEP_TX_EN(n)       USBHS->UEP_CONFIG |= ((uint32_t)(1<<n))
+#define UEP_RX_EN(n)       USBHS->UEP_CONFIG |= ((uint32_t)(1<<(n+16)))
+#define UEP_MODE_DOUBLE(n) USBHS->UEP_BUF_MODE |= ((uint32_t)(1<<(n)))
+#define UEP_MODE_ISO(n)    USBHS->UEP_BUF_MODE |= ((uint32_t)(1<<(n+16)))
 
 #define USBHS_DONE_TX(n)
 #define USBHS_DONE_RX(n)
@@ -286,9 +288,11 @@ typedef struct
 
 #define USBHS_CHECK_NAK_RX (USBHS->UEP0_RX_CTRL & (1<<6))
 
-#define UEP_RX_LEN(n)   (((volatile uint16_t*)&USBHS->UEP1_RX_LEN)[(n-1)*2])
-#define UEP_TX_EN(n)    USBHS->UEP_TX_EN |= ((uint16_t)(1<<n))
-#define UEP_RX_EN(n)    USBHS->UEP_RX_EN |= ((uint16_t)(1<<n))
+#define UEP_RX_LEN(n)        (((volatile uint16_t*)&USBHS->UEP1_RX_LEN)[(n-1)*2])
+#define UEP_TX_EN(n)         USBHS->UEP_TX_EN |= ((uint16_t)(1<<n))
+#define UEP_RX_EN(n)         USBHS->UEP_RX_EN |= ((uint16_t)(1<<n))
+#define UEP_MODE_TX_BURST(n) USBHS->UEP_T_BURST |= ((uint16_t)(1<<n))
+#define UEP_MODE_RX_BURST(n) USBHS->UEP_R_BURST |= ((uint16_t)(1<<n))
 
 #define DEBUG_PIN PB17
 
@@ -399,6 +403,10 @@ __HIGH_CODE int HandleSetupCustom( struct _USBState * ctx, int setup_code);
 void USBHS_RxReady(int endp);
 #endif
 
+#ifndef FUSB_MAX_EP_CNT
+#define FUSB_MAX_EP_CNT 8
+#endif
+
 typedef enum
 {
 	USB_SPEED_FULL = 0,
@@ -412,6 +420,39 @@ typedef enum
 	USBHS_EP_RX  = -1,
 	USBHS_EP_TX = 1,
 } USBHS_EP_mode;
+
+typedef struct
+{
+	union {
+		uint8_t * out;
+		uint8_t * rx;
+		uint8_t * in;
+		uint8_t * tx;
+		uint8_t * buffer;
+	};
+	uint16_t size;
+	uint8_t mode;
+	volatile uint8_t busy;
+} USBHS_EP_TypeDef;
+
+#define USBHS_EP_MODE_TX          4
+#define USBHS_EP_MODE_RX          8
+
+#if USBHS_IMPL == 1
+#define USBHS_EP_MODE_TX_DOUBLE   5
+#define USBHS_EP_MODE_TX_ISO      6
+#define USBHS_EP_MODE_RX_DOUBLE   9
+#define USBHS_EP_MODE_RX_ISO      10
+#define USBHS_EP_MODE_DOUBLE      1
+#define USBHS_EP_MODE_ISO         2
+#endif
+
+#if USBHS_IMPL == 2
+// https://www.wch.cn/bbs/thread-150494-1.html
+#define USBHS_EP_MODE_BURST       1
+#define USBHS_EP_MODE_TX_BURST    5
+#define USBHS_EP_MODE_RX_BURST    9
+#endif
 
 #ifndef FUSB_EP1_MODE
 #define FUSB_EP1_MODE  0
@@ -438,7 +479,120 @@ typedef enum
 struct _USBState
 {
 	__attribute__ ((aligned(4))) uint8_t CTRL0BUFF[64];
-	__attribute__ ((aligned(4))) uint8_t ENDPOINTS[FUSB_CONFIG_EPS-1][FUSB_EP_SIZE];
+
+#if FUSB_EP1_MODE
+#if FUSB_EP1_SIZE
+#if FUSB_EP1_MODE & 1
+	__attribute__ ((aligned(4))) uint8_t ep1_buffer[FUSB_EP1_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep1_buffer[FUSB_EP1_SIZE];
+#endif
+#elif !(defined(FUSB_EP1_SIZE) && !FUSB_EP1_SIZE)
+#if (FUSB_EP1_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep1_buffer[FUSB_EP_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep1_buffer[FUSB_EP_SIZE];
+#endif
+#endif
+#endif
+
+#if FUSB_EP2_MODE
+#if FUSB_EP2_SIZE
+#if (FUSB_EP2_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep2_buffer[FUSB_EP2_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep2_buffer[FUSB_EP2_SIZE];
+#endif
+#elif !(defined(FUSB_EP2_SIZE) && !FUSB_EP2_SIZE)
+#if (FUSB_EP2_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep2_buffer[FUSB_EP_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep2_buffer[FUSB_EP_SIZE];
+#endif
+#endif
+#endif
+
+#if FUSB_EP3_MODE
+#if FUSB_EP3_SIZE
+#if (FUSB_EP3_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep3_buffer[FUSB_EP3_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep3_buffer[FUSB_EP3_SIZE];
+#endif
+#elif !(defined(FUSB_EP3_SIZE) && !FUSB_EP3_SIZE)
+#if (FUSB_EP3_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep3_buffer[FUSB_EP_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep3_buffer[FUSB_EP_SIZE];
+#endif
+#endif
+#endif
+
+#if FUSB_EP4_MODE
+#if FUSB_EP4_SIZE
+#if (FUSB_EP4_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep4_buffer[FUSB_EP4_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep4_buffer[FUSB_EP4_SIZE];
+#endif
+#elif !(defined(FUSB_EP4_SIZE) && !FUSB_EP4_SIZE)
+#if (FUSB_EP4_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep4_buffer[FUSB_EP_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep4_buffer[FUSB_EP_SIZE];
+#endif
+#endif
+#endif
+
+#if FUSB_EP5_MODE
+#if FUSB_EP5_SIZE
+#if (FUSB_EP5_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep5_buffer[FUSB_EP5_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep5_buffer[FUSB_EP5_SIZE];
+#endif
+#elif !(defined(FUSB_EP5_SIZE) && !FUSB_EP5_SIZE)
+#if (FUSB_EP5_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep5_buffer[FUSB_EP_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep5_buffer[FUSB_EP_SIZE];
+#endif
+#endif
+#endif
+
+#if FUSB_EP6_MODE
+#if FUSB_EP6_SIZE
+#if (FUSB_EP6_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep6_buffer[FUSB_EP6_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep6_buffer[FUSB_EP6_SIZE];
+#endif
+#elif !(defined(FUSB_EP6_SIZE) && !FUSB_EP6_SIZE)
+#if (FUSB_EP6_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep6_buffer[FUSB_EP_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep6_buffer[FUSB_EP_SIZE];
+#endif
+#endif
+#endif
+
+#if FUSB_EP7_MODE
+#if FUSB_EP7_SIZE
+#if (FUSB_EP7_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep7_buffer[FUSB_EP7_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep7_buffer[FUSB_EP7_SIZE];
+#endif
+#elif !(defined(FUSB_EP7_SIZE) && !FUSB_EP7_SIZE)
+#if (FUSB_EP7_MODE & 1)
+	__attribute__ ((aligned(4))) uint8_t ep7_buffer[FUSB_EP_SIZE*2];
+#else
+	__attribute__ ((aligned(4))) uint8_t ep7_buffer[FUSB_EP_SIZE];
+#endif
+#endif
+#endif
+
+	USBHS_EP_TypeDef endpoints[FUSB_MAX_EP_CNT];
 	// Setup Request
 	uint8_t  USBHS_SetupReqCode;
 	uint8_t  USBHS_SetupReqType;
@@ -452,17 +606,13 @@ struct _USBState
 	uint8_t  USBHS_DevEnumStatus;
 
 	uint8_t* pCtrlPayloadPtr;
-
 	
-	USBHS_EP_mode endpoint_mode[FUSB_CONFIG_EPS+1]; // IN -1, OUT 1, OFF 0
-
 	#define pUSBHS_SetupReqPak      ((tusb_control_request_t*)USBHSCTX.CTRL0BUFF)
 
 #if FUSB_HID_INTERFACES > 0
 	uint8_t USBHS_HidIdle[FUSB_HID_INTERFACES];
 	uint8_t USBHS_HidProtocol[FUSB_HID_INTERFACES];
 #endif
-	volatile uint8_t USBHS_Endp_Busy[FUSB_CONFIG_EPS];
 	volatile uint8_t USBHS_errata_dont_send_endpoint_in_window;
 	volatile uint64_t USBHS_sof_timestamp;
 };
@@ -472,4 +622,3 @@ extern struct _USBState USBHSCTX;
 #include "hsusb.c"
 
 #endif
-

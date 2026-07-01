@@ -3,14 +3,39 @@
 #include <string.h>
 #include "fsusb.h"
 
+#if defined(CH32V30x)
+#define PIN_LED PA15
+#define LED_ON 1
+#elif defined(CH570_CH572)
+#define PIN_LED PA9
+#define LED_ON 0
+#elif defined(CH57x)
+#define PIN_LED PA7
+#define LED_ON 0
+#elif defined(CH5xx)
+#define PIN_LED PA8
+#define LED_ON 0
+#elif defined(CH32V10x)
+#define PIN_LED PC8
+#define LED_ON 0
+#elif defined(CH32X03x)
+#define PIN_LED PB12
+#define LED_ON 1
+#else
+#define PIN_LED PB2
+#define LED_ON 1
+#endif
+
+#define BLINK_DELAY 100
+
+#ifdef CH5xx
 #ifdef CH570_CH572
-#define PIN_LED        PA9
 #define PIN_BUTTON     PA1
 #define PIN_BUTTON_INT PA1
 #else
-#define PIN_LED        PA8
 #define PIN_BUTTON     PB22
 #define PIN_BUTTON_INT PB8
+#endif
 #endif
 
 #define EP_CDC_IRQ 1
@@ -132,15 +157,17 @@ volatile uint32_t msc_current_offset = 0;
 volatile uint32_t msc_bytes_remaining = 0;
 
 
+
 void blink(int n) {
 	for(int i = n-1; i >= 0; i--) {
-		funDigitalWrite( PIN_LED, FUN_LOW ); // Turn on LED
-		Delay_Ms(33);
-		funDigitalWrite( PIN_LED, FUN_HIGH ); // Turn off LED
-		if(i) Delay_Ms(33);
+		funDigitalWrite( PIN_LED, LED_ON ); // Turn on LED
+		Delay_Ms(BLINK_DELAY);
+		funDigitalWrite( PIN_LED, !LED_ON ); // Turn off LED
+		if(i) Delay_Ms(BLINK_DELAY);
 	}
 }
 
+#ifdef CH5xx
 #ifdef CH570_CH572
 __INTERRUPT
 void GPIOA_IRQHandler() {
@@ -166,28 +193,7 @@ void GPIOB_IRQHandler() {
 	}
 }
 #endif
-
-
-// USB stuff
-int _write(int fd, const char *buf, int size) {
-	if(USBFS_SendEndpointNEW(EP_CDC_IN, (uint8_t*)buf, size, /*copy*/1) == -1) { // -1 == busy
-		// wait for 1ms to try again once more
-		Delay_Ms(1);
-		USBFS_SendEndpointNEW(EP_CDC_IN, (uint8_t*)buf, size, /*copy*/1);
-	}
-	return size;
-}
-
-int putchar(int c) {
-	uint8_t single = c;
-	if(USBFS_SendEndpointNEW(EP_CDC_IN, &single, 1, /*copy*/1) == -1) { // -1 == busy
-		// wait for 1ms to try again once more
-		Delay_Ms(1);
-		USBFS_SendEndpointNEW(EP_CDC_IN, &single, 1, /*copy*/1);
-	}
-	return 1;
-}
-
+#endif
 
 // -----------------------------------------------------------------------------
 // Helper: Logic to determine WHAT to send next
@@ -400,7 +406,19 @@ void HandleDataOut(struct _USBState *ctx, int endp, uint8_t *data, int len) {
 	}
 	else if( endp == EP_CDC_OUT ) {
 		// cdc tty input
-		cdc_input = data[0];
+		int headroom = (sizeof(usb_inputbuffer) - usb_inbuf_idx) - len;
+		if(headroom < 0) {
+			// not enough space left, free up some
+			int offset = -headroom;
+			for(int i = offset; i < sizeof(usb_inputbuffer); i++) {
+				usb_inputbuffer[i -offset] = usb_inputbuffer[i];
+			}
+			usb_inbuf_idx -= offset;
+		}
+
+		for(int i = 0; i < len; i++) {
+			usb_inputbuffer[usb_inbuf_idx++] = data[i];
+		}
 	}
 	else if (endp == EP_MSC_OUT) {
 		
@@ -556,8 +574,10 @@ int HandleSetupCustom( struct _USBState *ctx, int setup_code ) {
 
 void GPIOSetup() {
 	funPinMode( PIN_LED,    GPIO_CFGLR_OUT_10Mhz_PP ); // Set PIN_LED to output
-	funPinMode( PIN_BUTTON, GPIO_CFGLR_IN_PUPD ); // Set PIN_BUTTON to input
 
+#ifdef CH5xx
+#if PIN_BUTTON
+	funPinMode( PIN_BUTTON, GPIO_CFGLR_IN_PUPD ); // Set PIN_BUTTON to input
 #ifdef CH570_CH572
 	R16_PA_INT_MODE |= PIN_BUTTON_INT; // edge mode, should go to ch32fun.h
 	funDigitalWrite(PIN_BUTTON, FUN_LOW); // falling edge
@@ -574,8 +594,29 @@ void GPIOSetup() {
 	R16_PB_INT_IF = (PIN_BUTTON_INT & ~PB); // reset PB8/PB22 flag
 	R16_PB_INT_EN |= (PIN_BUTTON_INT & ~PB); // enable PB8/PB22 interrupt
 #endif
+#endif
+#endif
 }
 
+void HandleUSBInput(int numbytes, uint8_t *data) {
+	if(numbytes == 1) {
+		putchar(data[0]);
+		if(data[0] > '0' && data[0] <= '9') {
+			blink(data[0] -'0');
+		}
+		else if(data[0] == '?') {
+			printf("\n\r");
+			printf("Active file (len=%ld) on cluster %d:\n\r", active_file_size, active_file_cluster);
+			for(int i = 0; i < active_file_size; i += 64) {
+				_write(0, (char*)msc_ram_disk +i, (((active_file_size -i) > 64) ? 64 : (active_file_size -i)));
+			}
+			printf("\n\r");
+		}
+		data[0] = 0;
+	} else {
+		_write(0, (const char*)data, numbytes);
+	}
+}
 
 int main() {
 	SystemInit();
@@ -588,21 +629,7 @@ int main() {
 	blink(5);
 
 	while(1) {
-		if(cdc_input) { // echo the input
-			putchar(cdc_input);
-			if(cdc_input > '0' && cdc_input <= '9') {
-				blink(cdc_input -'0');
-			}
-			else if(cdc_input == '?') {
-				printf("\n\r");
-				printf("Active file (len=%ld) on cluster %d:\n\r", active_file_size, active_file_cluster);
-				for(int i = 0; i < active_file_size; i += 64) {
-					_write(0, (char*)msc_ram_disk +i, (((active_file_size -i) > 64) ? 64 : (active_file_size -i)));
-				}
-				printf("\n\r");
-			}
-			cdc_input = 0;
-		}
+		poll_input();
 
 		if (msc_state == MSC_DATA_IN) {
 			// Host grabbed the previous packet. Load the next one.

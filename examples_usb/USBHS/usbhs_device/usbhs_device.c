@@ -81,7 +81,7 @@ void HandleDataOut( struct _USBState * ctx, int endp, uint8_t * data, int len )
 {
 	if( endp == 5 )
 	{
-		USBHSCTX.USBHS_Endp_Busy[5] = 0;
+		USBHSCTX.endpoints[5].busy = 0;
 		// Received data is written into scratchpad,
 		// and USBHSD->RX_LEN
 
@@ -98,7 +98,7 @@ static __attribute__((noreturn)) void processLoop()
 		//printf( "%lu %08lx %lu %d %d\n", USBDEBUG0, USBDEBUG1, USBDEBUG2, 0, 0 );
 
 		// Send data back to PC.
-		if( !( USBHSCTX.USBHS_Endp_Busy[4] & 1 ) )
+		if( !( USBHSCTX.endpoints[4].busy & 1 ) )
 		{
 			USBHS_SendEndpointNEW( 4, scratchpad, 512, 0 );
 		}
@@ -162,6 +162,8 @@ int main()
 
 	// Override EP5 buffer
 	UEP_DMA_RX(5) = (uintptr_t)scratchpad;
+	// Because we've set FUSB_EP5_SIZE to 0 we need to set maximum RX length here
+	USBHS->UEP5_MAX_LEN = 1024;
 
 #if defined(FUSB_SOF_HSITRIM) && (FUSB_SOF_HSITRIM)
 	last_trim = RCC->CTLR;
