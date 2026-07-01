@@ -126,7 +126,7 @@ int main() {
 		if( gs_usb_data_buf[0] ) {
 			// Send data back to PC.
 			while( USBFSCTX.endpoints[USB_EP_TX].busy & 1 );
-			USBFS_SendEndpointNEW( USB_EP_TX, &gs_usb_data_buf[1], gs_usb_data_buf[0], /*copy=*/1 ); // USBFS needs a copy here
+			USBFS_SendEndpointNEW( USB_EP_TX, &((uint8_t *)gs_usb_data_buf)[1], gs_usb_data_buf[0], /*copy=*/1 ); // USBFS needs a copy here
 			gs_usb_data_buf[0] = 0;
 		}
 	}

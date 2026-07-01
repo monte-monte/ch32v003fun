@@ -131,8 +131,9 @@ static void hexdump( const void *ptr, size_t len );
 int main()
 {
 	SystemInit();
+#ifndef CH5xx
 	RCC->AHBPCENR = RCC_AHBPeriph_SRAM | RCC_AHBPeriph_DMA1;
-
+#endif
 	systick_init();
 
 	funGpioInitAll();
