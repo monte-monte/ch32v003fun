@@ -92,8 +92,10 @@ void __libc_init_array(void)
 #include <stdint.h>
 #include <ch32fun.h>
 
+#if defined(__FreeBSD__)
 #ifdef putchar
 #undef putchar
+#endif
 #endif
 
 #if defined(CH32H41x)
