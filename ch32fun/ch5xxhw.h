@@ -326,20 +326,38 @@ typedef struct {
     __IO uint8_t CONFIG;         // 2H
 #ifdef CH570_CH572
     __IO uint8_t DMA_CTRL;       // 3H
-    __IO uint8_t PWM1_DATA;      // 4H
-    __IO uint8_t PWM2_DATA;      // 5H
-    __IO uint8_t PWM3_DATA;      // 6H
-    uint8_t RESERVED0[5];        // 7H
+    __packed union {
+        __packed struct {
+            __IO uint8_t PWM1_R8_DATA;   // 4H
+            __IO uint8_t PWM2_R8_DATA;   // 5H
+            __IO uint8_t PWM3_R8_DATA;   // 6H
+            uint8_t RESERVED0[3];        // 7H
+        };
+        __packed struct {
+            __IO uint16_t PWM1_R16_DATA; // 4H
+            __IO uint16_t PWM2_R16_DATA; // 6H
+            __IO uint16_t PWM3_R16_DATA; // 8H
+        };
+    };
+    uint16_t RESERVED1;          // AH
     __IO uint8_t INT_EN;         // CH
     __IO uint8_t INT_FLAG;       // DH
-    uint16_t RESERVED1;          // EH
-    __IO uint8_t PWM4_DATA;      // 10H
-    __IO uint8_t PWM5_DATA;      // 11H
-    uint16_t RESERVED2;          // 12H
+    uint16_t RESERVED2;          // EH
+    __packed union {
+        __packed struct {
+            __IO uint8_t PWM4_R8_DATA; // 10H
+            __IO uint8_t PWM5_R8_DATA; // 11H
+            uint16_t RESERVED3;        // 12H
+        };
+        __packed struct {
+            __IO uint16_t PWM4_R16_DATA; // 10H
+            __IO uint16_t PWM5_R16_DATA; // 12H
+        };
+    };
     __IO uint16_t CYC_VALUE;     // 14H
     __IO uint16_t CYC1_VALUE;    // 16H
     __IO uint16_t CLOCK_DIV;     // 18H
-    uint16_t RESERVED3;          // 1AH
+    uint16_t RESERVED4;          // 1AH
     __IO uint32_t DMA_NOW;       // 1CH
     __IO uint32_t DMA_BEG;       // 20H
     __IO uint32_t DMA_END;       // 24H
@@ -355,7 +373,7 @@ typedef struct {
     __IO uint8_t PWM11_DATA;     // BH
     __IO uint8_t INT_CTRL;       // CH
 #if defined(CH584_CH585) || defined(CH591_CH592)
-    uint8_t RESERVED0[3];        // DH
+    uint8_t RESERVED5[3];        // DH
     __IO uint32_t REG_DATA8;     // 10H
     __IO uint32_t REG_CYCLE;     // 14H
 #endif
