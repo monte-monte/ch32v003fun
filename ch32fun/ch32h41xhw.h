@@ -13646,7 +13646,11 @@ typedef enum
 #ifndef __ASSEMBLER__
 
 /* Output Maximum frequency selection */
+
+#ifndef __ZEPHYR__
 #warning "Speeds on H41x have their own register, dont concat in CFGLR"
+#endif
+
 typedef enum
 {
 	GPIO_Speed_10MHz = 0,
