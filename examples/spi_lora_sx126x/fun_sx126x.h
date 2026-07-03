@@ -180,11 +180,11 @@ void fun_sx126x_setModulation(u8 sf, u8 bw, u8 cr, u8 lowDataRateOptimization) {
 	// Higher BW allows higher data rate at the expense of reduced sensitivity	
 	// Higher CR (Coding Rate) allows higher data rate at the expense of reduced sensitivity
 	// CR 0x01 = 4/5, CR 0x02 = 4/6, CR 0x03 = 4/7, CR 0x04 = 4/8
-	// lowDataRateOptimization can be used for low data rates (high FS for low BW) and payloads
+	// lowDataRateOptimization can be used for low data rates (high SF for low BW) and payloads
 	// which last longer time on air in order to allow the receiver to get better LoRa signal
 
 	// ref: `Time On Air`
-	// ToA = 2^FS * Nsymbol / BW(kHz)
+	// ToA = 2^SF * Nsymbol / BW(kHz)
 
 	// SF5 and SF6 works for SX1262 and LLCC68 but NOT SX1276
 	// valid spreading factor is between 5 and 12

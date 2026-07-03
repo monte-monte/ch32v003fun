@@ -56,7 +56,7 @@ connections. I had issues with dupont jumper wires.
 ## PARAMETERS:
 
 Main parameters:
-SF - Spreading Factor (larger FS (eg FS11) can travel further but take more air time)
+SF - Spreading Factor (larger SF (eg SF11) can travel further but take more air time)
 BW - Bandwidth (Higher BW allows higher data rate at the expense of reduced sensitivity)
 CR - Coding Rate (better correction and range at cost of data rate and air time)
 
@@ -65,8 +65,8 @@ Note:
 - SX126X supports SF (5-11), power range -9 dBm to +22 dBm
 - SX127X supports SF (6-12), power range -4 dBm to +20 dBm
 - LLCC68 uses SX126X loRa
-- FS6 on SX126X is not backward compatible with SF6 on SX127X.
-- larger FS (eg FS11) can travel further but take more air time
+- SF6 on SX126X is not backward compatible with SF6 on SX127X.
+- larger SF (eg SF11) can travel further but take more air time
   
 ## TODO:
 
