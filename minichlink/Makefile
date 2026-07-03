@@ -51,6 +51,17 @@ else
 		INCS := $(LIBHIDAPI_INCS) $(LIBUSB_INCS)
 		LDFLAGS := -lpthread $(LIBHIDAPI_LIBS) $(LIBUSB_LIBS)
 	endif
+	ifeq ($(OS_NAME),freebsd)
+		# use ports/comms/hidapi
+		LIBHIDAPI_INCS := $(shell pkg-config --cflags hidapi)
+		LIBHIDAPI_LIBS := $(shell pkg-config --libs hidapi)
+		# use system libusb1
+		LIBUSB_INCS := $(shell pkg-config --cflags libusb-1.0)
+		LIBUSB_LIBS := $(shell pkg-config --libs libusb-1.0)
+
+		INCS := $(LIBHIDAPI_INCS) $(LIBUSB_INCS)
+		LDFLAGS := -liconv -lpthread $(LIBHIDAPI_LIBS) $(LIBUSB_LIBS)
+	endif
 endif
 VERSION:=$(shell $(SHASUM) $(C_S) $(H_S) Makefile | $(SHASUM) | head -c 40)
 

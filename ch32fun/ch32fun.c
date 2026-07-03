@@ -92,6 +92,12 @@ void __libc_init_array(void)
 #include <stdint.h>
 #include <ch32fun.h>
 
+#if defined(__FreeBSD__)
+#ifdef putchar
+#undef putchar
+#endif
+#endif
+
 #if defined(CH32H41x)
 volatile v5f_main v5f_start_function = NULL;
 static int start_v5f(void)

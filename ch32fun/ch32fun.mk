@@ -12,6 +12,10 @@ PREFIX_DEFAULT:=riscv64-elf
 
 ifneq ($(shell $(WHICH) riscv64-unknown-elf-gcc 2>$(NULLDEV)),)
 	PREFIX_DEFAULT:=riscv64-unknown-elf
+else ifneq ($(shell $(WHICH) riscv64-none-elf-gcc 2>$(NULLDEV)),)
+	PREFIX_DEFAULT:=riscv64-none-elf
+else ifneq ($(shell $(WHICH) riscv32-unknown-elf-gcc 2>$(NULLDEV)),)
+	PREFIX_DEFAULT:=riscv32-unknown-elf
 else ifneq ($(shell $(WHICH) riscv-none-elf-gcc 2>$(NULLDEV)),)
 	PREFIX_DEFAULT:=riscv-none-elf
 else ifneq ($(shell $(WHICH) riscv64-linux-gnu-gcc 2>$(NULLDEV)),)
