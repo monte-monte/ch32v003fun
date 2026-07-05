@@ -42,8 +42,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           cd minichlink
-          OS=Windows_NT make clean
-          OS=Windows_NT make -j$(nproc) minichlink.exe
+          make -j$(nproc) minichlink.exe
 
       - name: Package Linux binaries
         if: matrix.os == 'ubuntu-latest'
@@ -61,7 +60,9 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         with:
           name: minichlink (Windows)
-          path: minichlink/minichlink.exe
+          path: |
+            minichlink/minichlink.exe
+            minichlink/libusb-1.0.dll
 
       # ----------------------
       # macOS build
