@@ -11,14 +11,16 @@ H_S:=cmdserver.h funconfig.h hidapi.h libusb.h microgdbstub.h minichlink.h seria
 CFLAGS_WINDOWS:=-Os -s -Wall -D_WIN32_WINNT=0x0600 -I. -Wall -DCH32V003 -DMINICHLINK
 LDFLAGS_WINDOWS:=-L. -lpthread -lusb-1.0 -lsetupapi -lws2_32
 ifeq ($(OS),Windows_NT)
+	RM = del /Q
+	HASHTOOL:=powershell -NoProfile -ExecutionPolicy Bypass -File win_version.ps1
 	TOOLS:=minichlink.exe
-	SHASUM:=$(shell where shasum)
 else
+	RM = rm -f
 	OS_NAME := $(shell uname -s | tr A-Z a-z)
 	SHASUM:=$(@shell which shasum)
 	ifeq (, $(SHASUM))
 		SHASUM:=$(shell which sha1sum)
- 	endif
+	endif
 	ifeq ($(OS_NAME),linux)
 		LDFLAGS:=-lpthread -lusb-1.0 -ludev
 	endif
@@ -63,7 +65,11 @@ else
 		LDFLAGS := -liconv -lpthread $(LIBHIDAPI_LIBS) $(LIBUSB_LIBS)
 	endif
 endif
+ifeq ($(OS),Windows_NT)
+VERSION:=$(shell $(HASHTOOL) combined $(C_S) $(H_S) Makefile)
+else
 VERSION:=$(shell $(SHASUM) $(C_S) $(H_S) Makefile | $(SHASUM) | head -c 40)
+endif
 
 all : $(TOOLS)
 
@@ -90,8 +96,12 @@ inspect_bootloader : minichlink
 	riscv64-unknown-elf-objdump -S -D test.bin -b binary -m riscv:rv32 | less
 
 clean :
-	rm -rf $(TOOLS) minichlink.exe
+	-$(RM) $(TOOLS) minichlink.exe
 
 hash :
+ifeq ($(OS),Windows_NT)
+	$(HASHTOOL) full $(C_S) $(H_S) Makefile > version
+else
 	echo $(VERSION) > version
 	$(SHASUM) $(C_S) $(H_S) Makefile >> version
+endif

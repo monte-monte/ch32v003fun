@@ -1,9 +1,15 @@
 ifeq ($(OS),Windows_NT)
 	WHICH:=where
 	NULLDEV:=nul
+	RM = del /Q
+	RMDIR = rmdir /S /Q
+	fixpath = $(subst /,\,$1)
 else
 	WHICH:=which
 	NULLDEV:=/dev/null
+	RM = rm -f
+	RMDIR = rm -rf
+	fixpath = $1
 	OS_NAME := $(shell uname -s | tr A-Z a-z)
 endif
 
@@ -40,12 +46,9 @@ else
 	NEWLIB?=/usr/include/newlib
 endif
 
-CH32FUN?=$(dir $(lastword $(MAKEFILE_LIST)))
-#TARGET_MCU?=CH32V003 # Because we are now opening up to more processors, don't assume this.
-
 TARGET_EXT?=c
 
-CH32FUN?=$(dir $(lastword $(MAKEFILE_LIST)))
+CH32FUN?=$(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
 MINICHLINK?=$(CH32FUN)/../minichlink
 
 WRITE_SECTION?=flash
@@ -418,8 +421,8 @@ clangd :
 	bear -- $(MAKE) build
 
 clangd_clean :
-	rm -f compile_commands.json
-	rm -rf .cache
+	-$(RM) compile_commands.json
+	-$(RMDIR) .cache
 
 FLASH_COMMAND?=$(MINICHLINK)/minichlink -w $< $(WRITE_SECTION) -b
 FLASH_EXT_COMMAND?=$(MINICHLINK)/minichlink -w $< $(EXT_ORIGIN) -b
@@ -448,6 +451,6 @@ cv_flash_ext : $(TARGET)_ext.bin
 	$(FLASH_EXT_COMMAND)
 
 cv_clean :
-	rm -rf $(TARGET).elf $(TARGET).bin $(TARGET)_ext.bin $(TARGET).hex $(TARGET).lst $(TARGET).map $(TARGET).hex $(GENERATED_LD_FILE) || true
+	-$(RM) $(TARGET).elf $(TARGET).bin $(TARGET)_ext.bin $(TARGET).hex $(TARGET).lst $(TARGET).map "$(call fixpath,$(GENERATED_LD_FILE))"
 
 build : $(TARGET).bin
