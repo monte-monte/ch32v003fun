@@ -125,9 +125,9 @@ int main() {
 				}
 
 				if (temp_ready) {
-					int temp = 0;
+					int32_t temp = 0;
 					if (!readTemperature(sensor_list[i], &temp)) {
-						printf("Sensor #%d, Temp: %d.%02dC\n\n", i, temp/100, temp%100);
+						printf("Sensor #%d, Temp: %ld.%02ldC\n\n", i, temp/100, temp%100);
 					} else {
 						printf("Couldn't read temperature.\n");
 					}
