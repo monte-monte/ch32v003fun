@@ -2318,8 +2318,6 @@ void funRebootToBootloader()
 		R8_RESET_STATUS = 1<<7;
 		R8_RST_WDOG_CTRL = 5;
 	);
-#else
-#error "Reboot to bootloader is not supported for this chip"
 #endif
 }
 
