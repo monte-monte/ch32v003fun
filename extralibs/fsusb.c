@@ -733,7 +733,7 @@ void USBFS_IRQHandler()
 #endif
 }
 
-void USBFS_InternalFinishSetup()
+WEAK void USBFS_InternalFinishSetup()
 {
 	USBFS->UEP4_1_MOD = 0;
 	USBFS->UEP2_3_MOD = 0;

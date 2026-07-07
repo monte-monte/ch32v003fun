@@ -2305,6 +2305,24 @@ int funAnalogRead( int nAnalogNumber )
 }
 #endif
 
+void funRebootToBootloader()
+{
+#if defined(CH32V003) || defined(CH32V00x) || defined(CH32X03x)
+	FLASH->BOOT_MODEKEYR = FLASH_KEY1;
+	FLASH->BOOT_MODEKEYR = FLASH_KEY2;
+	FLASH->STATR = 1<<14;
+	RCC->RSTSCKR |= 0x1000000;
+	PFIC->SCTLR = 1<<31;
+#elif defined(CH5xx)
+	SYS_SAFE_ACCESS(
+		R8_RESET_STATUS = 1<<7;
+		R8_RST_WDOG_CTRL = 5;
+	);
+#else
+#error "Reboot to bootloader is not supported for this chip"
+#endif
+}
+
 // C++ Support
 
 #ifdef CPLUSPLUS

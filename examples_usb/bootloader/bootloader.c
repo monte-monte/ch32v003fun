@@ -12,6 +12,7 @@
 #define BOOTLOADER_LED_POLARITY 0
 #define BOOTLOADER_BTN_PIN 0
 #elif defined(CH5xx)
+#define CHECK_RESET_REASON !(R8_RESET_STATUS & 0x7)
 #define SYSTICK_CNT (SysTick->CNTL)
 #define BOOTLOADER_LED_PIN PA8
 #define BOOTLOADER_LED_POLARITY 0
@@ -19,19 +20,25 @@
 #define BOOTLOADER_LED_PIN PC8
 #define BOOTLOADER_LED_POLARITY 0
 #elif defined(CH32X03x)
+#define CHECK_RESET_REASON (RCC->RSTSCKR == 0x10000000)
 #define SYSTICK_CNT (SysTick->CNTL)
 #define BOOTLOADER_LED_PIN PB12
 #define BOOTLOADER_LED_POLARITY 1
-#define BOOTLOADER_BTN_PIN PC17
+// ch32x035 factory bootloader uses PC17 (D+) for button trigger, and ch32fun doesn't have macros for GPIO > 15
+// this means we have to do it in special way
+#define BOOTLOADER_BTN_PC17 1
+#define BOOTLOADER_BTN_CHECK (GPIOC->INDR&(1<<17))
 #else
 #define BOOTLOADER_LED_PIN PB2
 #define BOOTLOADER_LED_POLARITY 1
 #define BOOTLOADER_BTN_PIN 0
+#define BOOTLOADER_BTN_TRIG_LEVEL 0 // 1 = HIGH; 0 = LOW
+#define BOOTLOADER_BTN_PULL 1 // 1 = Pull-Up; 0 = Pull-Down; Optional, comment out for floating input
 #endif
 
 // If you don't want to automatically boot into the application ever,
 // comment out BOOTLOADER_TIMEOUT_USB and set this flag:
-#define DISABLE_BOOTLOAD 1
+#define DISABLE_BOOTLOAD 0
 
 #ifdef BOOTLOADER_LED_PIN
 #if BOOTLOADER_LED_POLARITY
@@ -43,13 +50,18 @@
 #define BOOT_LED(n)
 #endif
 
+#ifndef BOOTLOADER_BTN_CHECK
+#if BOOTLOADER_BTN_TRIG_LEVEL
+#define BOOTLOADER_BTN_CHECK funDigitalRead(BOOTLOADER_BTN_PIN)
+#else
+#define BOOTLOADER_BTN_CHECK !funDigitalRead(BOOTLOADER_BTN_PIN)
+#endif
+#endif
+
 // Bootloader Button Config
 // If you want to use a Button during boot to enter bootloader, use these defines 
 // to setup the Button. If you do, it makes sense to also set DISABLE_BOOTLOAD above, 
 // set BOOTLOADER_TIMEOUT_PWR_MS to 0 and disable BOOTLOADER_TIMEOUT_USB
-
-#define BOOTLOADER_BTN_TRIG_LEVEL 0 // 1 = HIGH; 0 = LOW
-#define BOOTLOADER_BTN_PULL 1 // 1 = Pull-Up; 0 = Pull-Down; Optional, comment out for floating input
 
 // Timeout for bootloader after power-up, set to 0 to stay in bootloader forever
 #define BOOTLOADER_TIMEOUT_PWR_MS 5000
@@ -87,9 +99,28 @@ static inline void asmDelay(int delay) {
 "bne %[delay], x0, 1b\n" :[delay]"+r"(delay)  );
 }
 
+// This saves space and helps to fit into a tight BOOT area on ch32x035
+void USBFS_InternalFinishSetup() {
+	USBFS->UEP4_1_MOD = 0;
+	UEP_CTRL_LEN(0) = 0;
+	UEP_CTRL_LEN(1) = 0;
+	memset(USBFSCTX.ep_buffers[0], 0, 64);
+	memset(USBFSCTX.ep_buffers[1], 0, 64);
+	USBFSCTX.endpoints[0].mode = USBFS_EP_MODE_RX | USBFS_EP_MODE_TX;
+	USBFSCTX.endpoints[1].mode = USBFS_EP_MODE_TX;
+	USBFS->UEP4_1_MOD |= FUSB_EP1_MODE << 4;
+	UEP_DMA(0) = (uintptr_t)USBFSCTX.ep_buffers[0];
+	USBFSCTX.endpoints[0].in = USBFSCTX.ep_buffers[0];
+	USBFSCTX.endpoints[0].out = USBFSCTX.ep_buffers[0];
+	UEP_DMA(1) = (uintptr_t)USBFSCTX.ep_buffers[1];
+	USBFSCTX.endpoints[1].in = USBFSCTX.ep_buffers[1];
+	UEP_CTRL_TX(0) = USBFS_UEP_T_RES_NAK | USBFS_UEP_R_RES_ACK | CHECK_USBFS_UEP_T_AUTO_TOG;
+	UEP_CTRL_TX(1) = USBFS_UEP_T_RES_NAK;
+}
+
 void boot_usercode()
 {
-	Delay_Ms(100);
+	asmDelay(1000000);
 #if !defined(CH5xx)
 	FLASH->BOOT_MODEKEYR = FLASH_KEY1;
 	FLASH->BOOT_MODEKEYR = FLASH_KEY2;
@@ -168,8 +199,7 @@ int main()
 	funPinMode(BOOTLOADER_LED_PIN, GPIO_CFGLR_OUT_10Mhz_PP);
 #endif
 
-#if BOOTLOADER_BTN_PIN && defined(BOOTLOADER_BTN_TRIG_LEVEL)
-
+#if BOOTLOADER_BTN_PIN && defined(BOOTLOADER_BTN_TRIG_LEVEL) && !BOOTLOADER_BTN_PC17
 	// Configure the Bootloader Pin
 	#if defined(BOOTLOADER_BTN_PULL)
 		funPinMode(BOOTLOADER_BTN_PIN, GPIO_Speed_In | GPIO_CNF_IN_PUPD );
@@ -185,28 +215,20 @@ int main()
 	#endif
 	#endif
 
-	asmDelay(1000000);
-
-	#if !defined(DISABLE_BOOTLOAD) || !DISABLE_BOOTLOAD
-	#if BOOTLOADER_BTN_TRIG_LEVEL == 0
-		#if defined(SOFT_REBOOT_TO_BOOTLOADER) && !defined(CH5xx)
-			if(funDigitalRead(BOOTLOADER_BTN_PIN) && !(RCC->RSTSCKR == 0x10000000)) boot_usercode();
-		#elif defined(SOFT_REBOOT_TO_BOOTLOADER)
-			if(funDigitalRead(BOOTLOADER_BTN_PIN) && (R8_RESET_STATUS & 0x7)) boot_usercode();
-		#else
-			if(funDigitalRead(BOOTLOADER_BTN_PIN)) boot_usercode();
-		#endif
-	#else
-		#if defined(SOFT_REBOOT_TO_BOOTLOADER) && !defined(CH5xx)
-			if(!funDigitalRead(BOOTLOADER_BTN_PIN) && !(RCC->RSTSCKR == 0x10000000)) boot_usercode();
-		#elif defined(SOFT_REBOOT_TO_BOOTLOADER)
-			if(!funDigitalRead(BOOTLOADER_BTN_PIN) && (R8_RESET_STATUS & 0x7)) boot_usercode();
-		#else
-			if(!funDigitalRead(BOOTLOADER_BTN_PIN)) boot_usercode();
-		#endif
-	#endif
-	#endif
+#elif BOOTLOADER_BTN_PC17 && defined(CH32X03x)
+	GPIOC->CFGXR = (GPIOC->CFGXR & (~(0xf<<(4)))) | ((GPIO_CFGLR_IN_PUPD)<<4);
+	// GPIOC->BSXR = 2<<16; // Setting pull-down this way doesn't work for some reason. But leaving it by default works.
 #endif
+
+#if !defined(DISABLE_BOOTLOAD) || !DISABLE_BOOTLOAD
+	asmDelay(1000000);
+#if defined(SOFT_REBOOT_TO_BOOTLOADER)
+	if(!BOOTLOADER_BTN_CHECK && !CHECK_RESET_REASON) boot_usercode();
+#else
+	if(!BOOTLOADER_BTN_CHECK) boot_usercode();
+#endif
+#endif
+
 	USBFSSetup();
 	// Bootloader timeout / localpad: 
 	// localpad counting up to 0 is used for timeout

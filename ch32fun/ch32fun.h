@@ -1041,6 +1041,8 @@ void DefaultIRQHandler( void ) __attribute__((section(VECTOR_HANDLER_SECTION))) 
 	void NMI_RCC_CSS_IRQHandler( void ) __attribute__((section(VECTOR_HANDLER_SECTION))) __attribute__((naked)) __attribute__((used));
 #endif
 
+void funRebootToBootloader();
+
 void DelaySysTick( uint32_t n );
 
 // #define funSysTick32() is defined per-architecture.
