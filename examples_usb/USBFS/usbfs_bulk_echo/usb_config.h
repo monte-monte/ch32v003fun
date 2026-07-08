@@ -27,21 +27,21 @@
 #define FUSB_STR_SERIAL       u"585"
 
 //Taken from http://www.usbmadesimple.co.uk/ums_ms_desc_dev.htm
-static const uint8_t device_descriptor[] = {
-	18, //Length
-	1,  //Type (Device)
-	0x00, 0x02, //Spec
-	0x0, //Device Class
-	0x0, //Device Subclass
-	0x0, //Device Protocol  (000 = use config descriptor)
-	64, //Max packet size for EP0
-	(uint8_t)(FUSB_USB_VID), (uint8_t)(FUSB_USB_VID >> 8), //idVendor - ID Vendor
-	(uint8_t)(FUSB_USB_PID), (uint8_t)(FUSB_USB_PID >> 8), //idProduct - ID Product
-	(uint8_t)(FUSB_USB_REV), (uint8_t)(FUSB_USB_REV >> 8), //bcdDevice - Device Release Number
-	1, //Manufacturer string
-	2, //Product string
-	3, //Serial string
-	1, //Max number of configurations
+static const tusb_desc_device_t device_descriptor = {
+  .bLength = sizeof(tusb_desc_device_t),
+  .bDescriptorType = TUSB_DESC_DEVICE,
+  .bcdUSB = 0x200,
+  .bDeviceClass = 0,
+  .bDeviceSubClass = 0,
+  .bDeviceProtocol = 0,
+  .bMaxPacketSize0 = 64,
+  .idVendor = FUSB_USB_VID,
+  .idProduct = FUSB_USB_PID,
+  .bcdDevice = FUSB_USB_REV,
+  .iManufacturer = 1,
+  .iProduct = 2,
+  .iSerialNumber = 3,
+  .bNumConfigurations = 1,
 };
 
 /* Configuration Descriptor Set */
@@ -118,7 +118,7 @@ const static struct descriptor_list_struct {
 	const uint8_t	*addr;
 	uint8_t		length;
 } descriptor_list[] = {
-	{0x00000100, device_descriptor, sizeof(device_descriptor)},
+	{0x00000100, (const uint8_t*)&device_descriptor, sizeof(device_descriptor)},
 	{0x00000200, config_descriptor, sizeof(config_descriptor)},
 	{0x00000300, (const uint8_t *)&string0, 4},
 	{0x04090301, (const uint8_t *)&string1, sizeof(FUSB_STR_MANUFACTURER)},
