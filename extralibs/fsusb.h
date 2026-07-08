@@ -403,6 +403,7 @@ extern int usb_inbuf_idx;
 #warning "You may have forgotten to properly define used EPs in usb_config.h"
 #endif
 
+// high-level-ish abstraction to help dealing with endpoints
 typedef struct
 {
 	union {

@@ -60,11 +60,6 @@
 #endif
 #endif
 
-// Bootloader Button Config
-// If you want to use a Button during boot to enter bootloader, use these defines 
-// to setup the Button. If you do, it makes sense to also set DISABLE_BOOTLOAD above, 
-// set BOOTLOADER_TIMEOUT_PWR_MS to 0 and disable BOOTLOADER_TIMEOUT_USB
-
 // Timeout for bootloader after power-up, set to 0 to stay in bootloader forever
 #define BOOTLOADER_TIMEOUT_PWR_MS 5000
 
@@ -95,6 +90,7 @@ volatile uint32_t cmd_len = 0;
 
 volatile uint8_t reset_timeout = 0;
 
+// Simple delay to save some space compared to Delay_Ms
 static inline void asmDelay(int delay) {
 	asm volatile(
 "1:	c.addi %[delay], -1\n"
@@ -223,7 +219,7 @@ int main()
 #endif
 
 #if !defined(DISABLE_BOOTLOAD) || !DISABLE_BOOTLOAD
-	asmDelay(1000000);
+	asmDelay(1000000); // ~165ms
 #if defined(SOFT_REBOOT_TO_BOOTLOADER)
 	if(!BOOTLOADER_BTN_CHECK && !CHECK_RESET_REASON) boot_usercode();
 #else

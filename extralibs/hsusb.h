@@ -421,6 +421,7 @@ typedef enum
 	USBHS_EP_TX = 1,
 } USBHS_EP_mode;
 
+// high-level-ish abstraction to help dealing with endpoints
 typedef struct
 {
 	union {
