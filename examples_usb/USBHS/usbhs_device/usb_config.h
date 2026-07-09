@@ -4,19 +4,19 @@
 #include "funconfig.h"
 #include "ch32fun.h"
 
-#define FUSB_CONFIG_EPS       6 // Include EP0 in this count
-#define FUSB_EP1_MODE         1 // TX (IN)
-#define FUSB_EP2_MODE         1 // TX (IN)
-#define FUSB_EP3_MODE         1 // TX (IN)
-#define FUSB_EP4_MODE         1 // TX (IN)
-#define FUSB_EP5_MODE        -1 // RX (OUT)
+#define FUSB_EP1_MODE         USBHS_EP_MODE_TX // IN
+#define FUSB_EP2_MODE         USBHS_EP_MODE_TX // IN
+#define FUSB_EP3_MODE         USBHS_EP_MODE_TX // IN
+#define FUSB_EP4_MODE         USBHS_EP_MODE_TX // IN
+#define FUSB_EP5_MODE         USBHS_EP_MODE_RX // OUT
 #define FUSB_SUPPORTS_SLEEP   0
 #define FUSB_HID_INTERFACES   2
 #define FUSB_HID_USER_REPORTS 1
 #define FUSB_IO_PROFILE       0
 #define FUSB_USE_HPE          FUNCONF_ENABLE_HPE
 #define FUSB_EP_SIZE          64
-#define FUSB_EP5_SIZE         1024
+#define FUSB_EP4_SIZE         512
+#define FUSB_EP5_SIZE         0 // We will use a separate buffer, so we don't need to waste RAM for a built-in one
 #define FUSB_SPEED            USB_SPEED_HIGH
 #define FUSB_USER_HANDLERS    0 // To enable HandleDataOut
 // #define FUSB_SOF_HSITRIM      1 // If using HSI on CH32V30x as clock source you probably want to enable this

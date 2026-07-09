@@ -121,7 +121,7 @@ const struct RiscVChip_s ch32x033 = {
 };
 
 const struct RiscVChip_s ch32x035 = {
-	.name_str = "CH32x035",
+	.name_str = "CH32X035",
 	.family_id = CHIP_CH32X03x,
 	.model_id = 0x0350,
 	.ram_base = 0x20000000,
@@ -166,8 +166,8 @@ const struct RiscVChip_s ch32l103 = {
 	.sector_size = 256,
 	.flash_offset = 0x08000000,
 	.flash_size = 64*1024,
-	.bootloader_offset = 0x1FFFF000,
-	.bootloader_size = 2048,
+	.bootloader_offset = 0x1FFF0000,
+	.bootloader_size = 3328,
 	.options_offset = 0x1FFFF800,
 	.options_size = 256,
 	.interface_speed = 0x01,

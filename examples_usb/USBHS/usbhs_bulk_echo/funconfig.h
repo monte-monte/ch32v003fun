@@ -1,13 +1,21 @@
 #ifndef _FUNCONFIG_H
 #define _FUNCONFIG_H
 
-#define FUNCONF_USE_HSI           0
-#define FUNCONF_USE_HSE           1
-#define CLK_SOURCE_CH5XX          CLK_SOURCE_HSE_PLL_62_4MHz
-#define FUNCONF_SYSTEM_CORE_CLOCK 624 * 100 * 1000     // keep in line with CLK_SOURCE_CH5XX
+// Though this should be on by default we can extra force it on.
+#define FUNCONF_USE_DEBUGPRINTF     1
+#define FUNCONF_ENABLE_HPE          0
+#define FUNCONF_SYSTICK_USE_HCLK    1
 
-#define FUNCONF_DEBUG_HARDFAULT   0
-#define FUNCONF_USE_CLK_SEC       0
-#define FUNCONF_USE_DEBUGPRINTF   0
+#if defined(CH58x)
+#define CLK_SOURCE_CH5XX            CLK_SOURCE_HSE_PLL_62_4MHz // default so not really needed
+#define FUNCONF_SYSTEM_CORE_CLOCK   64.4 * 1000 * 1000     // keep in line with CLK_SOURCE_CH5XX
+#define FUNCONF_USE_CLK_SEC         0
+#define FUNCONF_USE_HSE             1
+#else
+#define FUNCONF_USE_HSE             1
+#define FUNCONF_USE_HSI             0 // HSI is perfectly usable but requires active clock tuning with "FUSB_SOF_HSITRIM"
+#endif
+
+#define FUNCONF_DEBUG_HARDFAULT     1
 
 #endif

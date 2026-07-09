@@ -203,7 +203,7 @@ void uart_process_rx(CDC_config_t * ctx) {
 			// Manually clear rxing flag if haven't receive IN request
 			if (ctx->usb_timeout >= UART_USB_TIMEOUT) {
 				ctx->rxing = 0;
-				USBFSCTX.USBFS_Endp_Busy[3] = 0;
+				USBFSCTX.endpoints[3].busy = 0;
 			}
 		}
 	}

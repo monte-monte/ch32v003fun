@@ -1,7 +1,11 @@
 #include "ch32fun.h"
 #include <stdio.h>
 
+#if defined(CH5xx)
 #define AES_BASE ((uint32_t)0x4000c300)
+#else
+#define AES_BASE ((uint32_t)0x40024300) // For CH32V208
+#endif
 
 typedef struct {
 	volatile uint32_t CFG;
@@ -31,9 +35,9 @@ void doAES(uint32_t * key, uint32_t * in, uint32_t * out, uint8_t enc) {
 	// AES->STA &= 0xfffffffd;
 	// AES->STA |= 1;
 	AES->CFG |= 1; // Start process
-  
-  while(AES->CFG & 1); // Wait for it to finish
-  
+
+	while(AES->CFG & 1); // Wait for it to finish
+
 	out[0] = AES->data[0];
 	out[1] = AES->data[1];
 	out[2] = AES->data[2];
@@ -63,7 +67,7 @@ int main()
 	}
 	printf("\n\n");
 
-	doAES(key, plain_text, output_data, 1);
+	doAES((uint32_t*)key, (uint32_t*)plain_text, (uint32_t*)output_data, 1);
 	printf("normal text:\n ");
 	for (int i = 0; i < 16; i++) {
 		printf("%c", plain_text[i]);
@@ -81,7 +85,7 @@ int main()
 	}
 	printf("\n\n");
 
-	doAES(key, secret_message, output_data, 0);
+	doAES((uint32_t*)key, (uint32_t*)secret_message, (uint32_t*)output_data, 0);
 	printf("decrypted message:\n ");
 	for (int i = 0; i < 16; i++) {
 		printf("%c", output_data[i]);

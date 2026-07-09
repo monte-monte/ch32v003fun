@@ -6,8 +6,8 @@ This folder contains examples that use USBFS peripheral, the most common impleme
 
 |   |CH32X035|CH32V103|CH32L103|CH32V20x|CH32V30x|CH570/2|CH571/3|CH582/3|CH584/5|CH591/2|
 |:-:|:-:     |:-:     |:-:     |:-:     |:-:     |:-:    |:-:    |:-:    |:-:    |:-:    |
-|D+ |PC17    |PA12    |PA12    |B7      |PA12    |PA1    |PB11   |PB11   |PB11   |PB11   |
-|D- |PC16    |PA11    |PA11    |B6      |PA11    |PA0    |PB10   |PB10   |PB10   |PB10   |
+|D+ |PC17    |PA12    |PA12    |PB7     |PA12    |PA1    |PB11   |PB11   |PB11   |PB11   |
+|D- |PC16    |PA11    |PA11    |PB6     |PA11    |PA0    |PB10   |PB10   |PB10   |PB10   |
 
 ## Library
 

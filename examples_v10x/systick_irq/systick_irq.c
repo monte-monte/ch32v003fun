@@ -127,7 +127,7 @@ int main(void)
 		// increment more than 500 per loop
 		printf("\nMilliseconds taken:\t%lu\n", end_millis - start_millis);
 		printf("Current Milliseconds:\t%lu\n", (uint32_t)millis());
-		printf("Current Microseconds:\t%lu\n", micros());
+		printf("Current Microseconds:\t%llu\n", micros());
 		printf("SysTick->CNT:\t\t%lu\n", (uint32_t)SysTick->CNT);
 	}
 }

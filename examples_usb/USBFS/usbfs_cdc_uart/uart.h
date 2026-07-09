@@ -18,6 +18,7 @@
 #define USART_Parity_Space  0x38
 
 #define UART_BASE_ADDR(n)   ((uint32_t)(0x40003000+(0x400*n)))
+#undef UART
 #define UART(n)             ((UART_TypeDef *)UART_BASE_ADDR(n))
 
 #else

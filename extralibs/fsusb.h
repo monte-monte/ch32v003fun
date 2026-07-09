@@ -95,10 +95,10 @@ typedef struct
 } USBFS_TypeDef;
 
 #define UEP_JMP         ((void*)&(USBFS->EP_JMPR) - (void*)&(USBFS->UEP0_DMA))
-#define UEP_CTRL_LEN(n) (((uint8_t*)&USBFS->UEP0_TX_LEN)[n*4 +((n>4) ? UEP_JMP : 0)])
-#define UEP_CTRL_TX(n)  (((uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4 +((n>4) ? UEP_JMP : 0)])
-#define UEP_CTRL_RX(n)  (((uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4 +((n>4) ? UEP_JMP : 0)])
-#define UEP_DMA(n)      (((uint16_t*)&USBFS->UEP0_DMA)[n*2 +((n>4) ? (UEP_JMP /2) : 0)]) // BREAKS FOR EP4!!!
+#define UEP_CTRL_LEN(n) (((volatile uint8_t*)&USBFS->UEP0_TX_LEN)[n*4 +((n>4) ? UEP_JMP : 0)])
+#define UEP_CTRL_TX(n)  (((volatile uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4 +((n>4) ? UEP_JMP : 0)])
+#define UEP_CTRL_RX(n)  (((volatile uint8_t*)&USBFS->UEP0_TX_CTRL)[n*4 +((n>4) ? UEP_JMP : 0)])
+#define UEP_DMA(n)      (((volatile uint16_t*)&USBFS->UEP0_DMA)[n*2 +((n>4) ? (UEP_JMP /2) : 0)]) // BREAKS FOR EP4!!!
 #endif
 
 #if defined(CH32V10x)
@@ -241,11 +241,12 @@ typedef struct
 #define USBFS           ((USBFS_TypeDef *)USBFS_BASE)
 
 #ifdef CH32X03x
-#define UEP_CTRL_LEN(n) (((volatile uint16_t*)&USBFS->UEP0_TX_LEN)[n*2])
-#define UEP_CTRL_TX(n)  (((volatile uint16_t*)&USBFS->UEP0_CTRL_H)[n*2])
-#define UEP_CTRL_RX(n)  (((volatile uint16_t*)&USBFS->UEP0_CTRL_H)[n*2])
-#define UEP_DMA(n)      (((volatile uint32_t*)&USBFS->UEP0_DMA)[n])
-#define UEP_DMA_H(n)    (((volatile uint32_t*)&USBFS->UEP5_DMA)[n-5]) // DMA for EP4 is tied to EP0 DMA on these chips
+#define EP_JMPR         (USBFS_BASE + 64)
+#define UEP_JMP         ((void*)(EP_JMPR) - (void*)&(USBFS->UEP0_DMA))
+#define UEP_CTRL_LEN(n) (((volatile uint8_t*)&USBFS->UEP0_TX_LEN)[n*4 +((n>4) ? UEP_JMP : 0)])
+#define UEP_CTRL_TX(n)  (((volatile uint8_t*)&USBFS->UEP0_CTRL_H)[n*4 +((n>4) ? UEP_JMP : 0)])
+#define UEP_CTRL_RX(n)  (((volatile uint8_t*)&USBFS->UEP0_CTRL_H)[n*4 +((n>4) ? UEP_JMP : 0)])
+#define UEP_DMA(n)      (((volatile uint16_t*)&USBFS->UEP0_DMA)[n*2 +((n>4) ? (UEP_JMP /2) : 0)]) // DMA for EP4 is tied to EP0 DMA on these chips, so this maceo won't work for it
 #define DEBUG_PIN       PB12
 #define USB_IRQn        USBFS_IRQn
 #endif
@@ -264,6 +265,7 @@ typedef struct
 #define CHECK_USBFS_UEP_T_AUTO_TOG USBOTG_UEP_T_AUTO_TOG
 #define CHECK_USBFS_UEP_R_AUTO_TOG USBOTG_UEP_R_AUTO_TOG
 
+#if defined(CH32V20x)
 #define USBFS_UEP_T_RES_MASK       USBOTG_UEP_T_RES_MASK
 #define USBFS_UEP_T_RES_ACK        USBOTG_UEP_T_RES_ACK
 #define USBFS_UEP_T_RES_NAK        USBOTG_UEP_T_RES_NAK
@@ -304,6 +306,7 @@ typedef struct
 #define USBFS_UC_DEV_PU_EN         USBOTG_UC_DEV_PU_EN
 #define USBFS_UD_PD_DIS            USBOTG_UD_PD_DIS
 #define USBFS_UD_PORT_EN           USBOTG_UD_PORT_EN
+#endif
 
 #ifdef CH32V30x_D8C
 #define USB_IRQn                   OTG_FS_IRQn
@@ -343,11 +346,13 @@ struct _USBState;
 
 // Provided functions:
 int USBFSSetup();
+void USBFSReset();
 uint8_t USBFS_Endp_DataUp(uint8_t endp, const uint8_t *pbuf, uint16_t len, uint8_t mod);
-static inline uint8_t * USBFS_GetEPBufferIfAvailable( int endp );
-static inline int USBFS_SendEndpoint( int endp, int len );
-static inline int USBFS_SendACK( int endp, int tx );
-static inline int USBFS_SendNAK( int endp, int tx );
+uint8_t * USBFS_GetEPBufferIfAvailable( int endp );
+int USBFS_SendEndpoint( int endp, int len );
+int USBFS_SendACK( int endp, int tx );
+int USBFS_SendNAK( int endp, int tx );
+int USBFS_SendEndpointNEW( int endp, uint8_t* data, int len, int copy);
 
 #if FUSB_USE_DMA7_COPY
 static inline void copyBuffer( uint8_t * dest, const uint8_t * src, int len );
@@ -369,13 +374,57 @@ __USBFS_FUN_ATTRIBUTE void HandleDataOut( struct _USBState * ctx, int endp, uint
 __USBFS_FUN_ATTRIBUTE int HandleSetupCustom( struct _USBState * ctx, int setup_code);
 #endif
 
-typedef enum
+#if FUNCONF_USE_USBPRINTF
+void HandleUSBInput( int numbytes, uint8_t * data );
+extern uint8_t usb_inputbuffer[USBFS_PACKET_SIZE];
+extern int usb_inbuf_idx;
+#endif
+
+#ifndef FUSB_MAX_EP_CNT
+#define FUSB_MAX_EP_CNT 8
+#endif
+
+#ifndef FUSB_BUFFERS_NUMBER
+#define FUSB_BUFFERS_NUMBER 1
+#undef FUSB_EP1_MODE
+#define FUSB_EP1_MODE       0
+#undef FUSB_EP2_MODE
+#define FUSB_EP2_MODE       0
+#undef FUSB_EP3_MODE
+#define FUSB_EP3_MODE       0
+#undef FUSB_EP4_MODE
+#define FUSB_EP4_MODE       0
+#undef FUSB_EP5_MODE
+#define FUSB_EP5_MODE       0
+#undef FUSB_EP6_MODE
+#define FUSB_EP6_MODE       0
+#undef FUSB_EP7_MODE
+#define FUSB_EP7_MODE       0
+#warning "You may have forgotten to properly define used EPs in usb_config.h"
+#endif
+
+// high-level-ish abstraction to help dealing with endpoints
+typedef struct
 {
-	USBFS_EP_OFF = 0,
-	USBFS_EP_RX  = -1,
-	USBFS_EP_TX = 1,
-	USBFS_EP_RTX = 2,
-} USBFS_EP_mode;
+	union {
+		uint8_t * out;
+		uint8_t * rx;
+	};
+	union {
+		uint8_t * in;
+		uint8_t * tx;
+	};
+	uint8_t mode;
+	volatile uint8_t busy;
+  uint16_t reserved;
+} USBFS_EP_TypeDef;
+
+#define USBFS_EP_MODE_TX          4
+#define USBFS_EP_MODE_TX_DOUBLE   5
+#define USBFS_EP_MODE_RX          8
+#define USBFS_EP_MODE_RX_DOUBLE   9
+#define USBFS_EP_MODE_BDIR        12
+#define USBFS_EP_MODE_BDIR_DOUBLE 13
 
 #ifndef FUSB_EP1_MODE
 #define FUSB_EP1_MODE  0
@@ -415,22 +464,20 @@ struct _USBState
 
 	uint8_t* pCtrlPayloadPtr;
 
-	uint8_t ENDPOINTS[FUSB_CONFIG_EPS][64];
-	USBFS_EP_mode endpoint_mode[FUSB_CONFIG_EPS+1]; // IN -1, OUT 1, OFF 0
+	uint8_t ep_buffers[FUSB_BUFFERS_NUMBER][64];
 
-	#define CTRL0BUFF               (USBFSCTX.ENDPOINTS[0])
+	USBFS_EP_TypeDef endpoints[FUSB_MAX_EP_CNT];
+
+	#define CTRL0BUFF               (USBFSCTX.ep_buffers[0])
 	#define pUSBFS_SetupReqPak      ((tusb_control_request_t*)CTRL0BUFF)
 
 #if FUSB_HID_INTERFACES > 0
 	uint8_t USBFS_HidIdle[FUSB_HID_INTERFACES];
 	uint8_t USBFS_HidProtocol[FUSB_HID_INTERFACES];
 #endif
-	volatile uint8_t USBFS_Endp_Busy[FUSB_CONFIG_EPS];
 	volatile uint8_t USBFS_errata_dont_send_endpoint_in_window;
 };
 
 extern struct _USBState USBFSCTX;
-
-#include "fsusb.c"
 
 #endif

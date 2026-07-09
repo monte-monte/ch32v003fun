@@ -4,9 +4,9 @@
 #include "funconfig.h"
 #include "ch32fun.h"
 
-#define FUSB_CONFIG_EPS       3 // Include EP0 in this count
-#define FUSB_EP1_MODE         1 // TX (IN)
-#define FUSB_EP2_MODE         -1 // RX (OUT)
+#define FUSB_BUFFERS_NUMBER   3 // Number of EP buffers (one for EP0, one per each IN/OUT, two for double)
+#define FUSB_EP1_MODE         USBFS_EP_MODE_TX // IN
+#define FUSB_EP2_MODE         USBFS_EP_MODE_RX // OUT
 #define USB_EP_TX             1
 #define USB_EP_RX             2
 #define FUSB_SUPPORTS_SLEEP   0
@@ -16,6 +16,8 @@
 #define FUSB_SPEED            USB_SPEED_HIGH
 #define FUSB_USER_HANDLERS    1 // To enable HandleDataOut
 #define FUSB_OUT_FLOW_CONTROL 0 // 0: auto ack
+#define FUSB_VDD_5V           FUNCONF_USE_5V_VDD
+#define FUSB_FROM_RAM         0
 
 #include "usb_defines.h"
 
@@ -24,7 +26,7 @@
 #define FUSB_USB_REV          0x0007
 #define FUSB_STR_MANUFACTURER u"ch32fun"
 #define FUSB_STR_PRODUCT      u"Bulk demo"
-#define FUSB_STR_SERIAL       u"585"
+#define FUSB_STR_SERIAL       u"007"
 
 //Taken from http://www.usbmadesimple.co.uk/ums_ms_desc_dev.htm
 static const tusb_desc_device_t device_descriptor = {

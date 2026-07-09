@@ -192,7 +192,7 @@ int HandleSetupCustom(struct _USBState * ctx, int setup_code) {
 	if (ctx->USBFS_SetupReqType & USB_REQ_TYP_CLASS) {
 		DEBUG_PRINT("SETUP Custom\n");
 	} else if (ctx->USBFS_SetupReqType & USB_REQ_TYP_VENDOR) {
-		uint8_t* ctrl0buff = ctx->ENDPOINTS[0];
+		uint8_t* ctrl0buff = CTRL0BUFF;
 		ctx->pCtrlPayloadPtr = 0; // Ensure no extra copying of buffers
 
 		DEBUG_PRINT("SETUP Vendor %02x %02x %02x %02x %02x %02x %02x %02x\n", ctrl0buff[0], ctrl0buff[1], ctrl0buff[2], ctrl0buff[3], ctrl0buff[4], ctrl0buff[5], ctrl0buff[6], ctrl0buff[7]);

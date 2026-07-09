@@ -111,7 +111,7 @@ static const unsigned char halt_wait_blob[] = {
 
 // Run app blob (new):
 static const unsigned char run_app_blob[] = {
-	0xb7,0xf5,0xff,0x1f,  // li     a1,0x1FFFF000   - load offset to a1
+	0xb7,0xf5,0xff,0x1f,  // lui    a1,0x1FFFF000   - load offset to a1
 	0x93,0x87,0xc5,0x77,  // addi   a5,a1,0x77C     - load absolute address of secret area to a5
 	0x03,0xa7,0x07,0x00,  // lw     a4,0(a5)        - load reboot function offset + xor from secret to a4
 	0x13,0x57,0x07,0x01,  // srli   a4,a4,16        - shift it to remove lower part (offset)
@@ -144,6 +144,12 @@ static const unsigned char run_app_blob[] = {
 	0x93,0x87,0x07,0xd1,  // addi   a5,a5,-752
 	0x37,0x07,0x00,0x80,  // li     a4,-2147483648
 	0x23,0xa0,0xe7,0x00,  // sw     a4,0(a5)
+};
+
+// Used on devices with HW USB (not for rv003usb)
+static const unsigned char run_app_new_blob[] = {
+	0x83, 0x26, 0xc5, 0xff,  // lw a3, -4(a0)
+	0x67, 0x80, 0x06, 0x00,  // jalr zero, 0(a3)
 };
 
 // Interrupts enabled, no FLASH->ADDR loads
@@ -189,6 +195,23 @@ unsigned char erase_block_bin[] = {
 	0x75, 0xff, 0x96, 0x95, 0xe3, 0xca, 0xc5, 0xfe, 0xfd, 0x56, 0x14, 0xc1,
 	0x01, 0x00, 0x82, 0x80
 };
+
+#include "./stubs/b003/ch5xx_write_safe.h"
+#include "./stubs/b003/ch5xx_flash_begin.h"
+#include "./stubs/b003/ch5xx_flash_out.h"
+#include "./stubs/b003/ch5xx_flash_end.h"
+#include "./stubs/b003/ch5xx_flash_addr.h"
+#include "./stubs/b003/ch5xx_flash_erase.h"
+#include "./stubs/b003/ch5xx_flash_wait.h"
+#include "./stubs/b003/ch5xx_flash_open.h"
+#include "./stubs/b003/ch5xx_flash_write_block.h"
+#include "./stubs/b003/ch5xx_flash_read_byte.h"
+#include "./stubs/b003/ch5xx_flash_read_word.h"
+
+static void ch5xx_write_safe(void * dev, uint32_t addr, uint32_t value, int mode);
+static uint8_t ch5xx_flash_open(void* dev, uint8_t op);
+int B003CH5xxErase(void* dev, uint32_t addr, uint32_t len, int type);
+static void ch5xx_flash_close(void* dev);
 
 static void ResetOp( struct B003FunProgrammerStruct * eps )
 {
@@ -251,7 +274,7 @@ static int CommitOp( struct B003FunProgrammerStruct * eps, int send_data_len, in
 	#ifdef DEBUG_B003
 	{
 		int i;
-		printf( "Commit TX: %lu bytes\n", pad_size  );
+		printf( "Commit TX: %u bytes\n", pad_size  );
 		for( i = 0; i < pad_size ; i++ )
 		{
 			printf( "%02x ", eps->commandbuffer[i] );
@@ -495,12 +518,83 @@ verifyfail:
 static int B003FunReadBinaryBlob( void * dev, uint32_t address_to_read_from, uint32_t read_size, uint8_t * blob )
 {
 	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct *)dev;
+	struct InternalState * iss = (struct InternalState*)(((struct B003FunProgrammerStruct*)eps)->internal);
 
+	if( !read_size ) return 0;
 #ifdef DEBUG_B003
 	printf( "Read Binary Blob: %d bytes from %08x\n", read_size, address_to_read_from );
 #endif
+	// Since bootloader area is mapped to 0x0 and we are most likely in bootloader area, we need to use flash commands
+	// to read actual program area at 0x0. And this can only be done in 4 bytes.
+	if( iss->target_chip->protocol == PROTOCOL_CH5xx && iss->current_area == PROGRAM_AREA && address_to_read_from < 0x20000000 )
+	{
+		ch5xx_write_safe(dev, 0x40001044, 0x20, -1);
+		if( address_to_read_from & 0x3 )
+		{
+			uint8_t bytes_to_read = 4 - (address_to_read_from & 0x3);
+			ResetOp( eps );
+			WriteOpArb( eps, ch5xx_flash_read_word_bin, sizeof(ch5xx_flash_read_word_bin) );
+			WriteOp4( eps, address_to_read_from & 0xfffffffc ); // Base address to read.
+			WriteOp4( eps, 4 ); // Read 4 bytes
+			if( CommitOp( eps, 0, 4 ) ) return -5;
+			memcpy( blob, &eps->respbuffer[eps->commandplace-8+(4-bytes_to_read)], bytes_to_read );
+			blob += bytes_to_read;
+			read_size -= bytes_to_read;
+			address_to_read_from += bytes_to_read;
+		}
+		while( read_size > 3 )
+		{
+			int to_read_this_time = read_size & (~3);
+			// Read stub is more than 124 bytes, so we need to fix the numbers here
+			int max_data_size = eps->scratchpad_data_size - (sizeof(ch5xx_flash_read_word_bin) - 124);
+			if( to_read_this_time > max_data_size ) to_read_this_time = max_data_size;
+			// Need to do byte-wise reading in front to line up with word alignment.
+			ResetOp( eps );
+			WriteOpArb( eps, ch5xx_flash_read_word_bin, sizeof(ch5xx_flash_read_word_bin) );
+			WriteOp4( eps, address_to_read_from ); // Base address to read.
+			WriteOp4( eps, to_read_this_time );
+			if( CommitOp( eps, 0, to_read_this_time ) ) return -5;
+			memcpy( blob, &eps->respbuffer[eps->commandplace-8], to_read_this_time );
+			blob += to_read_this_time;
+			read_size -= to_read_this_time;
+			address_to_read_from += to_read_this_time;
+		}
+		if( read_size )
+		{
+			ResetOp( eps );
+			WriteOpArb( eps, ch5xx_flash_read_word_bin, sizeof(ch5xx_flash_read_word_bin) );
+			WriteOp4( eps, address_to_read_from & 0xfffffffc ); // Base address to read.
+			WriteOp4( eps, 4 ); // Read 4 bytes
+			if( CommitOp( eps, 0, 4 ) ) return -5;
+			memcpy( blob, &eps->respbuffer[eps->commandplace-8], read_size );
+		}
+		ch5xx_flash_close(dev);
+		return 0;
+	}
+	// Can read EEPROM partition only byte-wise
+	if( iss->target_chip->protocol == PROTOCOL_CH5xx && iss->current_area == EEPROM_AREA && address_to_read_from < 0x20000000 )
+	{
+		ch5xx_write_safe(dev, 0x40001044, 0x20, -1);
+		while( read_size )
+		{
+			int to_read_this_time = read_size;
+			int max_data_size = eps->scratchpad_data_size - (sizeof(ch5xx_flash_read_byte_bin) - 124);
+			if( to_read_this_time > max_data_size ) to_read_this_time = max_data_size;
+			ResetOp( eps );
+			WriteOpArb( eps, ch5xx_flash_read_byte_bin, sizeof(ch5xx_flash_read_byte_bin) );
+			WriteOp4( eps, address_to_read_from ); // Base address to read.
+			WriteOp4( eps, to_read_this_time );
+			if( CommitOp( eps, 0, to_read_this_time ) ) return -5;
+			memcpy( blob, &eps->respbuffer[eps->commandplace-8], to_read_this_time );
+			blob += to_read_this_time;
+			read_size -= to_read_this_time;
+			address_to_read_from += to_read_this_time;
+		}
+		ch5xx_flash_close(dev);
+		return 0;
+	}
 
-	if( ( address_to_read_from & 0x1 ) && read_size > 0 )
+	if( address_to_read_from & 0x1 )
 	{
 		// Need to do byte-wise reading in front to line up with word alignment.
 		ResetOp( eps );
@@ -574,10 +668,12 @@ static int B003FunReadBinaryBlob( void * dev, uint32_t address_to_read_from, uin
 static int InternalB003FunBoot( void * dev )
 {
 	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	struct InternalState * iss = (struct InternalState*)(((struct B003FunProgrammerStruct*)eps)->internal);
 
 	printf( "Booting\n" );
 	ResetOp( eps );
-	WriteOpArb( eps, run_app_blob, sizeof(run_app_blob) );
+	if( iss->target_chip != &ch32v003 ) WriteOpArb( eps, run_app_new_blob, sizeof(run_app_new_blob) );
+	else WriteOpArb( eps, run_app_blob, sizeof(run_app_blob) );
 	// for( int i = 0; i < 128; i++ )
 	// {
 	// 	printf( "%02x ", eps->commandbuffer[i] );
@@ -585,6 +681,113 @@ static int InternalB003FunBoot( void * dev )
 	// printf( "\n" );
 	eps->no_get_report = 1;
 	if( CommitOp( eps, 0, 0 ) ) return -5;
+	return 0;
+}
+
+int B003DetermineIfInBoot( void * dev )
+{
+	uint32_t flash_statr = 0;
+	MCF.ReadWord( dev, 0x4002200C, &flash_statr );
+	if( flash_statr & (1<<13) ) return 1;
+	else return 0;
+}
+
+int B003DetermineChipType( void * dev )
+{
+	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	struct InternalState * iss = (struct InternalState*)(((struct B003FunProgrammerStruct*)eps)->internal);
+
+	uint32_t one;
+	int two;
+	uint8_t read_protection = 0;
+	uint32_t chip_id = 0;
+
+	// Counterintuitively, we want first to check for ch5xx CHIP_ID,
+	// Because otherwise, trying to read ch32 vendor ID address om ch5xx will crash it
+
+	MCF.ReadWord( dev, 0x40001041, &chip_id );
+	if( chip_id )
+	{
+		switch (chip_id & 0xff)
+		{
+			case 0x70: iss->target_chip = &ch570; break;
+			case 0x71: iss->target_chip = &ch571; break;
+			case 0x72: iss->target_chip = &ch572; break;
+			case 0x73: iss->target_chip = &ch573; break;
+			case 0x82: iss->target_chip = &ch582; break;
+			case 0x83: iss->target_chip = &ch583; break;
+			case 0x91: iss->target_chip = &ch591; break;
+			case 0x92: iss->target_chip = &ch592; break;
+			case 0x93: iss->target_chip = &ch585; break;
+		}
+		if (iss->target_chip->family_id == CHIP_CH570) {
+			uint32_t options = 0;
+			MCF.ReadWord( dev, 0x40001058, &options );
+			if( (options&0x800000) || (options&0x200000) ) read_protection = 1;
+		}
+		goto chip_found;
+	}
+
+	MCF.ReadWord( dev, 0x4002201c, &one );
+	MCF.ReadWord( dev, 0x40022020, (uint32_t*)&two );
+	MCF.ReadWord( dev, 0x1ffff7c4, &chip_id );
+
+	if( (one & 2) || two != -1 ) read_protection = 1;
+
+	if( chip_id == 0xffffffff )
+	{
+		MCF.ReadWord( dev, 0x1ffff704, &chip_id );
+		switch (chip_id>>20)
+		{
+			case 0x002: iss->target_chip = &ch32v002; break;
+			case 0x004: iss->target_chip = &ch32v004; break;
+			case 0x005: iss->target_chip = &ch32v005; break;
+			case 0x006: iss->target_chip = &ch32v006; break;
+			case 0x007: iss->target_chip = &ch32v007; break;
+			case 0x033: iss->target_chip = &ch32x033; break;
+			case 0x035: iss->target_chip = &ch32x035; break;
+			case 0x103: iss->target_chip = &ch32l103; break;
+			case 0x203: iss->target_chip = &ch32v203; break;
+			case 0x208: iss->target_chip = &ch32v208; break;
+			case 0x303: iss->target_chip = &ch32v303; break;
+			case 0x305: iss->target_chip = &ch32v305; break;
+			case 0x307: iss->target_chip = &ch32v307; break;
+			case 0x317: iss->target_chip = &ch32v317; break;
+			case 0x643: iss->target_chip = &ch643; break;
+		}
+	}
+	else if( !chip_id )
+	{
+		MCF.ReadWord( dev, 0x1ffff884, &chip_id );
+		if( (chip_id & 0xfff00000) == 0x25000000 )
+		{
+			iss->target_chip = &ch32v103;
+		}
+	}
+	else
+	{
+		iss->target_chip = &ch32v003;
+	}
+
+chip_found:
+	if( iss->target_chip->protocol == PROTOCOL_CH5xx )
+	{
+		MCF.Erase = B003CH5xxErase;
+	}
+	iss->target_chip_id = chip_id;
+	iss->target_chip_type = iss->target_chip->family_id;
+	iss->flash_size = iss->target_chip->flash_size;
+	iss->ram_base = iss->target_chip->ram_base;
+	iss->ram_size = iss->target_chip->ram_size;
+	iss->sector_size = iss->target_chip->sector_size;
+	uint8_t * part_type = (uint8_t*)&iss->target_chip_id;
+	uint8_t uuid[8];
+	fprintf( stderr, "Detected %s\n", iss->target_chip->name_str );
+	fprintf( stderr, "Flash Storage: %d kB\n", iss->flash_size/1024 );
+	if( MCF.GetUUID( dev, uuid ) ) fprintf( stderr, "Couldn't read UUID\n" );
+	else fprintf( stderr, "Part UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7] );
+	fprintf( stderr, "Part Type: %02x-%02x-%02x-%02x\n", part_type[3], part_type[2], part_type[1], part_type[0] );
+	fprintf( stderr, "Read protection: %s\n", (read_protection > 0)?"enabled":"disabled" );
 	return 0;
 }
 
@@ -598,7 +801,6 @@ static int B003FunSetupInterface( void * dev )
 	ResetOp( eps );
 	WriteOpArb( eps, halt_wait_blob, sizeof(halt_wait_blob) );
 	if( CommitOp( eps, 0, 0 ) ) return -5;
-
 	// Check for minimum 8 byte feature
 	eps->respbuffer[0] = 0xa8;
 	int r = hid_get_feature_report( eps->hd, eps->respbuffer, 8 );
@@ -632,57 +834,9 @@ static int B003FunSetupInterface( void * dev )
 		}
 	}
 	if( eps->scratchpad_size >= (128 + 1024) ) eps->scratchpad_data_size = eps->scratchpad_size - 128;
-
-	uint32_t one;
-	int two;
-	uint8_t read_protection = 0;
-	uint32_t chip_id = 0;
-	MCF.ReadWord( dev, 0x4002201c, &one );
-	MCF.ReadWord( dev, 0x40022020, (uint32_t*)&two );
-	MCF.ReadWord( dev, 0x1ffff7c4, &chip_id );
-	
-	if( (one & 2) || two != -1 ) read_protection = 1;
-
-	if( chip_id == 0xffffffff )
-	{
-		MCF.ReadWord( dev, 0x1ffff704, &chip_id );
-		if( (chip_id & 0xfff00000) == 0x00200000 )
-		{
-			iss->target_chip = &ch32v002;
-		}
-		else if( (chip_id & 0xfff00000) == 0x00400000 )
-		{
-			iss->target_chip = &ch32v004;
-		}
-		else if( (chip_id & 0xfff00000) == 0x00500000 )
-		{
-			iss->target_chip = &ch32v005;
-		}
-		else if( (chip_id & 0xfff00000) == 0x00600000 )
-		{
-			iss->target_chip = &ch32v006;
-		}
-		else if( (chip_id & 0xfff00000) == 0x00700000 )
-		{
-			iss->target_chip = &ch32v007;
-		}
-	}
-
-	iss->target_chip_id = chip_id;
-	iss->target_chip_type = iss->target_chip->family_id;
-	iss->flash_size = iss->target_chip->flash_size;
-	iss->ram_base = iss->target_chip->ram_base;
-	iss->ram_size = iss->target_chip->ram_size;
-	iss->sector_size = iss->target_chip->sector_size;
-	uint8_t * part_type = (uint8_t*)&iss->target_chip_id;
-	uint8_t uuid[8];
-	fprintf( stderr, "Detected %s\n", iss->target_chip->name_str );
 	fprintf(stderr, "HID buffer: %d bytes\n", eps->scratchpad_size );	// Can remove this line in future versions
-	fprintf( stderr, "Flash Storage: %d kB\n", iss->flash_size/1024 );
-	if( MCF.GetUUID( dev, uuid ) ) fprintf( stderr, "Couldn't read UUID\n" );
-	else fprintf( stderr, "Part UUID: %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x\n", uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7] );
-	fprintf( stderr, "Part Type: %02x-%02x-%02x-%02x\n", part_type[3], part_type[2], part_type[1], part_type[0] );
-	fprintf( stderr, "Read protection: %s\n", (read_protection > 0)?"enabled":"disabled" );
+
+	B003DetermineChipType(dev);
 	return 0;
 }
 
@@ -815,7 +969,7 @@ static int B003FunBlockWrite( void * dev, uint32_t address_to_write, const uint8
 	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
 	struct InternalState * iss = eps->internal;
 
-	if( IsAddressFlash( address_to_write ) )
+	if( iss->target_chip->protocol == PROTOCOL_DEFAULT && IsAddressFlash( address_to_write ) )
 	{
 		if( !iss->flash_unlocked )
 		{
@@ -841,6 +995,36 @@ static int B003FunBlockWrite( void * dev, uint32_t address_to_write, const uint8
 			left_to_write -= current_len;
 			data_pos += current_len;
 		}
+	}
+	else if( iss->target_chip->protocol == PROTOCOL_CH5xx )
+	{
+		ch5xx_write_safe(dev, 0x40001044, 0xe0, -1); // Unlock flash controller for full write
+
+		uint32_t left_to_write = len;
+		uint32_t data_pos = 0;
+		ResetOp( eps );
+		WriteOpArb( eps, ch5xx_flash_write_block_bin, sizeof(ch5xx_flash_write_block_bin) );
+		WriteOp4( eps, 0x40001800 ); // R32_FLASH_DATA
+		WriteOp4( eps, address_to_write ); // Base address to write
+		if( CommitOp( eps, 0, 0 ) ) return -5;
+
+		while( data_pos < len )
+		{
+			int current_len = (left_to_write > eps->scratchpad_data_size)?eps->scratchpad_data_size:left_to_write;
+			// fprintf(stderr, "len = %d, current_len = %d\n", len, current_len);
+			uint32_t data_ready_key = 0x12345678;
+			ResetOp( eps );
+			WriteOp4( eps, address_to_write + len ); // End address
+			WriteOp4( eps, current_len ); // Data in this packet
+			memcpy( &eps->commandbuffer[eps->commandplace], data + data_pos, current_len );
+			memcpy( &eps->commandbuffer[eps->commandplace+current_len], &data_ready_key, 4 );
+			if( MCF.PrepForLongOp ) MCF.PrepForLongOp( dev );  // Give the programmer a headsup this next operation could take a while.
+			// eps->long_op = current_len;
+			if( CommitOp( eps, current_len+4, 0 ) ) return -5;
+			left_to_write -= current_len;
+			data_pos += current_len;
+		}
+		ch5xx_flash_close(dev);
 	}
 
 	return 0;
@@ -952,7 +1136,8 @@ static int B003FunWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32
 	}
 
 	// We can't write into flash when mapped to 0x00000000
-	if( address_to_write < 0x01000000 ) {
+	if( iss->target_chip->protocol == PROTOCOL_DEFAULT && address_to_write < 0x01000000 )
+	{
 		address_to_write |= 0x08000000;
 		iss->current_area = PROGRAM_AREA;
 	}
@@ -975,9 +1160,16 @@ static int B003FunWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32
 		
 		uint32_t spad = address_to_write - ((address_to_write / sector_size) * sector_size); // Size of data in the sector before the the address we are writing to
 		uint32_t epad = (address_to_write + blob_size) - (((address_to_write + blob_size) / sector_size) * sector_size); // Size of the data in the start of the last sector we will be writing to
-		if (spad + blob_size <= sector_size) epad = 0;
+		uint32_t new_blob_size = blob_size;
 
-		uint32_t new_blob_size = blob_size + spad - epad + (epad?sector_size:0); // This will be a new blob size divisible by sector size
+		if (spad + blob_size <= sector_size) {
+			epad = 0;
+			new_blob_size = sector_size;
+		}
+		else
+		{
+			new_blob_size = blob_size + spad - epad + (epad?sector_size:0); // This will be a new blob size divisible by sector size
+		}
 
 		uint8_t * new_blob = malloc(new_blob_size);
 		memset(new_blob, 0, new_blob_size);
@@ -997,10 +1189,14 @@ static int B003FunWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32
 				MCF.ReadBinaryBlob(dev, (address_to_write + blob_size), sector_size - epad, new_blob + spad + blob_size);
 			}
 		}
+		else if (new_blob_size > blob_size)
+		{
+			MCF.ReadBinaryBlob(dev, address_to_write, sector_size, new_blob);
+		}
 
 		memcpy(new_blob+spad, blob, blob_size);
 
-		B003FunErase(dev, new_address, new_blob_size, 0);
+		MCF.Erase(dev, new_address, new_blob_size, 0);
 		
 		if (eps->scratchpad_size > 348) {
 			ret = B003FunBlockWrite(dev, new_address, new_blob, new_blob_size);
@@ -1021,10 +1217,10 @@ static int B003FunWriteBinaryBlob( void * dev, uint32_t address_to_write, uint32
 	} else if (iss->current_area == RAM_AREA) {
 		return InternalB003FunWriteBinaryBlob( dev, address_to_write, blob_size, blob );
 	} else if (iss->current_area == BOOTLOADER_AREA) {
-    fprintf(stderr, "Error. Can't write to boot area using bootloader.\n");
+		fprintf(stderr, "Error. Can't write to boot area using bootloader.\n");
 		ret = -3;
 		goto end;
-  } else {
+	} else {
 		fprintf(stderr, "Unknown memory region. Not writing.\n");
 		ret = -2;
 		goto end;
@@ -1052,7 +1248,6 @@ static int B003FunReadByte( void * dev, uint32_t address_to_read, uint8_t * data
 {
 	return B003FunReadBinaryBlob( dev, address_to_read, 1, data );
 }
-
 
 static int B003FunHaltMode( void * dev, int mode )
 {
@@ -1084,7 +1279,6 @@ static int B003FunHaltMode( void * dev, int mode )
 	iss->processor_in_mode = mode;
 	return 0;
 }
-
 
 int B003FunPrepForLongOp( void * dev )
 {
@@ -1143,14 +1337,141 @@ int B003PollTerminal( void * dev, uint8_t * buffer, int maxlen, uint32_t leavefl
 
 static int B003FunGetUUID(void * dev, uint8_t * buffer)
 {
+	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	struct InternalState * iss = (struct InternalState*)(((struct B003FunProgrammerStruct*)eps)->internal);
+
 	int ret = 0;
 	uint8_t local_buffer[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+	uint32_t uuid_address = 0x1ffff7e8;
 
-	ret |= MCF.ReadWord( dev, 0x1ffff7e8, (uint32_t*)local_buffer );			
-	ret |= MCF.ReadWord( dev, 0x1ffff7ec, (uint32_t*)(local_buffer + 4) );
+	if( iss->target_chip->protocol == PROTOCOL_CH5xx )
+	{
+		uuid_address = 0x7F018;
+		if( iss->target_chip->family_id == CHIP_CH570 ) uuid_address = 0x3F018;
+
+		ret |= MCF.ReadWord( dev, uuid_address, (uint32_t*)buffer );
+		ret |= MCF.ReadWord( dev, uuid_address+4, (uint32_t*)(buffer + 4) );
+	}
+	else
+	{
+		ret |= MCF.ReadWord( dev, uuid_address, (uint32_t*)local_buffer );
+		ret |= MCF.ReadWord( dev, uuid_address+4, (uint32_t*)(local_buffer + 4) );
+
+		*((uint32_t*)buffer) = local_buffer[0]<<24|local_buffer[1]<<16|local_buffer[2]<<8|local_buffer[3];
+		*(((uint32_t*)buffer)+1) = local_buffer[4]<<24|local_buffer[5]<<16|local_buffer[6]<<8|local_buffer[7];
+	}
+
+	return ret;
+}
+
+static void ch5xx_write_safe(void * dev, uint32_t addr, uint32_t value, int mode)
+{
+	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	ResetOp( eps );
+	WriteOpArb( eps, ch5xx_write_safe_bin, sizeof(ch5xx_write_safe_bin) );
+	WriteOp4( eps, value );
+	WriteOp4( eps, addr );
+	WriteOp4( eps, mode ); // -1 - byte, 0 - 2 bytes, 1 - 4 bytes
+	CommitOp( eps, 0, 0 );
+}
+
+static uint8_t ch5xx_flash_begin(void * dev, uint8_t cmd)
+{
+	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	ResetOp( eps );
+	WriteOpArb( eps, ch5xx_flash_begin_bin, sizeof(ch5xx_flash_begin_bin) );
+	WriteOp4( eps, cmd );
+	CommitOp( eps, 0, 0 );
+	return 0;
+}
+
+static void ch5xx_flash_out(void * dev, uint8_t addr)
+{
+	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	ResetOp( eps );
+	WriteOpArb( eps, ch5xx_flash_out_bin, sizeof(ch5xx_flash_out_bin) );
+	WriteOp4( eps, addr );
+	CommitOp( eps, 0, 0 );
+}
+
+static void ch5xx_flash_end(void * dev)
+{
+	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	ResetOp( eps );
+	WriteOpArb( eps, ch5xx_flash_end_bin, sizeof(ch5xx_flash_end_bin) );
+	CommitOp( eps, 0, 0 );
+}
+
+static uint8_t ch5xx_flash_open(void* dev, uint8_t op)
+{
+	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+
+	uint8_t glob_rom_cfg;
+	MCF.ReadByte(dev, 0x40001044, &glob_rom_cfg);
+	if ((glob_rom_cfg & 0xe0) != op) {
+		ch5xx_write_safe(dev, 0x40001044, op, -1);
+		MCF.ReadByte(dev, 0x40001044, &glob_rom_cfg);
+	}
+	ResetOp( eps );
+	WriteOpArb( eps, ch5xx_flash_open_bin, sizeof(ch5xx_flash_open_bin) );
+	CommitOp( eps, 0, 0 );
+	return glob_rom_cfg;
+}
+
+static void ch5xx_flash_addr(void * dev, uint8_t cmd, uint32_t addr)
+{
+	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	ResetOp( eps );
+	WriteOpArb( eps, ch5xx_flash_addr_bin, sizeof(ch5xx_flash_addr_bin) );
+	WriteOp4( eps, cmd );
+	WriteOp4( eps, addr );
+	eps->long_op = 1000;
+	CommitOp( eps, 0, 0 );
+}
+
+static uint8_t ch5xx_flash_wait(void * dev )
+{
+	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	uint32_t timer = 0x80000;
+
+	ResetOp( eps );
+	WriteOpArb( eps, ch5xx_flash_wait_bin, sizeof(ch5xx_flash_wait_bin) );
+	WriteOp4( eps, timer );
+	CommitOp( eps, 0, 0 );
+	return (uint8_t)eps->respbuffer[4];
+}
+
+static void ch5xx_flash_close(void* dev) {
+	uint8_t glob_rom_cfg;
+	MCF.ReadByte(dev, 0x40001044, &glob_rom_cfg);
+	ch5xx_flash_end(dev);
+	ch5xx_write_safe(dev, 0x40001044, glob_rom_cfg & 0x10, 0);
+}
+
+int B003CH5xxErase(void* dev, uint32_t addr, uint32_t len, int type) {
+	struct B003FunProgrammerStruct * eps = (struct B003FunProgrammerStruct*) dev;
+	struct InternalState * iss = (struct InternalState*)(((struct ProgrammerStructBase*)dev)->internal);
 	
-	*((uint32_t*)buffer) = local_buffer[0]<<24|local_buffer[1]<<16|local_buffer[2]<<8|local_buffer[3];
-	*(((uint32_t*)buffer)+1) = local_buffer[4]<<24|local_buffer[5]<<16|local_buffer[6]<<8|local_buffer[7];
+	int ret = 0;
+
+	if(type == 1) {
+		// Whole-chip flash
+		iss->statetag = STTAG("XXXX");
+		printf("Whole-chip erase\n");
+		addr = iss->target_chip->flash_offset;
+		len = iss->target_chip->flash_size;
+	}
+
+	ch5xx_write_safe(dev, 0x40001044, 0xe0, -1);
+
+	ResetOp( eps );
+	WriteOpArb( eps, ch5xx_flash_erase_bin, sizeof(ch5xx_flash_erase_bin) );
+	WriteOp4( eps, len );
+	WriteOp4( eps, addr );
+	eps->long_op = 1000;
+	CommitOp( eps, 0, 0 );
+
+	ch5xx_flash_close(dev);
 	return ret;
 }
 
@@ -1166,10 +1487,20 @@ void * TryInit_B003Fun(uint32_t id)
 		} else {
 			fprintf( stderr, "Trying to reboot into bootloader\n");
 			uint8_t buffer[7] = { 0xfd, 0x12, 0x34, 0xaa, 0xbb, 0xcc, 0xdd };
+			for( int i = 0; i < 7; i++ )
+			{
+				fprintf(stderr, "%02x ", buffer[i]);
+			}
+			fprintf(stderr, "\n");
 			hid_send_feature_report(hd, buffer, sizeof(buffer));	// Sending magic soft reboot command
 			fprintf( stderr, "Sent magic packet\n");
 			memset(buffer, 0, 7);
 			int r2 = hid_get_feature_report(hd, buffer, 7);
+			for( int i = 0; i < 7; i++ )
+			{
+				fprintf(stderr, "%02x ", buffer[i]);
+			}
+			fprintf(stderr, "\n");
 			// I wish we had a better way to know if target understands our magic command
 			if (r2 < 0) {
 				for (int i = 0; i < 5; i++) {
@@ -1177,6 +1508,10 @@ void * TryInit_B003Fun(uint32_t id)
 					if (hd) break;
 					sleep(1);
 				}
+			}
+			else
+			{
+				return 0;
 			}
 			// hd = hid_open( id>>16, id&0xFFFF, 0);
 			if (!hd) return 0;
