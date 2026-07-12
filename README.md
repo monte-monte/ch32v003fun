@@ -117,6 +117,17 @@ Other third party tools are adding lots of examples, etc.  See the following rep
 
 You can open a github ticket or join my Discord in the #ch32fun channel.  Right now invites are private, so just ping me @cnlohr for an invite link.  My PMs are open.
 
+## Contributing to ch32fun
+* The ch32fun project has an existing style of coding both in formatting and in overall design philosophy. Please ensure your code meets these standards.  Continuing development of this aesthetic takes place primarily on our Discord community which contributors are encouraged to join.  Please reach out to @cnlohr on Discord.
+
+* Contributors who propose significant contributions to ch32fun are encouraged to join our Discord to discuss your plans at the early stages of your design.  The community can provide guidance and other assistance to facilitate your work with both technical and stylistic guidance.  Specifically, contributions from outside of our community will receive greater scrutiny.
+
+* While English is the primary language of this project, contributions are best made in the native language of the contributor unless they feel comfortable with doing so in English.  Our project has members from all over the world, please don’t let your comfort with English stop you from contributing.
+
+* Contributions must be the work of the submitter.  If other resources are used in the development of the work, they must be primarily the work of the submitter.  Tool generated code from documents will not be accepted.  To this end, contributors must be able to discuss in detail the technical aspects of their work as well as the motivations for creating it.
+
+* Once a contribution is accepted, its submitter is expected to provide basic support for their code.  If you are tagged in an issue, please accept ownership of the issue and work to resolve it.
+
 ### Footnotes/links
 
  * https://raw.githubusercontent.com/openwch/ch32v003/main/RISC-V%20QingKeV2%20Microprocessor%20Debug%20Manual.pdf Debugging Manual
