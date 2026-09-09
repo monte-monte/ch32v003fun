@@ -279,6 +279,8 @@ void uart_process_tx(CDC_config_t * ctx) {
 		ctx->tx_remain--;
 	}
 
+  ctx->tx_pos = local_pos;
+
 	if (ctx->tx_stop && !ctx->tx_remain && UART(ctx->uart->number)->TFC == 0) {
 		NVIC_DisableIRQ(USB_IRQn);
 		if( ctx->tx_pos & 0x3 ) ctx->tx_pos = (ctx->tx_pos + 4) & ~0x3;
@@ -286,9 +288,7 @@ void uart_process_tx(CDC_config_t * ctx) {
 		USBFS_SendACK(2, 0);
 		ctx->tx_stop = 0;
 		NVIC_EnableIRQ(USB_IRQn);
-	} else {
-		ctx->tx_pos = local_pos;
-	}
+	} 
 	// ctx->txing = 0;
 	
 #endif

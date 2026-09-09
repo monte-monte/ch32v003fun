@@ -23,11 +23,7 @@
 #else
 #define SYSTICK_DIV 8
 #endif
-#if defined(CH570_CH572)
 volatile uint32_t millis_cnt = 0;
-#else
-volatile uint64_t millis_cnt = 0;
-#endif
 volatile char terminal_input;
 extern volatile uint8_t usb_debug;
 extern volatile uint8_t uart_debug;
@@ -286,7 +282,7 @@ void SysTick_Handler(void) __attribute__((interrupt));
 void SysTick_Handler(void)
 {
 #ifndef CH32V10x
-	SysTick->CMP += DELAY_MS_TIME;
+	SysTick->CMP = SysTick->CNT + DELAY_MS_TIME;
 	SysTick->SR = 0;
 #else
 	uint64_t cmp_tmp = SysTick->CMP + DELAY_MS_TIME;
