@@ -302,6 +302,9 @@ void USBFS_IRQHandler()
 							len = HandleHidUserSetReportSetup( ctx, pUSBFS_SetupReqPak );
 							if( len < 0 ) goto sendstall;
 							ctx->USBFS_SetupReqLen = len;
+#else
+							ctx->USBFS_SetupReqLen = 0;
+#endif
 							UEP_CTRL_LEN(0) = 0;
 							// Previously would have been a CTRL_RX = ACK && TOG, but not here on the 203.
 #if defined(CH5xx) || defined(CH32X03x) || defined (CH32V10x)
@@ -312,7 +315,7 @@ void USBFS_IRQHandler()
 							UEP_CTRL_TX(0) = CHECK_USBFS_UEP_T_AUTO_TOG | USBFS_UEP_T_TOG;
 #endif
 							goto replycomplete;
-						
+#if FUSB_HID_USER_REPORTS
 						case HID_GET_REPORT:
 							len = HandleHidUserGetReportSetup( ctx, pUSBFS_SetupReqPak );
 							if( len < 0 ) goto sendstall;
@@ -777,8 +780,8 @@ int buffer_counter = 1;
 	buffer_counter += (((USBFSCTX.endpoints[4].mode & USBFS_EP_MODE_TX)?1:0) + ((USBFSCTX.endpoints[4].mode & USBFS_EP_MODE_RX)?1:0));
 #else
 	USBFSCTX.endpoints[4].mode = FUSB_EP4_MODE;
-	USBFS->UEP4_1_MOD |= FUSB_EP4_MODE;
 #endif
+	USBFS->UEP4_1_MOD |= USBFSCTX.endpoints[4].mode;
 #endif
 
 #if FUSB_EP5_MODE
@@ -1035,15 +1038,16 @@ int USBFS_SendEndpointNEW( int endp, uint8_t* data, int len, int copy)
 		if( copy )
 		{
 #if defined(CH5xx) || defined(CH32X03x)
-			if ( endp != 4 ) UEP_DMA( endp ) = (uintptr_t)USBFSCTX.endpoints[endp].in;
+			if ( endp != 4 ) UEP_DMA( endp ) = (uintptr_t)USBFSCTX.ep_buffers[endp];
 #else
-			UEP_DMA( endp ) = (uintptr_t)USBFSCTX.endpoints[endp].in;
+			UEP_DMA( endp ) = (uintptr_t)USBFSCTX.ep_buffers[endp];
 #endif
 			copyBuffer( USBFSCTX.endpoints[endp].in, data, len );
 			copyBufferComplete();
 		}
-		else 
+		else
 		{
+		// EP in bi-directional mode won't work with direct DMA
 #if defined(CH5xx) || defined(CH32X03x)
 			if ( endp != 4 ) UEP_DMA( endp ) = (uintptr_t)data;
 #else
