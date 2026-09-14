@@ -1231,49 +1231,49 @@ typedef enum
 #define R32_PB_SET          (*((vu32*)0x400010D8))    // RW, PB set high for output ,1=set output high,0=IDLE
 #endif
 
-#define PA0                 (0x00000001)              /*!< Pin 0 selected */
-#define PA1                 (0x00000002)              /*!< Pin 1 selected */
-#define PA2                 (0x00000004)              /*!< Pin 2 selected */
-#define PA3                 (0x00000008)              /*!< Pin 3 selected */
-#define PA4                 (0x00000010)              /*!< Pin 4 selected */
-#define PA5                 (0x00000020)              /*!< Pin 5 selected */
-#define PA6                 (0x00000040)              /*!< Pin 6 selected */
-#define PA7                 (0x00000080)              /*!< Pin 7 selected */
-#define PA8                 (0x00000100)              /*!< Pin 8 selected */
-#define PA9                 (0x00000200)              /*!< Pin 9 selected */
-#define PA10                (0x00000400)              /*!< Pin 10 selected */
-#define PA11                (0x00000800)              /*!< Pin 11 selected */
-#define PA12                (0x00001000)              /*!< Pin 12 selected */
-#define PA13                (0x00002000)              /*!< Pin 13 selected */
-#define PA14                (0x00004000)              /*!< Pin 14 selected */
-#define PA15                (0x00008000)              /*!< Pin 15 selected */
+#define PA0                 (0)              /*!< Pin 0 selected */
+#define PA1                 (1)              /*!< Pin 1 selected */
+#define PA2                 (2)              /*!< Pin 2 selected */
+#define PA3                 (3)              /*!< Pin 3 selected */
+#define PA4                 (4)              /*!< Pin 4 selected */
+#define PA5                 (5)              /*!< Pin 5 selected */
+#define PA6                 (6)              /*!< Pin 6 selected */
+#define PA7                 (7)              /*!< Pin 7 selected */
+#define PA8                 (8)              /*!< Pin 8 selected */
+#define PA9                 (9)              /*!< Pin 9 selected */
+#define PA10                (10)              /*!< Pin 10 selected */
+#define PA11                (11)              /*!< Pin 11 selected */
+#define PA12                (12)              /*!< Pin 12 selected */
+#define PA13                (13)              /*!< Pin 13 selected */
+#define PA14                (14)              /*!< Pin 14 selected */
+#define PA15                (15)              /*!< Pin 15 selected */
 
 #ifndef CH570_CH572
 #define PB                  (0x80000000)              /* Bit mask to indicate bank B */
-#define PB0                 (0x80000001)              /*!< Pin 0 selected */
-#define PB1                 (0x80000002)              /*!< Pin 1 selected */
-#define PB2                 (0x80000004)              /*!< Pin 2 selected */
-#define PB3                 (0x80000008)              /*!< Pin 3 selected */
-#define PB4                 (0x80000010)              /*!< Pin 4 selected */
-#define PB5                 (0x80000020)              /*!< Pin 5 selected */
-#define PB6                 (0x80000040)              /*!< Pin 6 selected */
-#define PB7                 (0x80000080)              /*!< Pin 7 selected */
-#define PB8                 (0x80000100)              /*!< Pin 8 selected */
-#define PB9                 (0x80000200)              /*!< Pin 9 selected */
-#define PB10                (0x80000400)              /*!< Pin 10 selected */
-#define PB11                (0x80000800)              /*!< Pin 11 selected */
-#define PB12                (0x80001000)              /*!< Pin 12 selected */
-#define PB13                (0x80002000)              /*!< Pin 13 selected */
-#define PB14                (0x80004000)              /*!< Pin 14 selected */
-#define PB15                (0x80008000)              /*!< Pin 15 selected */
-#define PB16                (0x80010000)              /*!< Pin 16 selected */
-#define PB17                (0x80020000)              /*!< Pin 17 selected */
-#define PB18                (0x80040000)              /*!< Pin 18 selected */
-#define PB19                (0x80080000)              /*!< Pin 19 selected */
-#define PB20                (0x80100000)              /*!< Pin 20 selected */
-#define PB21                (0x80200000)              /*!< Pin 21 selected */
-#define PB22                (0x80400000)              /*!< Pin 22 selected */
-#define PB23                (0x80800000)              /*!< Pin 23 selected */
+#define PB0                 (PB|0)              /*!< Pin 0 selected */
+#define PB1                 (PB|1)              /*!< Pin 1 selected */
+#define PB2                 (PB|2)              /*!< Pin 2 selected */
+#define PB3                 (PB|3)              /*!< Pin 3 selected */
+#define PB4                 (PB|4)              /*!< Pin 4 selected */
+#define PB5                 (PB|5)              /*!< Pin 5 selected */
+#define PB6                 (PB|6)              /*!< Pin 6 selected */
+#define PB7                 (PB|7)              /*!< Pin 7 selected */
+#define PB8                 (PB|8)              /*!< Pin 8 selected */
+#define PB9                 (PB|9)              /*!< Pin 9 selected */
+#define PB10                (PB|10)              /*!< Pin 10 selected */
+#define PB11                (PB|11)              /*!< Pin 11 selected */
+#define PB12                (PB|12)              /*!< Pin 12 selected */
+#define PB13                (PB|13)              /*!< Pin 13 selected */
+#define PB14                (PB|14)              /*!< Pin 14 selected */
+#define PB15                (PB|15)              /*!< Pin 15 selected */
+#define PB16                (PB|16)              /*!< Pin 16 selected */
+#define PB17                (PB|17)              /*!< Pin 17 selected */
+#define PB18                (PB|18)              /*!< Pin 18 selected */
+#define PB19                (PB|19)              /*!< Pin 19 selected */
+#define PB20                (PB|20)              /*!< Pin 20 selected */
+#define PB21                (PB|21)              /*!< Pin 21 selected */
+#define PB22                (PB|22)              /*!< Pin 22 selected */
+#define PB23                (PB|23)              /*!< Pin 23 selected */
 #endif
 #define P_All               (0xFFFFFFFF)              /*!< All pins selected */
 
