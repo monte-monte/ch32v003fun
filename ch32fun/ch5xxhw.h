@@ -2735,7 +2735,8 @@ RV_STATIC_INLINE void jump_isprom()
 		 "mret\n");
 #elif defined(CH582_CH583)
 	asm( "la gp, " ISPROM_GLOBALPOINTER "\n"
-		 "j " ISPROM_ENTRYPOINT "\n");
+		 "la t0, " ISPROM_ENTRYPOINT "\n"
+		 "jr t0\n");
 #endif
 }
 
