@@ -5,7 +5,11 @@
 #define FUNCONF_ENABLE_HPE          0
 #define FUNCONF_SYSTICK_USE_HCLK    1
 
-#if defined(CH32V10x)
+#if defined(CH32L103)
+#define FUNCONF_SYSTEM_CORE_CLOCK   96000000
+#define FUNCONF_USE_HSE             0
+#define FUNCONF_USE_HSI             1
+#elif defined(CH32V10x)
 #define FUNCONF_SYSTEM_CORE_CLOCK   72000000
 #define FUNCONF_PLL_MULTIPLIER      9
 #define FUNCONF_USE_HSE             1
