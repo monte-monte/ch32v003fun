@@ -166,8 +166,6 @@ u16 acd_touch_convert(uint8_t charge_count, uint8_t discharge_count) {
 //! ADC OTHER FUNCTIONS
 //! ####################################
 
-#define ROM_CFG_TMP_25C 0x7F014
-
 s32 adc_to_mCelsius(u16 raw) {
     u32 C25 = *((volatile u32*)ROM_CFG_TMP_25C);
     s32 tempC_base = (C25 >> 16) & 0xFFFF;
