@@ -604,6 +604,9 @@ typedef enum
 
 #if (defined(CH570_CH572))
 #define ROM_CFG_MAC_ADDR		((const u32*)0x0003f018)
+#elif defined(CH582_CH583)
+#define ROM_CFG_MAC_ADDR		((const u32*)0x0007F018)
+#define ROM_CFG_TMP_25C 		((const u32*)0x0007F014)
 #endif
 
 // For debug writing to the debug interface, and USB ISP.
